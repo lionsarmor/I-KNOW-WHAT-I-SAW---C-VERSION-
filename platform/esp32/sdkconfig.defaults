@@ -1,0 +1,4 @@
+# 1 kHz FreeRTOS tick so the 60 Hz frame pacing is accurate
+CONFIG_FREERTOS_HZ=1000
+# optimize for speed, not size -- we push a lot of pixels
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
