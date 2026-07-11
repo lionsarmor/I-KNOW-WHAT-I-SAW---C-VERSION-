@@ -1,0 +1,6 @@
+# ESP32-C3 (Super Mini) specifics -- applied on top of sdkconfig.defaults
+# when the target is esp32c3.
+#
+# The Super Mini handheld wiring uses GPIO 20/21 (normally UART0 RX/TX)
+# for I2S audio, so send logs over the board's native USB port instead.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

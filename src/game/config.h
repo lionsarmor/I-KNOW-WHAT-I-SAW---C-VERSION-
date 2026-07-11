@@ -43,6 +43,22 @@
 /* Per-ENEMY stats (hp, attack, xp) live in the species[] table in
  * assets.c -- see "THE CAST & THE BESTIARY". */
 
+/* ---- Items ----------------------------------------------------------------*/
+#define HERB_HEAL         8   /* HP restored by one herb                    */
+#define SHELLS_PER_BOX    4   /* shotgun shells in one SHELLS pickup        */
+#define SHOTGUN_BASE_DMG  8   /* a blast does this + level + rng(0..4)      */
+
+/* ---- Day / night ----------------------------------------------------------
+ * The overworld clock. Day and night each last this many ticks
+ * (60 ticks = 1 second). Set SHORT for testing -- a real playthrough
+ * probably wants 5+ minutes a side. Dusk/dawn is the fade between.
+ * Night only darkens OUTDOOR maps (indoors the lamps are lit).
+ */
+#define DAY_LEN_TICKS    (60 * TICKS_PER_SEC)   /* 1 minute of daylight   */
+#define NIGHT_LEN_TICKS  (60 * TICKS_PER_SEC)   /* 1 minute of night      */
+#define DUSK_LEN_TICKS   (3 * TICKS_PER_SEC)    /* sunset / sunrise fade  */
+#define NIGHT_BRIGHTNESS 112                    /* 256 = day. lower = darker */
+
 /* ---- Buttons --------------------------------------------------------------
  * The abstract gamepad. The CORE only ever sees these bits; each platform
  * decides what physical key / GPIO pin produces them.

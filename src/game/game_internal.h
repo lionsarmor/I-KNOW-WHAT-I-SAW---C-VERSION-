@@ -38,6 +38,8 @@ typedef struct {
     int anim;            /* animation clock                          */
     int hp, max_hp;
     int level, xp;
+    int items[NUM_ITEMS];/* the pockets: count per ITEM_* (SHELLS =
+                            ammo count, SHOTGUN nonzero = owned)     */
 } player_t;
 
 /* ---- things living on the current map ------------------------------------*/
@@ -65,6 +67,10 @@ typedef struct {
     entity_t ents[MAX_ENTITIES];
     int      battle_grace;   /* ticks of no-battle after fleeing */
 
+    uint32_t daytime;        /* overworld clock driving day/night;
+                                see DAY_LEN_TICKS in config.h      */
+    uint16_t items_taken[NUM_MAPS]; /* bit i = spawn i pocketed    */
+
     /* dialog scene */
     const char *dialog_text;
     int dialog_shown;    /* typewriter: chars revealed so far */
@@ -74,7 +80,8 @@ typedef struct {
         int ent;                 /* index into G.ents we're fighting */
         int kind;                /* its SPECIES_* (stats + sprites)  */
         int enemy_hp, enemy_max;
-        int menu;                /* 0 = FIGHT, 1 = RUN */
+        int menu;                /* 0 FIGHT  1 SHOOT  2 ITEM  3 RUN  */
+        int item_sel;            /* ITEM submenu: 0 herb, 1 medkit   */
         int phase;               /* see battle.c */
         int timer;
         char msg[80];

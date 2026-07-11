@@ -67,6 +67,9 @@ void overworld_enter_map(int map, int tx, int ty)
         G.ents[i].type = ENT_NONE;
     const map_t *m = cur_map();
     for (int i = 0; i < m->nspawns && i < MAX_ENTITIES; i++) {
+        if (m->spawns[i].type == ENT_ITEM &&
+            (G.items_taken[map] & (1u << i)))
+            continue;                       /* already pocketed this run */
         entity_t *e = &G.ents[i];
         e->type   = m->spawns[i].type;
         e->kind   = m->spawns[i].kind;
@@ -91,7 +94,33 @@ void overworld_start_game(void)
     G.player.level  = 1;
     G.player.xp     = 0;
     G.player.dir    = DIR_DOWN;
+    for (int i = 0; i < NUM_ITEMS; i++)
+        G.player.items[i] = 0;             /* empty pockets */
+    for (int m = 0; m < NUM_MAPS; m++)
+        G.items_taken[m] = 0;              /* the world is restocked */
+    G.daytime = 0;                         /* it starts at first light */
     overworld_enter_map(MAP_FARM, 5, 6);   /* on the path by the door */
+}
+
+/* ---- day & night -----------------------------------------------------------
+ * One clock, one curve: 256 in daylight, NIGHT_BRIGHTNESS at night,
+ * with a short linear dusk/dawn ramp between. The lengths live in
+ * config.h (set to 1 minute each right now, for testing).
+ */
+static int day_brightness(void)
+{
+    uint32_t cycle = DAY_LEN_TICKS + NIGHT_LEN_TICKS;
+    uint32_t t     = G.daytime % cycle;
+    int span = 256 - NIGHT_BRIGHTNESS;
+    if (t < DAY_LEN_TICKS - DUSK_LEN_TICKS)
+        return 256;                                       /* broad day */
+    if (t < DAY_LEN_TICKS)                                /* dusk      */
+        return 256 - span * (int)(t - (DAY_LEN_TICKS - DUSK_LEN_TICKS))
+                          / DUSK_LEN_TICKS;
+    if (t < cycle - DUSK_LEN_TICKS)
+        return NIGHT_BRIGHTNESS;                          /* night     */
+    return NIGHT_BRIGHTNESS + span * (int)(t - (cycle - DUSK_LEN_TICKS))
+                                   / DUSK_LEN_TICKS;      /* dawn      */
 }
 
 /* ---- update ----------------------------------------------------------------*/
@@ -104,6 +133,20 @@ static void bump_entity(int i)
         battle_start(i);
 }
 
+/* walking into an item pockets it: chime, message, and it stays gone
+ * for the rest of this run (items_taken remembers across map changes) */
+static void pick_up(int i)
+{
+    int kind = G.ents[i].kind;
+    G.player.items[kind] += (kind == ITEM_SHELLS) ? SHELLS_PER_BOX : 1;
+    if (kind == ITEM_SHOTGUN)
+        G.player.items[ITEM_SHELLS] += 2;   /* pa kept it loaded */
+    G.ents[i].type = ENT_NONE;
+    G.items_taken[G.map_id] |= (uint16_t)(1u << i);
+    audio_sfx(SFX_PICKUP);
+    dialog_start(item_info[kind].pickup_msg);
+}
+
 /* one axis of player movement: walls block, characters block (and may
  * react to the shove) */
 static int try_step(int nx, int ny)
@@ -112,7 +155,10 @@ static int try_step(int nx, int ny)
         return 0;
     int hit = hits_entity(nx, ny, -1);
     if (hit >= 0) {
-        bump_entity(hit);
+        if (G.ents[hit].type == ENT_ITEM)
+            pick_up(hit);
+        else
+            bump_entity(hit);
         return 0;
     }
     G.player.x = nx;
@@ -249,6 +295,7 @@ static void try_talk(void)
 
 void overworld_update(void)
 {
+    G.daytime++;                   /* the sun only moves while you walk */
     if (G.battle_grace > 0)
         G.battle_grace--;
     if (locked_cd > 0)
@@ -312,6 +359,18 @@ static void draw_hud(void)
     lv[4] = '\0';
     gfx_fill_rect(SCREEN_W - 36, 4, 32, 14, RGB565(16, 16, 24));
     gfx_text(SCREEN_W - 32, 7, lv, RGB565(255, 255, 255));
+
+    /* shells, under the HP bar, once you carry the gun */
+    if (G.player.items[ITEM_SHOTGUN]) {
+        char am[12] = "SHELLS ";
+        int n = G.player.items[ITEM_SHELLS], i = 7;
+        if (n > 99) n = 99;
+        if (n >= 10) am[i++] = (char)('0' + n / 10);
+        am[i++] = (char)('0' + n % 10);
+        am[i] = '\0';
+        gfx_fill_rect(4, 20, 64, 12, RGB565(16, 16, 24));
+        gfx_text(8, 22, am, RGB565(255, 220, 80));
+    }
 }
 
 void overworld_render(void)
@@ -336,6 +395,13 @@ void overworld_render(void)
         entity_t *e = &G.ents[i];
         if (e->type == ENT_NONE)
             continue;
+        if (e->type == ENT_ITEM) {
+            /* items lie still and catch the light now and then */
+            int glint = (int)(((G.frame + (uint32_t)i * 13) / 40) % 2);
+            gfx_blit_ex(sprites[item_info[e->kind].spr].px, TILE, TILE,
+                        e->x - cx, e->y - cy, 1, glint ? 256 : 208, 0);
+            continue;
+        }
         int spr, bright = 256, bob = 0;
         if (e->type == ENT_ALIEN) {
             const species_t *sp = &species[e->kind];
@@ -357,6 +423,11 @@ void overworld_render(void)
     player_sprite(&spr, &flip);
     gfx_blit_ex(sprites[spr].px, TILE, TILE,
                 G.player.x - cx, G.player.y - cy, 1, 256, flip);
+
+    /* night falls on the outdoors (indoors the lamps stay lit).
+     * Applied before the HUD so the HUD stays readable. */
+    if (m->outdoor)
+        gfx_dim_screen(day_brightness());
 
     draw_hud();
 

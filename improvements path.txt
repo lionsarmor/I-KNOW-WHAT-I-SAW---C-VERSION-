@@ -1,0 +1,31 @@
+Gameplay depth
+
+Items & inventory — HERB heals, a battle ITEM menu entry, maybe a flashlight that matters at night. Biggest bang for making battles more than attack/run.
+
+Boss fight — the TALL ONE with its own art, big stats, a scripted encounter behind a locked door. Gives the game an ending.
+
+Save games — serialize G.player; file on PC, NVS on your ESP32 so the handheld remembers progress across power-off. Huge for a battery device.
+
+Battle variety — enemy special moves, a defend/flee-chance system, status effects (stunned, probed…), XP curve tuning.
+
+Quests/flags — a tiny event-flag array so NPCs react to progress ("you saw it too?!"), doors unlock, the story advances.
+
+
+   Presentation
+6. Battle + town music — the synth is there, the farm drone shows how; battles are currently silent tension with no soundtrack.
+7. Unique species art — the TALL ONE stops being a palette-swapped grey.
+8. Day/night cycle — a palette shade pass on a timer; lights in windows at night. Very cheap, very atmospheric for a UFO game.
+9. Weather/effects — rain on the farm map, searchlight beams, screen shake on hits.
+10. More maps — the crash site, a cornfield maze, the barn interior.
+
+Hardware toys you already wired
+11. Rumble — vibration motor on hits/encounters. Needs one tiny core hook (e.g. a game_events() getter the platform polls) to stay portable.
+12. IR link cable — TX on GPIO1, RX on P7: two handhelds trading/battling like it's 1998. Ambitious but so on-theme.
+13. Real START button on PCF8574 P6 — already mapped, just solder it.
+
+Architecture (your earlier goal)
+14. Asset packs — the per-platform art styles idea: assets/pack_*/ selected at build time. Settle sprite size + frame count rules first.
+15. Rumble/event hook design — same small core change unlocks #11 and future LED/IR triggers cleanly.
+
+My pick for maximum game-feel per effort: items (1) → save to NVS (3) → battle music (6) → boss (2) — that arc turns it from tech demo into a finishable game on your own hardware. Say which one and I'll start.
+

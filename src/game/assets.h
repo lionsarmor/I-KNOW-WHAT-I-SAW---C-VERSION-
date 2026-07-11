@@ -35,6 +35,9 @@ enum {
     SPR_ALIEN_0,       SPR_ALIEN_1,       /* the visitors...             */
     SPR_NPC,           SPR_NPC_1,         /* villager (2 idle frames)    */
     SPR_ELDER,         SPR_ELDER_1,       /* old farmhand (2 frames)     */
+    SPR_ITEM_HERB,     SPR_ITEM_MEDKIT,   /* pickups lying on maps       */
+    SPR_ITEM_SHELLS,   SPR_ITEM_SHOTGUN,
+    SPR_GUN_AIM,                          /* the shotgun raised (battle) */
     NUM_SPRITES
 };
 
@@ -74,6 +77,26 @@ typedef struct { int spr0, spr1; } npc_look_t;   /* two idle frames */
 
 extern const npc_look_t npc_looks[NUM_LOOKS];
 
+/* ============================ THE ITEMS ====================================
+ * TO ADD AN ITEM: add an id here, draw its sprite in sprites.h, add a
+ * row to item_info[] in assets.c, then drop it on any map:
+ *     { ENT_ITEM, x, y, ITEM_HERB, 0 }
+ * The player walks over it: chime, pocket, message. A taken item stays
+ * gone for the rest of the run, even if you leave and re-enter the map.
+ *
+ * HERB and MEDKIT are usable from the battle ITEM menu. SHELLS feed the
+ * SHOTGUN; the SHOTGUN itself unlocks SHOOT in battle (see battle.c).
+ */
+enum { ITEM_HERB, ITEM_MEDKIT, ITEM_SHELLS, ITEM_SHOTGUN, NUM_ITEMS };
+
+typedef struct {
+    const char *name;         /* shown in the battle ITEM menu       */
+    int spr;                  /* how it looks lying on the ground    */
+    const char *pickup_msg;   /* the dialog shown when you grab it   */
+} item_info_t;
+
+extern const item_info_t item_info[NUM_ITEMS];
+
 typedef struct { uint16_t px[TILE * TILE]; } sprite16_t;
 extern sprite16_t sprites[NUM_SPRITES];
 
@@ -102,13 +125,13 @@ extern const uint8_t tile_solid[NUM_TILES];  /* 1 = blocks walking */
 /* ---- Maps -----------------------------------------------------------------*/
 enum { MAP_FARM, MAP_TOWN, MAP_HOME, MAP_HOUSE, MAP_STORE, NUM_MAPS };
 
-enum { ENT_NONE, ENT_ALIEN, ENT_NPC };       /* entity types on a map */
+enum { ENT_NONE, ENT_ALIEN, ENT_NPC, ENT_ITEM };  /* entity types on a map */
 
-typedef struct {          /* something living on a map */
-    int type;             /* ENT_ALIEN or ENT_NPC                     */
-    int tx, ty;           /* spawn tile                               */
-    int kind;             /* ENT_ALIEN: a SPECIES_*  ENT_NPC: a LOOK_* */
-    const char *dialog;   /* NPCs: what they say (0 for enemies)      */
+typedef struct {          /* something living (or lying) on a map */
+    int type;             /* ENT_ALIEN / ENT_NPC / ENT_ITEM            */
+    int tx, ty;           /* spawn tile                                */
+    int kind;             /* ALIEN: SPECIES_*  NPC: LOOK_*  ITEM: ITEM_* */
+    const char *dialog;   /* NPCs: what they say (0 otherwise)         */
 } spawn_t;
 
 /* Warps fire two ways (both handled automatically):
@@ -127,6 +150,7 @@ typedef struct {
     int w, h;                   /* size in tiles               */
     const spawn_t *spawns; int nspawns;
     const warp_t  *warps;  int nwarps;
+    int outdoor;                /* 1 = night darkens this map  */
 } map_t;
 
 extern const map_t maps[NUM_MAPS];

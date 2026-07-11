@@ -38,6 +38,15 @@ static const sfx_step_t steps_run[]     = { {392, 3, 70}, {330, 3, 60},
 static const sfx_step_t steps_levelup[] = { {392, 4, 80}, {523, 4, 80},
                                             {659, 4, 80}, {784, 4, 80},
                                             {1046, 10, 90} };
+/* BOOM: a sharp crack collapsing into a rolling echo. */
+static const sfx_step_t steps_shotgun[] = { {NOISE_BIT | 1400, 2, 150},
+                                            {NOISE_BIT |  600, 5, 130},
+                                            {NOISE_BIT |  250, 7,  90},
+                                            {NOISE_BIT |   90, 12, 45} };
+static const sfx_step_t steps_pickup[]  = { {659, 3, 70}, {880, 3, 70},
+                                            {1175, 6, 80} };
+static const sfx_step_t steps_heal[]    = { {392, 4, 60}, {523, 4, 65},
+                                            {659, 8, 70} };
 
 static const struct { const sfx_step_t *steps; int n; } sfx_table[NUM_SFX] = {
     [SFX_BLIP]    = { steps_blip,    sizeof steps_blip    / sizeof(sfx_step_t) },
@@ -48,6 +57,9 @@ static const struct { const sfx_step_t *steps; int n; } sfx_table[NUM_SFX] = {
     [SFX_VICTORY] = { steps_victory, sizeof steps_victory / sizeof(sfx_step_t) },
     [SFX_RUN]     = { steps_run,     sizeof steps_run     / sizeof(sfx_step_t) },
     [SFX_LEVELUP] = { steps_levelup, sizeof steps_levelup / sizeof(sfx_step_t) },
+    [SFX_SHOTGUN] = { steps_shotgun, sizeof steps_shotgun / sizeof(sfx_step_t) },
+    [SFX_PICKUP]  = { steps_pickup,  sizeof steps_pickup  / sizeof(sfx_step_t) },
+    [SFX_HEAL]    = { steps_heal,    sizeof steps_heal    / sizeof(sfx_step_t) },
 };
 
 /* ---------------------------------------------------------------------------

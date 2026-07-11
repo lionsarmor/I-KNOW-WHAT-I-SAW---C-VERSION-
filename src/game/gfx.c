@@ -57,6 +57,20 @@ uint16_t gfx_dim(uint16_t color, int bright)
     return (uint16_t)((r << 11) | (g << 5) | b);
 }
 
+void gfx_dim_screen(int bright)
+{
+    if (bright >= 256)
+        return;
+    int bb = bright + (256 - bright) / 3;   /* moonlight keeps its blue */
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        uint16_t c = gfx_fb[i];
+        int r = (((c >> 11) & 0x1F) * bright) >> 8;
+        int g = (((c >> 5)  & 0x3F) * bright) >> 8;
+        int b = (( c        & 0x1F) * bb    ) >> 8;
+        gfx_fb[i] = (uint16_t)((r << 11) | (g << 5) | b);
+    }
+}
+
 void gfx_blit(const uint16_t *px, int w, int h, int x, int y)
 {
     gfx_blit_ex(px, w, h, x, y, 1, 256, 0);

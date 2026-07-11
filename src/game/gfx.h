@@ -30,6 +30,11 @@ void gfx_rect(int x, int y, int w, int h, uint16_t color); /* 1px outline */
  * Used by the intro to fade the alien in from the dark. */
 uint16_t gfx_dim(uint16_t color, int bright);
 
+/* Dim the WHOLE framebuffer -- the night pass. Blue fades less than
+ * red/green so nights look moonlit instead of just dark. 256 = no-op.
+ * Call it after drawing the world, before drawing the HUD. */
+void gfx_dim_screen(int bright);
+
 /* Blit a rectangle of pixels (skipping COLOR_KEY).
  * The _ex version adds: integer scale (1,2,3..), brightness (0..256),
  * and horizontal flip (used to mirror left-facing sprites to the right). */

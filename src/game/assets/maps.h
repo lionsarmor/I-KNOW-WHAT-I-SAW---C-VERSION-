@@ -34,8 +34,11 @@
  * SPAWNS place living things (see "THE CAST" in assets.h):
  *   { ENT_ALIEN, x, y, SPECIES_GREY, 0 }              an enemy
  *   { ENT_NPC,   x, y, LOOK_ELDER, "WHAT THEY SAY" }  a person
+ *   { ENT_ITEM,  x, y, ITEM_HERB, 0 }                 a pickup
  * Coordinates are in tiles. Enemies wander and attack; NPCs stand,
  * breathe, block your path, and talk when you face them and press A.
+ * Items get pocketed when you walk into them, and stay taken for the
+ * rest of the run.
  * ==========================================================================*/
 #ifndef MAPS_H
 #define MAPS_H
@@ -74,6 +77,8 @@ static const spawn_t MAP_SPAWNS_FARM[] = {
     { ENT_ALIEN, 20, 15, SPECIES_GREY, 0 },
     { ENT_ALIEN,  7, 16, SPECIES_GREY, 0 },
     { ENT_ALIEN, 14,  8, SPECIES_GREY, 0 },
+    { ENT_ITEM,  12, 16, ITEM_HERB,    0 },   /* growing in the south field */
+    { ENT_ITEM,  26,  2, ITEM_SHELLS,  0 },   /* dropped behind the house   */
 };
 
 static const warp_t MAP_WARPS_FARM[] = {
@@ -115,6 +120,7 @@ static const spawn_t MAP_SPAWNS_TOWN[] = {
     { ENT_NPC,   20, 14, LOOK_VILLAGER,
       "SHERIFF SAYS IT WAS SWAMP GAS. SWAMP GAS DON'T HUM, FRIEND." },
     { ENT_ALIEN, 26, 17, SPECIES_TALL, 0 },   /* something worse in town */
+    { ENT_ITEM,  17, 13, ITEM_HERB,    0 },   /* by the flowerbeds       */
 };
 
 static const warp_t MAP_WARPS_TOWN[] = {
@@ -143,6 +149,7 @@ static const spawn_t MAP_SPAWNS_HOME[] = {
     { ENT_NPC, 4, 3, LOOK_VILLAGER,
       "MA: YOUR FATHER WON'T SAY IT, BUT HE'S SCARED TOO. "
       "EAT SOMETHING BEFORE YOU GO BACK OUT THERE." },
+    { ENT_ITEM, 12, 3, ITEM_SHOTGUN, 0 },   /* propped by the table        */
 };
 
 static const warp_t MAP_WARPS_HOME[] = {
@@ -167,6 +174,7 @@ static const spawn_t MAP_SPAWNS_HOUSE[] = {
     { ENT_NPC, 11, 4, LOOK_VILLAGER,
       "I DON'T OPEN THE DOOR AFTER DARK. NOT SINCE THE HUM. "
       "YOU SHOULDN'T BE OUT WALKING, NEIGHBOR." },
+    { ENT_ITEM, 3, 6, ITEM_MEDKIT, 0 },   /* they keep it by the door */
 };
 
 static const warp_t MAP_WARPS_HOUSE[] = {
@@ -191,6 +199,8 @@ static const spawn_t MAP_SPAWNS_STORE[] = {
     { ENT_NPC, 7, 1, LOOK_ELDER,
       "STOREKEEP: FOLKS ARE BUYING LANTERNS AND PADLOCKS. "
       "I STOPPED ASKING QUESTIONS A WEEK AGO. CASH ONLY." },
+    { ENT_ITEM,  3, 4, ITEM_SHELLS, 0 },   /* on the house. times are bad */
+    { ENT_ITEM, 11, 4, ITEM_MEDKIT, 0 },
 };
 
 static const warp_t MAP_WARPS_STORE[] = {
@@ -200,22 +210,22 @@ static const warp_t MAP_WARPS_STORE[] = {
 /* ============================ THE MAP TABLE ===============================*/
 #define N(a) (int)(sizeof(a) / sizeof((a)[0]))
 
-const map_t maps[NUM_MAPS] = {
+const map_t maps[NUM_MAPS] = {                       /* outdoor? (night) */
     [MAP_FARM]  = { "THE FARM",  MAP_ROWS_FARM, 30, 20,
                     MAP_SPAWNS_FARM,  N(MAP_SPAWNS_FARM),
-                    MAP_WARPS_FARM,   N(MAP_WARPS_FARM) },
+                    MAP_WARPS_FARM,   N(MAP_WARPS_FARM),  1 },
     [MAP_TOWN]  = { "TOWN",      MAP_ROWS_TOWN, 30, 20,
                     MAP_SPAWNS_TOWN,  N(MAP_SPAWNS_TOWN),
-                    MAP_WARPS_TOWN,   N(MAP_WARPS_TOWN) },
+                    MAP_WARPS_TOWN,   N(MAP_WARPS_TOWN),  1 },
     [MAP_HOME]  = { "HOME",      MAP_ROWS_HOME, 15, 10,
                     MAP_SPAWNS_HOME,  N(MAP_SPAWNS_HOME),
-                    MAP_WARPS_HOME,   N(MAP_WARPS_HOME) },
+                    MAP_WARPS_HOME,   N(MAP_WARPS_HOME),  0 },
     [MAP_HOUSE] = { "SOMEONE'S HOUSE", MAP_ROWS_HOUSE, 15, 10,
                     MAP_SPAWNS_HOUSE, N(MAP_SPAWNS_HOUSE),
-                    MAP_WARPS_HOUSE,  N(MAP_WARPS_HOUSE) },
+                    MAP_WARPS_HOUSE,  N(MAP_WARPS_HOUSE), 0 },
     [MAP_STORE] = { "GENERAL STORE",   MAP_ROWS_STORE, 15, 10,
                     MAP_SPAWNS_STORE, N(MAP_SPAWNS_STORE),
-                    MAP_WARPS_STORE,  N(MAP_WARPS_STORE) },
+                    MAP_WARPS_STORE,  N(MAP_WARPS_STORE), 0 },
 };
 
 #undef N

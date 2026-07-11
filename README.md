@@ -13,16 +13,34 @@ out there, wandering the fields.
   (farm, town, and three interiors) connected by roads and doors
 - Turn-based battles when a visitor catches you — or when you walk into
   one — with HP, XP, levels, and a data-driven enemy species table
+- **FIGHT / SHOOT / ITEM / RUN**: find the family shotgun and blast them
+  (muzzle flash, pellets, recoil — and it eats shells); chew a herb or
+  crack a medkit mid-fight
+- **Day/night cycle** — dusk falls, the outdoors goes moonlit and dark,
+  and the lamps stay on indoors
 - 2-channel chiptune synth (square wave + noise), per-map ambience
 - **Everything** — sprites, tiles, maps, font, sounds, the cast — is
   human-readable text you can edit with no tools
 
-## Quick start (desktop)
+## Quick start
 
 ```
 sudo apt install build-essential libsdl2-dev    # or brew install sdl2
 make run
 ```
+
+One command per platform:
+
+```
+make pc          # desktop (SDL2)            -> build/iknowwhatisaw
+make ascii       # THE GAME IN YOUR TERMINAL -> build/iknowwhatisaw-ascii
+make esp32       # the handheld (ESP-IDF)    -> platform/esp32/build/
+make flash       # esp32 + flash + serial monitor
+```
+
+`make ascii` needs no SDL at all — it renders every frame as colored
+ASCII characters (`--mono` for pure ASCII) in any terminal that's at
+least 120x40. Same game, same code, zero graphics libraries.
 
 Controls: arrows/WASD move · Z (or space) = A · X = B · Enter = START · Esc quits.
 
@@ -34,7 +52,9 @@ src/game/        THE GAME. Portable C99. No OS, no malloc, no files,
 platform/        One small file per machine. Its whole job:
   desktop/         call game_update(buttons) 60x per second,
   esp32/           put game_framebuffer() on a screen,
-                   feed game_audio_fill() to a speaker.
+  terminal/        feed game_audio_fill() to a speaker.
+                   (terminal/ proves the point: a "screen" can
+                   even be stdout printing ASCII characters.)
 ```
 
 The contract between the two halves is **four functions** in
@@ -52,8 +72,10 @@ portable to bare metal.
 | You want to... | Go to |
 |---|---|
 | Change resolution, speeds, HP, buttons | [src/game/config.h](src/game/config.h) |
+| **Day/night length, night darkness** | `DAY_LEN_TICKS` etc. in [config.h](src/game/config.h) |
+| **Add an item (heal, ammo, weapon)** | recipe: "THE ITEMS" in [assets.h](src/game/assets.h) · table: end of [assets.c](src/game/assets.c) |
 | **Add an enemy species or NPC look** | recipe: "THE CAST" in [assets.h](src/game/assets.h) · tables: end of [assets.c](src/game/assets.c) |
-| **Add an NPC + dialog, place enemies** | spawn lists in [assets/maps.h](src/game/assets/maps.h) |
+| **Add an NPC + dialog, place enemies, drop items** | spawn lists in [assets/maps.h](src/game/assets/maps.h) |
 | **Add a map / an enterable building** | recipe at top of [assets/maps.h](src/game/assets/maps.h) |
 | Edit / add character sprites (ASCII art) | [src/game/assets/sprites.h](src/game/assets/sprites.h) |
 | Edit / add map tiles (ASCII art) | [src/game/assets/tiles.h](src/game/assets/tiles.h) |
@@ -77,6 +99,13 @@ of stats in the `species[]` table in `assets.c` (reuse existing sprites
 with a different `bright` for an instant palette-swap villain), then
 spawn it on any map: `{ ENT_ALIEN, 12, 7, SPECIES_MANTIS, 0 }`. Wandering,
 ambushes, battles, XP — all automatic.
+
+**A new item** — add `ITEM_LANTERN` to the enum in `assets.h`, draw its
+sprite, add one row to `item_info[]` in `assets.c` (name, sprite, the
+line it says when you grab it), then drop it on any map:
+`{ ENT_ITEM, 12, 16, ITEM_LANTERN, 0 }`. Walking into it pockets it —
+chime, message, gone for the rest of the run. Healing items appear in
+the battle ITEM menu; `HERB_HEAL` and friends live in `config.h`.
 
 **A new NPC with dialog** — one line in a map's spawn list:
 `{ ENT_NPC, 9, 4, LOOK_VILLAGER, "THE PIGS SCREAM AT NOTHING NOW." }`
@@ -132,17 +161,25 @@ from `game_init()`.
 
 ## ESP32
 
-A skeleton platform layer for ESP-IDF v5 + a 320x240 ILI9341 SPI display
-lives in [platform/esp32/](platform/esp32/) with a pin table at the top of
-`esp32_main.c`. It builds the *same* core sources. RISC-V ESP32 variants
-(C3/C6) work the same way — `idf.py set-target esp32c3`.
+A skeleton platform layer for ESP-IDF v5 lives in
+[platform/esp32/](platform/esp32/) and builds the *same* core sources.
+It supports **two wirings**, selected by the `BOARD_C3_SUPER_MINI` define
+at the top of `esp32_main.c` (full pin tables in the same comment):
+
+- **ESP32-C3 Super Mini handheld** (the default): 1.69" ST7789 240x280
+  display, buttons on a PCF8574 I2C expander, sound through a MAX98357A
+  I2S amp. No START button — hold **A+B together** for START. Logs go
+  over the native USB port (the UART pins are repurposed for audio).
+- **Classic ESP32 devkit**: 320x240 ILI9341, one GPIO per button, no audio.
 
 ```
-cd platform/esp32 && idf.py set-target esp32 && idf.py build flash monitor
+cd platform/esp32 && idf.py set-target esp32c3 && idf.py build flash monitor
 ```
+
+(For the devkit wiring: set the define to 0 and `set-target esp32`.)
 
 Status: written but not yet run on hardware — expect to tweak pins,
-orientation (`swap_xy` / `mirror`) and color order (`BGR`/`RGB`).
+orientation, color order (`BGR`/`RGB`) and the ST7789's `invert_color`.
 
 ## Porting to a new machine (bare-metal Pi, RISC-V board, ...)
 

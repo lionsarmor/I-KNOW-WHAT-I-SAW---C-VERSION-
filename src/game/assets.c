@@ -140,6 +140,11 @@ int assets_init(void)
         { SPR_NPC_1,         SPR_ART_NPC_1         },
         { SPR_ELDER,         SPR_ART_ELDER         },
         { SPR_ELDER_1,       SPR_ART_ELDER_1       },
+        { SPR_ITEM_HERB,     SPR_ART_ITEM_HERB     },
+        { SPR_ITEM_MEDKIT,   SPR_ART_ITEM_MEDKIT   },
+        { SPR_ITEM_SHELLS,   SPR_ART_ITEM_SHELLS   },
+        { SPR_ITEM_SHOTGUN,  SPR_ART_ITEM_SHOTGUN  },
+        { SPR_GUN_AIM,       SPR_ART_GUN_AIM       },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -193,4 +198,21 @@ const species_t species[NUM_SPECIES] = {
 const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_VILLAGER] = { SPR_NPC,   SPR_NPC_1   },
     [LOOK_ELDER]    = { SPR_ELDER, SPR_ELDER_1 },
+};
+
+/* ============================ THE ITEMS ====================================
+ * One row = one thing you can pocket. See "THE ITEMS" in assets.h.
+ * HERB heals a little, MEDKIT heals everything, SHELLS feed the SHOTGUN,
+ * and the SHOTGUN unlocks SHOOT in battle.
+ * =========================================================================*/
+
+const item_info_t item_info[NUM_ITEMS] = {
+    [ITEM_HERB]    = { "HERB",    SPR_ITEM_HERB,
+        "A BITTER FIELD HERB. PA CHEWS IT WHEN HIS BACK GIVES OUT." },
+    [ITEM_MEDKIT]  = { "MEDKIT",  SPR_ITEM_MEDKIT,
+        "A FIRST AID KIT. GAUZE, IODINE, AND A PRAYER." },
+    [ITEM_SHELLS]  = { "SHELLS",  SPR_ITEM_SHELLS,
+        "A BOX OF SHOTGUN SHELLS. HEAVY. HONEST." },
+    [ITEM_SHOTGUN] = { "SHOTGUN", SPR_ITEM_SHOTGUN,
+        "THE FAMILY SHOTGUN. PA KEPT IT LOADED SINCE THE LIGHTS CAME." },
 };

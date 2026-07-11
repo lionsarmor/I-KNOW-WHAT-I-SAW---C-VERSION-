@@ -35,6 +35,9 @@ enum {
     SFX_VICTORY,    /* battle won jingle                */
     SFX_RUN,        /* fled from battle                 */
     SFX_LEVELUP,
+    SFX_SHOTGUN,    /* both barrels                     */
+    SFX_PICKUP,     /* pocketed an item                 */
+    SFX_HEAL,       /* herb / medkit used               */
     NUM_SFX
 };
 
