@@ -71,7 +71,7 @@ static const char *const MAP_ROWS_FARM[20] = {
 };
 
 static const spawn_t MAP_SPAWNS_FARM[] = {
-    { ENT_NPC,    8,  3, LOOK_ELDER,
+    { ENT_NPC,    8,  3, LOOK_PA,
       "PA: THE CROPS WERE FLAT IN CIRCLES AGAIN THIS MORNING... "
       "AND THE COWS WON'T GO NEAR THE POND. YOU BE CAREFUL OUT THERE." },
     { ENT_ALIEN, 20, 15, SPECIES_GREY, 0 },
@@ -114,10 +114,10 @@ static const char *const MAP_ROWS_TOWN[20] = {
 };
 
 static const spawn_t MAP_SPAWNS_TOWN[] = {
-    { ENT_NPC,   10, 13, LOOK_VILLAGER,
+    { ENT_NPC,   10, 13, LOOK_WITNESS,
       "YOU SAW IT TOO, DIDN'T YOU? THE LIGHTS OVER THE RIDGE. "
       "YOU'VE GOT THAT LOOK. NOBODY BELIEVES US." },
-    { ENT_NPC,   20, 14, LOOK_VILLAGER,
+    { ENT_NPC,   20, 14, LOOK_SKEPTIC,
       "SHERIFF SAYS IT WAS SWAMP GAS. SWAMP GAS DON'T HUM, FRIEND." },
     { ENT_ALIEN, 26, 17, SPECIES_TALL, 0 },   /* something worse in town */
     { ENT_ITEM,  17, 13, ITEM_HERB,    0 },   /* by the flowerbeds       */
@@ -146,7 +146,7 @@ static const char *const MAP_ROWS_HOME[10] = {
 };
 
 static const spawn_t MAP_SPAWNS_HOME[] = {
-    { ENT_NPC, 4, 3, LOOK_VILLAGER,
+    { ENT_NPC, 4, 3, LOOK_MA,
       "MA: YOUR FATHER WON'T SAY IT, BUT HE'S SCARED TOO. "
       "EAT SOMETHING BEFORE YOU GO BACK OUT THERE." },
     { ENT_ITEM, 12, 3, ITEM_SHOTGUN, 0 },   /* propped by the table        */
@@ -171,7 +171,7 @@ static const char *const MAP_ROWS_HOUSE[10] = {
 };
 
 static const spawn_t MAP_SPAWNS_HOUSE[] = {
-    { ENT_NPC, 11, 4, LOOK_VILLAGER,
+    { ENT_NPC, 11, 4, LOOK_NEIGHBOR,
       "I DON'T OPEN THE DOOR AFTER DARK. NOT SINCE THE HUM. "
       "YOU SHOULDN'T BE OUT WALKING, NEIGHBOR." },
     { ENT_ITEM, 3, 6, ITEM_MEDKIT, 0 },   /* they keep it by the door */
@@ -196,7 +196,7 @@ static const char *const MAP_ROWS_STORE[10] = {
 };
 
 static const spawn_t MAP_SPAWNS_STORE[] = {
-    { ENT_NPC, 7, 1, LOOK_ELDER,
+    { ENT_NPC, 7, 1, LOOK_STOREKEEP,
       "STOREKEEP: FOLKS ARE BUYING LANTERNS AND PADLOCKS. "
       "I STOPPED ASKING QUESTIONS A WEEK AGO. CASH ONLY." },
     { ENT_ITEM,  3, 4, ITEM_SHELLS, 0 },   /* on the house. times are bad */

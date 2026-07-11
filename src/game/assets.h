@@ -35,6 +35,10 @@ enum {
     SPR_ALIEN_0,       SPR_ALIEN_1,       /* the visitors...             */
     SPR_NPC,           SPR_NPC_1,         /* villager (2 idle frames)    */
     SPR_ELDER,         SPR_ELDER_1,       /* old farmhand (2 frames)     */
+    SPR_SKEPTIC,       SPR_SKEPTIC_1,
+    SPR_MA,            SPR_MA_1,
+    SPR_NEIGHBOR,      SPR_NEIGHBOR_1,
+    SPR_STOREKEEP,     SPR_STOREKEEP_1,
     SPR_ITEM_HERB,     SPR_ITEM_MEDKIT,   /* pickups lying on maps       */
     SPR_ITEM_SHELLS,   SPR_ITEM_SHOTGUN,
     SPR_GUN_AIM,                          /* the shotgun raised (battle) */
@@ -71,7 +75,10 @@ typedef struct {
 
 extern const species_t species[NUM_SPECIES];
 
-enum { LOOK_VILLAGER, LOOK_ELDER, NUM_LOOKS };
+enum {
+    LOOK_WITNESS, LOOK_SKEPTIC, LOOK_PA, LOOK_MA,
+    LOOK_NEIGHBOR, LOOK_STOREKEEP, NUM_LOOKS
+};
 
 typedef struct { int spr0, spr1; } npc_look_t;   /* two idle frames */
 

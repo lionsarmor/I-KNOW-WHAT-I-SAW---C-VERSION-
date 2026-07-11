@@ -43,6 +43,17 @@ static uint16_t pal(char c)
     case 'W': return RGB565(136, 176, 224); /* water highlight            */
     case 'k': return RGB565(150, 150, 158); /* gray                       */
     case 'K': return RGB565( 90,  90,  98); /* dark gray                  */
+    /* bright chibi-sprite colors (kept separate from the map palette) */
+    case 'c': return RGB565(220, 142,  78); /* cap / warm brown highlight */
+    case 'C': return RGB565(132,  70,  44); /* cap shadow                 */
+    case 'h': return RGB565( 72,  38,  30); /* hair midtone               */
+    case 'H': return RGB565( 38,  22,  24); /* hair shadow                */
+    case 'i': return RGB565(140, 184, 248); /* bright clothing blue       */
+    case 'I': return RGB565( 68,  92, 176); /* blue shadow                */
+    case 'm': return RGB565(255,  32, 112); /* hot pink                   */
+    case 'M': return RGB565(156,  16,  72); /* pink shadow                */
+    case 'e': return RGB565(112, 224, 208); /* visitor mint               */
+    case 'E': return RGB565( 40, 128, 128); /* visitor shadow             */
     default:  return RGB565(255,   0, 255); /* loud magenta = "typo here" */
     }
 }
@@ -140,6 +151,14 @@ int assets_init(void)
         { SPR_NPC_1,         SPR_ART_NPC_1         },
         { SPR_ELDER,         SPR_ART_ELDER         },
         { SPR_ELDER_1,       SPR_ART_ELDER_1       },
+        { SPR_SKEPTIC,       SPR_ART_SKEPTIC       },
+        { SPR_SKEPTIC_1,     SPR_ART_SKEPTIC_1     },
+        { SPR_MA,            SPR_ART_MA             },
+        { SPR_MA_1,          SPR_ART_MA_1           },
+        { SPR_NEIGHBOR,      SPR_ART_NEIGHBOR       },
+        { SPR_NEIGHBOR_1,    SPR_ART_NEIGHBOR_1     },
+        { SPR_STOREKEEP,     SPR_ART_STOREKEEP      },
+        { SPR_STOREKEEP_1,   SPR_ART_STOREKEEP_1    },
         { SPR_ITEM_HERB,     SPR_ART_ITEM_HERB     },
         { SPR_ITEM_MEDKIT,   SPR_ART_ITEM_MEDKIT   },
         { SPR_ITEM_SHELLS,   SPR_ART_ITEM_SHELLS   },
@@ -189,15 +208,17 @@ int assets_init(void)
 
 const species_t species[NUM_SPECIES] = {
     /*                 name       hp atk xp  frames                  bright */
-    [SPECIES_GREY] = { "VISITOR", 10, 2,  5, SPR_ALIEN_0, SPR_ALIEN_1, 256 },
-    /* the TALL ONE reuses the grey's art drawn darker (a classic
-     * palette-swap villain). give it its own sprites when you draw them. */
-    [SPECIES_TALL] = { "TALL ONE", 16, 4, 12, SPR_ALIEN_0, SPR_ALIEN_1, 150 },
+    [SPECIES_GREY] = { "GIANT ANT",  10, 2,  5, SPR_ALIEN_0, SPR_ALIEN_1, 256 },
+    [SPECIES_TALL] = { "SOLDIER ANT",16, 4, 12, SPR_ALIEN_0, SPR_ALIEN_1, 180 },
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
-    [LOOK_VILLAGER] = { SPR_NPC,   SPR_NPC_1   },
-    [LOOK_ELDER]    = { SPR_ELDER, SPR_ELDER_1 },
+    [LOOK_WITNESS]   = { SPR_NPC,       SPR_NPC_1       },
+    [LOOK_SKEPTIC]   = { SPR_SKEPTIC,   SPR_SKEPTIC_1   },
+    [LOOK_PA]        = { SPR_ELDER,      SPR_ELDER_1     },
+    [LOOK_MA]        = { SPR_MA,         SPR_MA_1         },
+    [LOOK_NEIGHBOR]  = { SPR_NEIGHBOR,   SPR_NEIGHBOR_1   },
+    [LOOK_STOREKEEP] = { SPR_STOREKEEP,  SPR_STOREKEEP_1  },
 };
 
 /* ============================ THE ITEMS ====================================
