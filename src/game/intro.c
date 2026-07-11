@@ -191,12 +191,194 @@ void intro_render(void)
 
 void title_update(void)
 {
-    if (PRESSED(BTN_START)) {
-        audio_sfx(SFX_CONFIRM);
-        /* reseed rng from how long the player dawdled -> unique run */
-        G.rng ^= (G.frame * 2654435761u) | 1u;
-        overworld_start_game();
+    /* With no save on disk there's nothing to choose: START just plays.
+     * With one, you get CONTINUE / NEW GAME. */
+    if (G.has_save && (PRESSED(BTN_UP) || PRESSED(BTN_DOWN))) {
+        G.title_sel ^= 1;
+        audio_sfx(SFX_BLIP);
     }
+
+    if (!PRESSED(BTN_START) && !PRESSED(BTN_A))
+        return;
+
+    audio_sfx(SFX_CONFIRM);
+    if (G.has_save && G.title_sel == 0) {
+        overworld_resume();          /* the save is already loaded into G */
+        return;
+    }
+    /* reseed rng from how long the player dawdled -> unique run */
+    G.rng ^= (G.frame * 2654435761u) | 1u;
+    name_start();          /* who are you? then the game begins */
+}
+
+/* ============================ THE NAME SCREEN ==============================
+ * A grid of letters with a little UFO hovering over the one you're on.
+ *
+ *   dpad   move the saucer
+ *   A      beam that letter down into your name
+ *   B      backspace
+ *   START  done  (an empty name defaults to PLAYER)
+ *
+ * The grid is 7 across; the last two cells are BACK and DONE so the whole
+ * thing is playable on a d-pad and two buttons -- which is all the handheld
+ * has.
+ */
+#define NAME_COLS 7
+#define NAME_CELL_W 24
+#define NAME_CELL_H 18
+
+/* 26 letters + a space, then BACK and DONE = 29 cells (5 rows of 7, the
+ * last row short). Cell content is looked up here. */
+#define NAME_CELLS 29
+#define CELL_BACK 27
+#define CELL_DONE 28
+
+static char name_cell_char(int i)
+{
+    if (i < 26) return (char)('A' + i);
+    if (i == 26) return ' ';       /* a space, for two-word names */
+    return 0;                      /* BACK / DONE aren't letters   */
+}
+
+void name_start(void)
+{
+    G.player.name[0] = '\0';
+    G.name_len = 0;
+    G.name_sel = 0;
+    G.state = ST_NAME;
+    G.t = 0;
+}
+
+static void name_accept(void)
+{
+    if (G.name_len == 0) {
+        /* nobody typed anything: you're PLAYER, and that's fine */
+        const char *d = NAME_DEFAULT;
+        int i = 0;
+        for (; d[i] && i < PLAYER_NAME_MAX; i++)
+            G.player.name[i] = d[i];
+        G.player.name[i] = '\0';
+    }
+    audio_sfx(SFX_CONFIRM);
+    overworld_start_game();
+}
+
+void name_update(void)
+{
+    int col = G.name_sel % NAME_COLS;
+    int row = G.name_sel / NAME_COLS;
+
+    if (PRESSED(BTN_LEFT))  { col--; audio_sfx(SFX_BLIP); }
+    if (PRESSED(BTN_RIGHT)) { col++; audio_sfx(SFX_BLIP); }
+    if (PRESSED(BTN_UP))    { row--; audio_sfx(SFX_BLIP); }
+    if (PRESSED(BTN_DOWN))  { row++; audio_sfx(SFX_BLIP); }
+
+    int rows = (NAME_CELLS + NAME_COLS - 1) / NAME_COLS;
+    if (col < 0) col = NAME_COLS - 1;
+    if (col >= NAME_COLS) col = 0;
+    if (row < 0) row = rows - 1;
+    if (row >= rows) row = 0;
+
+    int sel = row * NAME_COLS + col;
+    if (sel >= NAME_CELLS)          /* the short last row: clamp into it */
+        sel = NAME_CELLS - 1;
+    G.name_sel = sel;
+
+    if (PRESSED(BTN_START)) { name_accept(); return; }
+
+    if (PRESSED(BTN_B)) {           /* backspace, wherever you are */
+        if (G.name_len > 0)
+            G.player.name[--G.name_len] = '\0';
+        audio_sfx(SFX_BLIP);
+        return;
+    }
+
+    if (!PRESSED(BTN_A))
+        return;
+
+    if (G.name_sel == CELL_DONE) { name_accept(); return; }
+
+    if (G.name_sel == CELL_BACK) {
+        if (G.name_len > 0)
+            G.player.name[--G.name_len] = '\0';
+        audio_sfx(SFX_BLIP);
+        return;
+    }
+
+    if (G.name_len < PLAYER_NAME_MAX) {
+        G.player.name[G.name_len++] = name_cell_char(G.name_sel);
+        G.player.name[G.name_len] = '\0';
+        audio_sfx(SFX_PICKUP);      /* the little abduction chime */
+    } else {
+        audio_sfx(SFX_BLIP);        /* full up */
+    }
+}
+
+void name_render(void)
+{
+    gfx_clear(RGB565(10, 10, 24));
+
+    const char *title = "WHAT DO THEY CALL YOU?";
+    gfx_text((SCREEN_W - gfx_text_width(title, 1)) / 2, 8, title,
+             RGB565(200, 200, 210));
+
+    /* the name so far, in a lit box */
+    char shown[PLAYER_NAME_MAX + 2];
+    int n = 0;
+    for (; n < G.name_len; n++)
+        shown[n] = G.player.name[n];
+    /* a blinking underscore where the next letter lands */
+    if (G.name_len < PLAYER_NAME_MAX && (G.frame % 60) < 30)
+        shown[n++] = '-';
+    shown[n] = '\0';
+
+    int bw = PLAYER_NAME_MAX * 16 + 12;
+    gfx_fill_rect((SCREEN_W - bw) / 2, 20, bw, 22, RGB565(20, 20, 34));
+    gfx_rect     ((SCREEN_W - bw) / 2, 20, bw, 22, RGB565(120, 120, 140));
+    if (G.name_len == 0 && (G.frame % 60) >= 30) {
+        /* hint at the default while they dither */
+        const char *d = NAME_DEFAULT;
+        gfx_text_ex((SCREEN_W - gfx_text_width(d, 2)) / 2, 24, d,
+                    RGB565(70, 70, 86), 2);
+    } else {
+        gfx_text_ex((SCREEN_W - gfx_text_width(shown, 2)) / 2, 24, shown,
+                    RGB565(255, 255, 255), 2);
+    }
+
+    /* the letter grid */
+    int gx = (SCREEN_W - NAME_COLS * NAME_CELL_W) / 2 + 4;
+    int gy = 52;
+    for (int i = 0; i < NAME_CELLS; i++) {
+        int cx = gx + (i % NAME_COLS) * NAME_CELL_W;
+        int cy = gy + (i / NAME_COLS) * NAME_CELL_H;
+        uint16_t col = (i == G.name_sel) ? RGB565(255, 255, 255)
+                                         : RGB565(150, 150, 165);
+        if (i == CELL_BACK) {
+            gfx_text(cx - 4, cy, "DEL", col);
+        } else if (i == CELL_DONE) {
+            gfx_text(cx - 2, cy, "OK", (i == G.name_sel)
+                                        ? RGB565(255, 236, 150)
+                                        : RGB565(190, 170, 110));
+        } else {
+            char c[2] = { name_cell_char(i), '\0' };
+            if (c[0] == ' ') {          /* draw the space cell as a bar */
+                gfx_fill_rect(cx + 1, cy + 6, 8, 2, col);
+            } else {
+                gfx_text(cx + 1, cy, c, col);
+            }
+        }
+    }
+
+    /* THE SAUCER, hovering over the chosen cell (it bobs) */
+    int sx = gx + (G.name_sel % NAME_COLS) * NAME_CELL_W - 4;
+    int sy = gy + (G.name_sel / NAME_COLS) * NAME_CELL_H - 13
+           + (int)((G.frame / 10) % 2);
+    int ufo = ((G.frame / 8) % 2) ? SPR_UFO_1 : SPR_UFO;
+    gfx_blit(sprites[ufo].px, TILE, TILE, sx, sy);
+
+    const char *help = "A PICK   B DEL   START DONE";
+    gfx_text((SCREEN_W - gfx_text_width(help, 1)) / 2, SCREEN_H - 12, help,
+             RGB565(110, 110, 125));
 }
 
 void title_render(void)
@@ -224,8 +406,19 @@ void title_render(void)
     gfx_text_ex((SCREEN_W - gfx_text_width(l1, 2)) / 2, 44, l1, red, 2);
     gfx_text_ex((SCREEN_W - gfx_text_width(l2, 2)) / 2, 64, l2, red, 2);
 
-    /* blinking prompt (on 40 ticks, off 20) */
-    if (G.t % 60 < 40) {
+    if (G.has_save) {
+        /* someone has been here before */
+        static const char *opt[2] = { "CONTINUE", "NEW GAME" };
+        for (int i = 0; i < 2; i++) {
+            int ox = (SCREEN_W - gfx_text_width(opt[i], 1)) / 2;
+            gfx_text(ox, 106 + i * 14, opt[i],
+                     (i == G.title_sel) ? RGB565(255, 255, 255)
+                                        : RGB565(120, 120, 128));
+            if (i == G.title_sel)
+                gfx_cursor(ox - 12, 106 + i * 14, G.frame);
+        }
+    } else if (G.t % 60 < 40) {
+        /* blinking prompt (on 40 ticks, off 20) */
         const char *p = "PRESS START!";
         gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 108, p,
                  RGB565(255, 255, 255));

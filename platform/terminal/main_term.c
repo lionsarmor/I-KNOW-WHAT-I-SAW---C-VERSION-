@@ -49,7 +49,9 @@
 /* how long one keypress counts as "held", in 60 Hz ticks. Big enough to
  * bridge the keyboard's autorepeat delay, small enough to stop soon after
  * you let go. */
+#ifndef KEY_HOLD_TICKS
 #define KEY_HOLD_TICKS 20
+#endif
 
 static const char RAMP[] = " .,:;i+*x%#@";
 #define RAMP_LEN ((int)sizeof(RAMP) - 2)   /* last index into RAMP */
@@ -153,6 +155,28 @@ static uint16_t read_buttons(void)
     return held;
 }
 
+/* ---- save games -----------------------------------------------------------
+ * A file next to the binary. See the protocol at the bottom of game.h. */
+#define SAVE_PATH "iknowwhatisaw.sav"
+
+static int save_read(uint8_t *buf, int len)
+{
+    FILE *f = fopen(SAVE_PATH, "rb");
+    if (!f) return 0;
+    size_t n = fread(buf, 1, (size_t)len, f);
+    fclose(f);
+    return n == (size_t)len;
+}
+
+static int save_write(const uint8_t *buf, int len)
+{
+    FILE *f = fopen(SAVE_PATH, "wb");
+    if (!f) return 0;
+    size_t n = fwrite(buf, 1, (size_t)len, f);
+    fclose(f);
+    return n == (size_t)len;
+}
+
 /* ---- render ---------------------------------------------------------------*/
 /* worst case ~20 bytes per cell (color escape + char) + row overhead */
 static char s_out[COLS * ROWS * 20 + ROWS * 8 + 64];
@@ -223,6 +247,12 @@ int main(int argc, char **argv)
         fprintf(stderr, "%d malformed asset(s) -- look for bright cells\n",
                 errors);
 
+    {   /* offer any existing save -- the title then says CONTINUE */
+        uint8_t blob[GAME_SAVE_SIZE];
+        if (save_read(blob, GAME_SAVE_SIZE))
+            game_save_load(blob, GAME_SAVE_SIZE);
+    }
+
     term_setup();
 
     /* fixed 60 Hz, same pacing scheme as every other platform */
@@ -230,6 +260,19 @@ int main(int argc, char **argv)
     clock_gettime(CLOCK_MONOTONIC, &next);
     for (long frame = 0; max_frames < 0 || frame < max_frames; frame++) {
         game_update(read_buttons());
+
+        if (game_save_pending()) {          /* player picked SAVE */
+            uint8_t blob[GAME_SAVE_SIZE];
+            game_save_write(blob);
+            game_save_done(save_write(blob, GAME_SAVE_SIZE));
+        }
+        if (game_load_pending()) {          /* player picked LOAD */
+            uint8_t blob[GAME_SAVE_SIZE];
+            int ok = save_read(blob, GAME_SAVE_SIZE) &&
+                     game_save_load(blob, GAME_SAVE_SIZE);
+            game_load_done(ok);
+        }
+
         present();
 
         next.tv_nsec += 1000000000L / TICKS_PER_SEC;

@@ -356,40 +356,40 @@ static const char *SPR_ART_ELDER_1[16] = {
 
 static const char *SPR_ART_MA[16] = {
     "................",
-    "......000.......",
-    "....00kkkk0.....",
-    "...0kKkkkkk0....",
-    "..0Kssssssss0...",
-    "..0ss0ssss0ss0..",
-    "..0sssS00Ssss0..",
-    "...0ss0kk0ss0...",
+    ".....000000.....",
     "....0kkkkkk0....",
-    "...0ppPpppp0....",
-    "..0sp0iiii0s0...",
-    "...0iIiiIi0.....",
-    "...0iiiiii0.....",
-    "...0i0..0i0.....",
-    "..0DD0..0DD0....",
-    "...00....00.....",
+    "...0kkkkkkkk0...",
+    "...0kssssssk0...",
+    "...0ks0ss0sk0...",
+    "...0kssSSssk0...",
+    "...0kssssssk0...",
+    "....0ssssss0....",
+    "...0pppppppp0...",
+    "..0spp1111pps0..",
+    "..0spp1111pps0..",
+    "...0pp1111pp0...",
+    "..0ppp1111ppp0..",
+    ".0pppppppppppp0.",
+    "..0DD0....0DD0..",
 };
 
 static const char *SPR_ART_MA_1[16] = {
     "................",
-    ".......000......",
-    ".....00kkkk0....",
-    "....0kKkkkkk0...",
-    "...0Kssssssss0..",
-    "...0ss0ssss0ss0.",
-    "...0sssS00Ssss0.",
-    "....0ss0kk0ss0..",
-    ".....0kkkkkk0...",
-    "....0ppPpppp0...",
-    "...0sp0iiii0s0..",
-    "....0iIiiIi0....",
-    "....0iiiiii0....",
-    "....0i0..0i0....",
-    "...0DD0..0DD0...",
-    "....00....00....",
+    "................",
+    ".....000000.....",
+    "....0kkkkkk0....",
+    "...0kkkkkkkk0...",
+    "...0kssssssk0...",
+    "...0ks0ss0sk0...",
+    "...0kssSSssk0...",
+    "...0kssssssk0...",
+    "....0ssssss0....",
+    "...0pppppppp0...",
+    "..0spp1111pps0..",
+    "...0pp1111pp0...",
+    "..0ppp1111ppp0..",
+    ".0pppppppppppp0.",
+    "..0DD0....0DD0..",
 };
 
 static const char *SPR_ART_NEIGHBOR[16] = {
@@ -604,5 +604,312 @@ static const char *SPR_ART_FACE_BIG[32] = {
     "................................",
 };
 
+
+/* a battered tin flashlight, lens up */
+static const char *SPR_ART_ITEM_FLASHLIGHT[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....000000.....",
+    "....0yyyyyy0....",
+    "....0y1111y0....",
+    "....0yy11yy0....",
+    ".....0kkkk0.....",
+    ".....0kKKk0.....",
+    ".....0kkkk0.....",
+    ".....0kKKk0.....",
+    ".....0kkkk0.....",
+    ".....0KKKK0.....",
+    "......0000......",
+    "................",
+};
+
+/* ---- THE HOPKINSVILLE GOBLIN -- the boss on the north road. --------------
+ * Kelly, Kentucky, 1955: silver, self-lit, no neck, an egg of a head, huge
+ * yellow lamp eyes, and those enormous floppy ears. It does not walk so
+ * much as arrive. Shotguns reportedly did nothing. We'll see.
+ */
+static const char *SPR_ART_BOSS_0[16] = {
+    "................",
+    "0..............0",
+    "0V0..........0V0",
+    "0VV0........0VV0",
+    "0VVV0......0VVV0",
+    "0VVV0......0VVV0",
+    "0VVV00000000VVV0",
+    "0VVV0vvvvvv0VVV0",
+    "0VV00yyvvyy00VV0",
+    "0VV00y1vv1y00VV0",
+    "....0vvvvvv0....",
+    "....0v0000v0....",
+    "0v0.0vvvvvv0.0v0",
+    "0v00vvvvvvvv00v0",
+    ".0v0vvvvvvvv0v0.",
+    "..0V0v0..0v0V0..",
+};
+
+static const char *SPR_ART_BOSS_1[16] = {
+    "................",
+    "0..............0",
+    "0V0..........0V0",
+    "0VV0........0VV0",
+    "0VVV0......0VVV0",
+    "0VVVV0....0VVVV0",
+    "0VVV00000000VVV0",
+    "0VVV0vvvvvv0VVV0",
+    "0VV00y1vv1y00VV0",
+    "0VV00yyvvyy00VV0",
+    "....0vvvvvv0....",
+    "....0v0000v0....",
+    ".0v00vvvvvv00v0.",
+    "0v00vvvvvvvv00v0",
+    "0V0.vvvvvvvv.0V0",
+    "..0V0v0..0v0V0..",
+};
+
+/* ---- THE SHOTGUN, HELD AT THE READY -- worn over the shoulder, seen from
+ * behind. Overlaid on the hero in battle once he owns it (battle.c). */
+static const char *SPR_ART_GUN_READY[16] = {
+    "..............0.",
+    ".............0k0",
+    "............0kk0",
+    "...........0kk0.",
+    "..........0kk0..",
+    ".........0kk0...",
+    "........0kk0....",
+    ".......0kk0.....",
+    "......0KK0......",
+    ".....0dd0.......",
+    "....0dDd0.......",
+    "....0dD0........",
+    "...0DD0.........",
+    "...00...........",
+    "................",
+    "................",
+};
+
+/* ---- THE ANIMALS ---------------------------------------------------------
+ * Two frames each: a small idle motion (a chewing jaw, a wagging tail, a
+ * twitching ear). Nothing on the farm is in a hurry. They're ENT_NPCs, so
+ * they're solid, they breathe, and they talk when you face them and press A.
+ */
+
+/* COW -- side on. White with black patches, pink nose and udder,
+ * a horn and a flicking tail. You cannot mistake it for anything else. */
+static const char *SPR_ART_COW[16] = {
+    "................",
+    "................",
+    "..............0.",
+    "..00.........010",
+    ".011000000000001",
+    "0110111111111111",
+    "0111110001111110",
+    "0110110001111110",
+    "1111110001000110",
+    "1mm111111100010.",
+    "111111111111110.",
+    "000001100mm110..",
+    "....0110.00110..",
+    "....0110..0110..",
+    "....0DD0..0DD0..",
+    ".....00....00...",
+};
+
+static const char *SPR_ART_COW_1[16] = {
+    "................",
+    "................",
+    "..............00",
+    "..00.........011",
+    ".011000000000001",
+    "0110111111111111",
+    "0111110001111110",
+    "0110110001111110",
+    "1111110001000110",
+    "1mm111111100010.",
+    "111111111111110.",
+    "000001100mm010..",
+    "....0110.00010..",
+    "....0110...010..",
+    "....0DD0...0D0..",
+    ".....00.....0...",
+};
+
+/* GOAT -- side on. Swept-back horns, a white beard, stubby tail. */
+static const char *SPR_ART_GOAT[16] = {
+    "................",
+    ".....00.........",
+    "....0yy0........",
+    "...0y00y0.......",
+    "..00y00y0.....0.",
+    ".0kkkkk0000000k0",
+    ".0kk0kkkkkkkkkk0",
+    "0kkkkkkkkkkkkkk0",
+    "0kkkkkkkkkkkkk0.",
+    "0kkkkkkkkkkkkk0.",
+    ".0110kkkkkkkkk0.",
+    ".01100kk000kk0..",
+    "..00.0kk0.0kk0..",
+    ".....0kk0.0kk0..",
+    ".....0KK0.0KK0..",
+    "......00...00...",
+};
+
+static const char *SPR_ART_GOAT_1[16] = {
+    "................",
+    ".....00.........",
+    "....0yy0........",
+    "...0y00y0.....0.",
+    "..00y00y0....0k0",
+    ".0kkkkk0000000k0",
+    ".0kk0kkkkkkkkkk0",
+    "0kkkkkkkkkkkkkk0",
+    "0kkkkkkkkkkkkk0.",
+    "0kkkkkkkkkkkkk0.",
+    ".0110kkkkkkkkk0.",
+    ".01100kk0000kk0.",
+    "..00.0kk0..0kk0.",
+    ".....0kk0..0kk0.",
+    ".....0KK0..0KK0.",
+    "......00....00..",
+};
+
+/* DOG -- side on. Perky ear, black nose, and a tail that WAGS. */
+static const char *SPR_ART_DOG[16] = {
+    "................",
+    "................",
+    "....00........0.",
+    "...0dd0......0d0",
+    ".000dd0.....0d0.",
+    "0ddddd0.....0d0.",
+    "0dd0dd0000000d0.",
+    "ddddddddddddd0..",
+    "0dddddddddddd0..",
+    "ddddddddddddd0..",
+    "0000ddddddddd0..",
+    "...0ddddddddd0..",
+    "....0dd000dd0...",
+    "....0dd0.0dd0...",
+    "....0DD0.0DD0...",
+    ".....00...00....",
+};
+
+static const char *SPR_ART_DOG_1[16] = {
+    "................",
+    "................",
+    "....00..........",
+    "...0dd0........0",
+    ".000dd0......00d",
+    "0ddddd0.....0dd0",
+    "0dd0dd0000000d0.",
+    "ddddddddddddd0..",
+    "0dddddddddddd0..",
+    "ddddddddddddd0..",
+    "0000ddddddddd0..",
+    "...0ddddddddd0..",
+    "....0dd0000dd0..",
+    "....0dd0..0dd0..",
+    "....0DD0..0DD0..",
+    ".....00....00...",
+};
+
+/* CAT -- side on. Pointed ears, tabby stripes, long curled-up tail. */
+static const char *SPR_ART_CAT[16] = {
+    "................",
+    "................",
+    "................",
+    "..0..0..........",
+    ".0o00o0....00...",
+    "0oo00oo0..0oo0..",
+    "0ooooo0....00o0.",
+    "0oo0oo0000000o0.",
+    "0ooooooooooo0o0.",
+    ".0oOoooOoooo0o0.",
+    "0ooooooooOooo0..",
+    ".000oooooooo0...",
+    "....0oo00oo0....",
+    "....0oo00oo0....",
+    "....0DD00DD0....",
+    ".....00..00.....",
+};
+
+static const char *SPR_ART_CAT_1[16] = {
+    "................",
+    "................",
+    "................",
+    "..0..0.....00...",
+    ".0o00o0...0oo0..",
+    "0oo00oo0.0o000..",
+    "0ooooo0...0.0o0.",
+    "0oo0oo0000000o0.",
+    "0ooooooooooo0o0.",
+    ".0oOoooOoooo0o0.",
+    "0ooooooooOooo0..",
+    ".000oooooooo0...",
+    "....0oo000oo0...",
+    "....0oo0.0oo0...",
+    "....0DD0.0DD0...",
+    ".....00...00....",
+};
+
+/* ---- THE UFO -- the letter-picker cursor on the name screen. ------------
+ * It hovers over the letter you're on. Lights blink via the two frames. */
+static const char *SPR_ART_UFO[16] = {
+    "................",
+    "................",
+    ".....000000.....",
+    "....0eeeeee0....",
+    "...0e111111e0...",
+    "...0e1eeee1e0...",
+    "..0eeeeeeeeee0..",
+    ".0kkkkkkkkkkkk0.",
+    "0kKyKkkKkkKyKkk0",
+    "0kkkkkkkkkkkkkk0",
+    ".0KKKKKKKKKKKK0.",
+    "..00KKKKKKKK00..",
+    "....0y0..0y0....",
+    ".....0....0.....",
+    "................",
+    "................",
+};
+
+static const char *SPR_ART_UFO_1[16] = {
+    "................",
+    "................",
+    ".....000000.....",
+    "....0eeeeee0....",
+    "...0e111111e0...",
+    "...0e1eeee1e0...",
+    "..0eeeeeeeeee0..",
+    ".0kkkkkkkkkkkk0.",
+    "0kyKkkKyKkkKykk0",
+    "0kkkkkkkkkkkkkk0",
+    ".0KKKKKKKKKKKK0.",
+    "..00KKKKKKKK00..",
+    "...0y0....0y0...",
+    "..0y0......0y0..",
+    "................",
+    "................",
+};
+
+/* ---- THE KEY -- brass, toothed. Opens what's been locked. --------------- */
+static const char *SPR_ART_ITEM_KEY[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "......0000......",
+    ".....0yyyy0.....",
+    ".....0y00y0.....",
+    ".....0y00y0.....",
+    "......0yy0......",
+    ".......0y0......",
+    ".......0y0......",
+    ".......0yy0.....",
+    ".......0y0Y0....",
+    ".......0yy0.....",
+    ".......000......",
+    "................",
+};
 
 #endif /* SPRITES_H */

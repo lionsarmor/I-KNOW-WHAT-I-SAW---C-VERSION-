@@ -48,6 +48,18 @@
 #define SHELLS_PER_BOX    4   /* shotgun shells in one SHELLS pickup        */
 #define SHOTGUN_BASE_DMG  8   /* a blast does this + level + rng(0..4)      */
 
+/* The world restocks: every this many ticks, every ITEM you've taken comes
+ * back where it lay. Herbs regrow, the store gets a delivery, somebody
+ * leaves another box of shells on the porch -- otherwise the shotgun runs
+ * dry and the boss is unbeatable.
+ *
+ * Gifts and BOSSES never come back: only ENT_ITEM spawns are restocked.
+ * (see restock_items() in overworld.c)
+ *
+ * One full day+night is a natural rhythm: sleep on it, and the fields have
+ * grown back. Shorten it if you want to farm shells faster. */
+#define ITEM_RESPAWN_TICKS (DAY_LEN_TICKS + NIGHT_LEN_TICKS)
+
 /* ---- Day / night ----------------------------------------------------------
  * The overworld clock. Day and night each last this many ticks
  * (60 ticks = 1 second). Set SHORT for testing -- a real playthrough
@@ -58,6 +70,30 @@
 #define NIGHT_LEN_TICKS  (60 * TICKS_PER_SEC)   /* 1 minute of night      */
 #define DUSK_LEN_TICKS   (3 * TICKS_PER_SEC)    /* sunset / sunrise fade  */
 #define NIGHT_BRIGHTNESS 112                    /* 256 = day. lower = darker */
+
+/* ---- The flashlight -------------------------------------------------------
+ * Switch it on from the PACK (START) and it carves a pool of real light
+ * out of the night around you. Inside HALF this radius it's as bright as
+ * day; from there it falls off to the ambient night level.
+ * Costs nothing in daylight -- the whole pass is skipped.
+ */
+#define FLASHLIGHT_RADIUS 60   /* pixels */
+
+/* ---- Your name ------------------------------------------------------------
+ * Chosen on the name screen at the start of a new game. NPCs who know you
+ * use it: write a '~' in their dialog and it is replaced with this.
+ * Keep it short -- it has to fit in the HUD and in a textbox line.
+ */
+#define PLAYER_NAME_MAX 8
+#define NAME_DEFAULT "PLAYER"
+
+/* The most text one NPC can say. Speech is PAGED (three lines at a time,
+ * press A for the next page), so a line can be as long as you like -- but
+ * it still has to fit in this buffer once '~' has been swapped for the
+ * player's name. assets_init() checks every line in the game against this
+ * and reports any that are too long, rather than silently chopping the end
+ * off somebody's sentence. */
+#define DIALOG_BUF_MAX 512
 
 /* ---- Buttons --------------------------------------------------------------
  * The abstract gamepad. The CORE only ever sees these bits; each platform

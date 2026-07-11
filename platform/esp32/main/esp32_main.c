@@ -58,6 +58,8 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include <string.h>
 
 #if BOARD_C3_SUPER_MINI
@@ -356,6 +358,47 @@ static void extras_init(void)
 
 #endif /* BOARD_C3_SUPER_MINI */
 
+/* ---- save games (NVS) -------------------------------------------------------
+ * The handheld has no filesystem, but it has NVS -- a wear-levelled
+ * key/value store in flash. That is our save slot. The core doesn't know
+ * or care; it just hands us GAME_SAVE_SIZE bytes (see game.h).
+ * ---------------------------------------------------------------------------*/
+#define SAVE_NS  "ikwis"
+#define SAVE_KEY "save"
+
+static void save_init(void)
+{
+    esp_err_t e = nvs_flash_init();
+    if (e == ESP_ERR_NVS_NO_FREE_PAGES || e == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        e = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(e);
+}
+
+static int save_read(uint8_t *buf, int len)
+{
+    nvs_handle_t h;
+    if (nvs_open(SAVE_NS, NVS_READONLY, &h) != ESP_OK)
+        return 0;
+    size_t n = (size_t)len;
+    esp_err_t e = nvs_get_blob(h, SAVE_KEY, buf, &n);
+    nvs_close(h);
+    return e == ESP_OK && n == (size_t)len;
+}
+
+static int save_write(const uint8_t *buf, int len)
+{
+    nvs_handle_t h;
+    if (nvs_open(SAVE_NS, NVS_READWRITE, &h) != ESP_OK)
+        return 0;
+    esp_err_t e = nvs_set_blob(h, SAVE_KEY, buf, (size_t)len);
+    if (e == ESP_OK)
+        e = nvs_commit(h);          /* not saved until this returns */
+    nvs_close(h);
+    return e == ESP_OK;
+}
+
 /* ---- main -------------------------------------------------------------------*/
 void app_main(void)
 {
@@ -366,10 +409,19 @@ void app_main(void)
     audio_init();
 #endif
 
+    save_init();
+
     int errors = game_init();
     if (errors)
         ESP_LOGW(TAG, "%d malformed asset(s) -- look for magenta pixels",
                  errors);
+
+    {   /* a save in flash? then the title offers CONTINUE */
+        uint8_t blob[GAME_SAVE_SIZE];
+        if (save_read(blob, GAME_SAVE_SIZE) &&
+            game_save_load(blob, GAME_SAVE_SIZE))
+            ESP_LOGI(TAG, "save loaded from NVS");
+    }
 
     /* black out the whole panel once (the game only redraws its window) */
     memset(swapbuf, 0, sizeof swapbuf);
@@ -383,6 +435,22 @@ void app_main(void)
     TickType_t last = xTaskGetTickCount();
     for (;;) {
         game_update(read_buttons());
+
+        if (game_save_pending()) {      /* player picked SAVE in the pack */
+            uint8_t blob[GAME_SAVE_SIZE];
+            game_save_write(blob);
+            int ok = save_write(blob, GAME_SAVE_SIZE);
+            game_save_done(ok);
+            ESP_LOGI(TAG, "save %s", ok ? "written to NVS" : "FAILED");
+        }
+        if (game_load_pending()) {      /* player picked LOAD in the pack */
+            uint8_t blob[GAME_SAVE_SIZE];
+            int ok = save_read(blob, GAME_SAVE_SIZE) &&
+                     game_save_load(blob, GAME_SAVE_SIZE);
+            game_load_done(ok);
+            ESP_LOGI(TAG, "load %s", ok ? "from NVS" : "FAILED");
+        }
+
         present(panel);
         /* 60 Hz pacing (needs CONFIG_FREERTOS_HZ=1000, see
          * sdkconfig.defaults, so one tick is 1 ms) */

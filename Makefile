@@ -29,6 +29,10 @@ SHELL   := /bin/bash
 
 CC      ?= cc
 CFLAGS  += -O2 -g -std=gnu99 -Wall -Wextra -Isrc/game
+# The content tables (spawns, species, items) are deliberately terse: one
+# row per NPC, trailing fields omitted and zero-filled by C. That is the
+# whole point of them, so don't warn about it.
+CFLAGS  += -Wno-missing-field-initializers
 
 # SDL flags only expand when the desktop binary is actually built, so the
 # ascii/esp32 targets work on machines without SDL installed.
@@ -79,7 +83,8 @@ check:
 	@mkdir -p build/check
 	cd build/check && $(CC) -ffreestanding -fno-builtin -c \
 	    $(addprefix ../../,$(CORE_SRC)) \
-	    -std=gnu99 -Wall -Wextra -I../../src/game
+	    -std=gnu99 -Wall -Wextra -Wno-missing-field-initializers \
+	    -I../../src/game
 	@echo "core is freestanding-clean"
 
 clean:

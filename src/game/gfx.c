@@ -57,18 +57,62 @@ uint16_t gfx_dim(uint16_t color, int bright)
     return (uint16_t)((r << 11) | (g << 5) | b);
 }
 
-void gfx_dim_screen(int bright)
+void gfx_night(int bright, int lx, int ly, int radius)
 {
     if (bright >= 256)
-        return;
-    int bb = bright + (256 - bright) / 3;   /* moonlight keeps its blue */
-    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
-        uint16_t c = gfx_fb[i];
-        int r = (((c >> 11) & 0x1F) * bright) >> 8;
-        int g = (((c >> 5)  & 0x3F) * bright) >> 8;
-        int b = (( c        & 0x1F) * bb    ) >> 8;
-        gfx_fb[i] = (uint16_t)((r << 11) | (g << 5) | b);
+        return;                     /* broad daylight: nothing to dim */
+
+    /* squared radii, so the falloff needs no sqrt and no floats */
+    int r_out2 = radius * radius;
+    int r_in   = radius / 2;
+    int r_in2  = r_in * r_in;
+    int span   = 256 - bright;
+
+    for (int y = 0; y < SCREEN_H; y++) {
+        int dy2 = (y - ly) * (y - ly);
+        int lit_row = (radius > 0 && dy2 < r_out2);
+        for (int x = 0; x < SCREEN_W; x++) {
+            int b = bright;
+
+            if (lit_row) {
+                int dx = x - lx;
+                int d2 = dx * dx + dy2;
+                if (d2 <= r_in2) {
+                    continue;                       /* the bright core */
+                } else if (d2 < r_out2) {
+                    /* linear in SQUARED distance: cheap, and it gives a
+                     * pleasantly soft edge rather than a hard disc */
+                    b = 256 - span * (d2 - r_in2) / (r_out2 - r_in2);
+                    if (b >= 256)
+                        continue;
+                }
+            }
+
+            uint16_t c = gfx_fb[y * SCREEN_W + x];
+            int bb = b + (256 - b) / 3;     /* moonlight keeps its blue */
+            int r = (((c >> 11) & 0x1F) * b ) >> 8;
+            int g = (((c >> 5)  & 0x3F) * b ) >> 8;
+            int l = (( c        & 0x1F) * bb) >> 8;
+            gfx_fb[y * SCREEN_W + x] = (uint16_t)((r << 11) | (g << 5) | l);
+        }
     }
+}
+
+void gfx_cursor(int x, int y, uint32_t frame)
+{
+    /* triangle wave over one second: 0..30..0 -- a slow, steady pulse
+     * (a hard blink would fight the text for attention) */
+    int t    = (int)(frame % 60);
+    int glow = (t < 30) ? t : 60 - t;
+    uint16_t col = RGB565(255, 170 + 85 * glow / 30, 90);   /* amber->gold */
+
+    /* solid right-pointing triangle: rows 1,2,3,4,3,2,1 px wide, so the
+     * flat edge is on the left and the point lands at (x+3, y+3) */
+    for (int i = 0; i < 7; i++) {
+        int w = (i < 4) ? i + 1 : 7 - i;
+        gfx_fill_rect(x, y + i, w, 1, col);
+    }
+    gfx_fill_rect(x + 3, y + 3, 1, 1, RGB565(255, 255, 220));   /* glint */
 }
 
 void gfx_blit(const uint16_t *px, int w, int h, int x, int y)

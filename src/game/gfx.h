@@ -30,10 +30,23 @@ void gfx_rect(int x, int y, int w, int h, uint16_t color); /* 1px outline */
  * Used by the intro to fade the alien in from the dark. */
 uint16_t gfx_dim(uint16_t color, int bright);
 
-/* Dim the WHOLE framebuffer -- the night pass. Blue fades less than
- * red/green so nights look moonlit instead of just dark. 256 = no-op.
- * Call it after drawing the world, before drawing the HUD. */
-void gfx_dim_screen(int bright);
+/* THE NIGHT PASS. Dims the whole framebuffer to `bright` (256 = broad
+ * daylight, and the call becomes a no-op). Blue fades less than red and
+ * green, so nights look moonlit instead of merely dark.
+ *
+ * If `radius` > 0 it also cuts a pool of light around (lx, ly): full
+ * daylight within radius/2, falling off to the ambient level at radius.
+ * That's the flashlight. Pass radius = 0 for no light.
+ *
+ * Call it after drawing the world, before drawing the HUD (so the HUD
+ * stays readable in the dark). */
+void gfx_night(int bright, int lx, int ly, int radius);
+
+/* The menu cursor: a pulsing right-pointing triangle, drawn 7px tall
+ * with its point at (x+3, y+3).
+ * It is NOT text -- the 8x8 font has no '>' glyph (see assets/font.h),
+ * so drawing one with gfx_text() silently produces nothing. */
+void gfx_cursor(int x, int y, uint32_t frame);
 
 /* Blit a rectangle of pixels (skipping COLOR_KEY).
  * The _ex version adds: integer scale (1,2,3..), brightness (0..256),

@@ -16,6 +16,11 @@
  * Change a color here and it changes everywhere at once.
  * Add a new letter here to use it in any sprite or tile.
  * -------------------------------------------------------------------------*/
+/* Counts art characters that aren't in the palette below. decode() watches
+ * this so a typo'd letter is reported by game_init() instead of quietly
+ * painting magenta pixels on somebody's face for the rest of time. */
+static int pal_unknown;
+
 static uint16_t pal(char c)
 {
     switch (c) {
@@ -39,6 +44,7 @@ static uint16_t pal(char c)
     case 'p': return RGB565(144,  88, 168); /* purple                     */
     case 'P': return RGB565( 96,  56, 116); /* purple shadow (dress hem)  */
     case 'o': return RGB565(224, 120,  48); /* orange                     */
+    case 'O': return RGB565(150,  72,  28); /* orange shadow              */
     case 'w': return RGB565( 56,  96, 176); /* water                      */
     case 'W': return RGB565(136, 176, 224); /* water highlight            */
     case 'k': return RGB565(150, 150, 158); /* gray                       */
@@ -54,7 +60,12 @@ static uint16_t pal(char c)
     case 'M': return RGB565(156,  16,  72); /* pink shadow                */
     case 'e': return RGB565(112, 224, 208); /* visitor mint               */
     case 'E': return RGB565( 40, 128, 128); /* visitor shadow             */
-    default:  return RGB565(255,   0, 255); /* loud magenta = "typo here" */
+    /* the Hopkinsville goblin: silvery, self-lit, wrong */
+    case 'v': return RGB565(198, 226, 255); /* goblin glow (silver-blue)  */
+    case 'V': return RGB565( 96, 140, 200); /* goblin shadow              */
+    default:
+        pal_unknown++;                      /* game_init() will report it */
+        return RGB565(255, 0, 255);         /* loud magenta = "typo here" */
     }
 }
 
@@ -111,10 +122,14 @@ sprite16_t sprites[NUM_SPRITES];
 sprite16_t tiles[NUM_TILES];
 uint16_t   face_big[FACE_W * FACE_H];
 
-/* returns 1 if the art was malformed (wrong row length) */
+/* returns 1 if the art was malformed: a row of the wrong length, OR a
+ * character that isn't in the palette (which would silently decode to
+ * magenta -- easy to miss on a small sprite) */
 static int decode(const char *const *art, int w, int h, uint16_t *out)
 {
     int bad = 0;
+    int unknown_before = pal_unknown;
+
     for (int y = 0; y < h; y++) {
         const char *row = art[y];
         int x = 0;
@@ -126,6 +141,8 @@ static int decode(const char *const *art, int w, int h, uint16_t *out)
                 out[y * w + x] = RGB565(255, 0, 255);
         }
     }
+    if (pal_unknown != unknown_before)
+        bad = 1;                          /* a letter we don't have a color for */
     return bad;
 }
 
@@ -163,7 +180,22 @@ int assets_init(void)
         { SPR_ITEM_MEDKIT,   SPR_ART_ITEM_MEDKIT   },
         { SPR_ITEM_SHELLS,   SPR_ART_ITEM_SHELLS   },
         { SPR_ITEM_SHOTGUN,  SPR_ART_ITEM_SHOTGUN  },
+        { SPR_ITEM_FLASHLIGHT, SPR_ART_ITEM_FLASHLIGHT },
         { SPR_GUN_AIM,       SPR_ART_GUN_AIM       },
+        { SPR_GUN_READY,     SPR_ART_GUN_READY     },
+        { SPR_BOSS_0,        SPR_ART_BOSS_0        },
+        { SPR_BOSS_1,        SPR_ART_BOSS_1        },
+        { SPR_ITEM_KEY,      SPR_ART_ITEM_KEY      },
+        { SPR_COW,           SPR_ART_COW           },
+        { SPR_COW_1,         SPR_ART_COW_1         },
+        { SPR_GOAT,          SPR_ART_GOAT          },
+        { SPR_GOAT_1,        SPR_ART_GOAT_1        },
+        { SPR_DOG,           SPR_ART_DOG           },
+        { SPR_DOG_1,         SPR_ART_DOG_1         },
+        { SPR_CAT,           SPR_ART_CAT           },
+        { SPR_CAT_1,         SPR_ART_CAT_1         },
+        { SPR_UFO,           SPR_ART_UFO           },
+        { SPR_UFO_1,         SPR_ART_UFO_1         },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -195,6 +227,38 @@ int assets_init(void)
                 errors++;
         }
 
+    /* Sanity-check every SPOKEN LINE: once '~' becomes the player's name it
+     * still has to fit in the dialog buffer, or the end of the sentence is
+     * silently lost. Worst case is the longest possible name. */
+    for (int m = 0; m < NUM_MAPS; m++)
+        for (int i = 0; i < maps[m].nspawns; i++) {
+            const char *lines[2] = { maps[m].spawns[i].dialog,
+                                     maps[m].spawns[i].after };
+            for (int k = 0; k < 2; k++) {
+                if (!lines[k])
+                    continue;
+                int len = 0, tildes = 0;
+                for (const char *c = lines[k]; *c; c++) {
+                    len++;
+                    if (*c == '~') tildes++;
+                }
+                /* each '~' becomes up to PLAYER_NAME_MAX chars */
+                if (len + tildes * (PLAYER_NAME_MAX - 1) >= DIALOG_BUF_MAX)
+                    errors++;
+            }
+        }
+
+    /* Sanity-check the SPAWNS: nothing may start life inside a wall.
+     * An alien spawned on a fence tile can never step off it (it only
+     * moves onto walkable ground), so it stands there forever, embedded
+     * in the fence. Same for an NPC or an item you could never reach. */
+    for (int m = 0; m < NUM_MAPS; m++)
+        for (int i = 0; i < maps[m].nspawns; i++) {
+            const spawn_t *sp = &maps[m].spawns[i];
+            if (tile_solid[map_tile(&maps[m], sp->tx, sp->ty)])
+                errors++;
+        }
+
     return errors;
 }
 
@@ -207,9 +271,18 @@ int assets_init(void)
  * =========================================================================*/
 
 const species_t species[NUM_SPECIES] = {
-    /*                 name       hp atk xp  frames                  bright */
+    /*                 name       hp atk xp  frames                  bright boss */
     [SPECIES_GREY] = { "GIANT ANT",  10, 2,  5, SPR_ALIEN_0, SPR_ALIEN_1, 256 },
     [SPECIES_TALL] = { "SOLDIER ANT",16, 4, 12, SPR_ALIEN_0, SPR_ALIEN_1, 180 },
+
+    /* THE BOSS. It guards the north road out of town and it does not move.
+     * Tuned to be a real wall: by the time you reach it you're likely
+     * level 3-5 (max_hp ~30-40, spade ~7-10, shotgun ~13-17). At 55+ HP
+     * it eats every shell you own and then some -- you WILL end up
+     * swinging the spade and drinking herbs. It hits for 6-8, so it kills
+     * you in about five clean turns. Bring the medkit. */
+    [SPECIES_GOBLIN] = { "HOPKINSVILLE GOBLIN",
+                                    55, 6, 60, SPR_BOSS_0,  SPR_BOSS_1,  256, 1 },
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
@@ -219,6 +292,10 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_MA]        = { SPR_MA,         SPR_MA_1         },
     [LOOK_NEIGHBOR]  = { SPR_NEIGHBOR,   SPR_NEIGHBOR_1   },
     [LOOK_STOREKEEP] = { SPR_STOREKEEP,  SPR_STOREKEEP_1  },
+    [LOOK_COW]       = { SPR_COW,        SPR_COW_1        },
+    [LOOK_GOAT]      = { SPR_GOAT,       SPR_GOAT_1       },
+    [LOOK_DOG]       = { SPR_DOG,        SPR_DOG_1        },
+    [LOOK_CAT]       = { SPR_CAT,        SPR_CAT_1        },
 };
 
 /* ============================ THE ITEMS ====================================
@@ -236,4 +313,10 @@ const item_info_t item_info[NUM_ITEMS] = {
         "A BOX OF SHOTGUN SHELLS. HEAVY. HONEST." },
     [ITEM_SHOTGUN] = { "SHOTGUN", SPR_ITEM_SHOTGUN,
         "THE FAMILY SHOTGUN. PA KEPT IT LOADED SINCE THE LIGHTS CAME." },
+    /* not consumed: using it toggles the beam. See items_update(). */
+    [ITEM_FLASHLIGHT] = { "LIGHT", SPR_ITEM_FLASHLIGHT,
+        "YOUR OWN FLASHLIGHT, BACK AT LAST. THE BATTERIES HAVE SOME LIFE "
+        "IN THEM YET." },
+    [ITEM_KEY] = { "KEY", SPR_ITEM_KEY,
+        "A HEAVY BRASS KEY. YOU DON'T KNOW WHAT IT OPENS. NOT YET." },
 };

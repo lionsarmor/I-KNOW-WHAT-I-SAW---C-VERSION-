@@ -14,5 +14,10 @@ idf_component_register(
     INCLUDE_DIRS
         "../../../src/game"
     REQUIRES
-        driver esp_lcd
+        driver esp_lcd nvs_flash
 )
+
+# The content tables (spawns, species, items) are deliberately terse: one
+# row per NPC, trailing fields omitted and zero-filled by C. That is the
+# whole point of them, so don't warn about it. (Mirrors the desktop Makefile.)
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-missing-field-initializers)

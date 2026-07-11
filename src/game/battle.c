@@ -156,6 +156,10 @@ static void win_battle(void)
     msgb("IT VANISHES IN LIGHT! +", "", foe()->xp, " XP");
     G.player.xp += foe()->xp;
     G.ents[G.battle.ent].type = ENT_NONE;   /* gone from the map */
+    /* A boss stays dead: mark its spawn slot so re-entering the map
+     * doesn't put it back in the road. Ordinary aliens DO come back. */
+    if (foe()->boss)
+        G.spawns_gone[G.map_id] |= (uint16_t)(1u << G.battle.ent);
     set_phase(PH_WIN);
 }
 
@@ -287,26 +291,40 @@ void battle_update(void)
 
 /* --- drawing ----------------------------------------------------------------*/
 
-/* The menu cursor: a right-pointing triangle that breathes.
+/* Draw the battle message, wrapped onto two lines.
  *
- * NOTE: do NOT try to draw this with gfx_text(">") -- the 8x8 font only
- * has A-Z 0-9 and a little punctuation (see assets/font.h), so '>' comes
- * out BLANK. Hence the hand-built triangle. */
-static void cursor(int x, int y)
-{
-    /* triangle wave over one second: 0..30..0 -- a slow, steady pulse
-     * (a hard blink would fight the typewriter and the HP bars) */
-    int t    = (int)(G.frame % 60);
-    int glow = (t < 30) ? t : 60 - t;                  /* 0..30       */
-    uint16_t col = RGB565(255, 170 + 85 * glow / 30, 90);  /* amber -> gold */
+ * The box is only 28 characters wide at this font size, and lines like
+ * "A HOPKINSVILLE GOBLIN BLOCKS YOUR PATH!" are 39 -- without this they
+ * run straight off the right edge of the screen. Greedy wrap at spaces. */
+#define MSG_COLS 27
 
-    /* solid right-pointing triangle: rows 1,2,3,4,3,2,1 px wide, so the
-     * flat edge is on the left and the point lands at (x+3, y+3) */
-    for (int i = 0; i < 7; i++) {
-        int w = (i < 4) ? i + 1 : 7 - i;
-        gfx_fill_rect(x, y + i, w, 1, col);
+static void draw_msg(const char *s, int x, int y)
+{
+    char line[MSG_COLS + 1];
+    int  n = 0, row = 0;
+
+    while (*s && row < 2) {
+        /* how much of the rest fits on this line? */
+        int take = 0, last_space = -1;
+        while (s[take] && take < MSG_COLS) {
+            if (s[take] == ' ')
+                last_space = take;
+            take++;
+        }
+        /* if we stopped mid-word, back up to the last space */
+        if (s[take] && last_space > 0)
+            take = last_space;
+
+        for (n = 0; n < take; n++)
+            line[n] = s[n];
+        line[n] = '\0';
+        gfx_text(x, y + row * 11, line, RGB565(255, 255, 255));
+
+        s += take;
+        while (*s == ' ')
+            s++;                 /* swallow the break */
+        row++;
     }
-    gfx_fill_rect(x + 3, y + 3, 1, 1, RGB565(255, 255, 220)); /* glint */
 }
 
 static void hp_bar(int x, int y, int hp, int max, const char *label)
@@ -340,8 +358,13 @@ void battle_render(void)
         shake = (G.battle.timer / 2) % 2 ? 3 : -3;
     int bob   = (int)((G.frame / 12) % 2) * 2;
     int espr  = ((G.frame / 15) % 2) ? foe()->spr1 : foe()->spr0;
+    /* a boss fills the sky: drawn one scale-step bigger, and lower/left
+     * so the bigger sprite still fits on the panel */
+    int escale = foe()->boss ? 4 : 3;
+    int ex     = foe()->boss ? 138 : 150;
+    int ey     = foe()->boss ? 10  : 22;
     gfx_blit_ex(sprites[espr].px, TILE, TILE,
-                150 + shake, 22 + bob, 3, foe()->bright, 0);
+                ex + shake, ey + bob, escale, foe()->bright, 0);
 
     /* you, seen from behind, lower left -- flinch when hit, and rock
      * back from the recoil when the gun goes off */
@@ -351,6 +374,13 @@ void battle_render(void)
         pshake = -2;
     gfx_blit_ex(sprites[SPR_FARMER_UP_0].px, TILE, TILE,
                 40 + pshake, 78, 3, 256, 0);
+
+    /* THE GUN. Once you own the shotgun you carry it into every fight --
+     * shouldered and ready between turns, and only swapped for the
+     * leveled SPR_GUN_AIM while you're actually firing (below). */
+    if (G.player.items[ITEM_SHOTGUN] && G.battle.phase != PH_SHOOT)
+        gfx_blit_ex(sprites[SPR_GUN_READY].px, TILE, TILE,
+                    58 + pshake, 62, 3, 256, 0);
 
     /* ---- the SHOOT animation: gun up, flash, pellets up the diagonal */
     if (G.battle.phase == PH_SHOOT) {
@@ -397,8 +427,8 @@ void battle_render(void)
             gfx_text(30 + (i & 1) * 80,
                      SCREEN_H - 30 + (i >> 1) * 12, entry[i], col);
         }
-        cursor(19 + (G.battle.menu & 1) * 80,
-               SCREEN_H - 30 + (G.battle.menu >> 1) * 12);
+        gfx_cursor(19 + (G.battle.menu & 1) * 80,
+                   SCREEN_H - 30 + (G.battle.menu >> 1) * 12, G.frame);
     } else if (G.battle.phase == PH_ITEMS) {
         /* the pockets: herb and medkit with counts, B backs out */
         for (int i = 0; i < 2; i++) {
@@ -418,9 +448,9 @@ void battle_render(void)
         }
         gfx_text(SCREEN_W - 64, SCREEN_H - 18, "B:BACK",
                  RGB565(110, 110, 110));
-        cursor(19, SCREEN_H - 30 + G.battle.item_sel * 12);
+        gfx_cursor(19, SCREEN_H - 30 + G.battle.item_sel * 12, G.frame);
     } else {
-        gfx_text(12, SCREEN_H - 24, G.battle.msg, RGB565(255, 255, 255));
+        draw_msg(G.battle.msg, 12, SCREEN_H - 28);
     }
 }
 

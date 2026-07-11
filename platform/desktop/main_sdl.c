@@ -34,6 +34,33 @@ static uint16_t read_buttons(const Uint8 *k)
     return b;
 }
 
+/* ---- SAVE GAMES ------------------------------------------------------------
+ * The core hands us bytes; where they go is OUR problem (see the protocol
+ * at the bottom of game.h). On the desktop that's a file next to the
+ * binary. On the ESP32 it's NVS. Neither the game nor the other platform
+ * needs to know or care. */
+#define SAVE_PATH "iknowwhatisaw.sav"
+
+static int save_read(uint8_t *buf, int len)
+{
+    FILE *f = fopen(SAVE_PATH, "rb");
+    if (!f)
+        return 0;
+    size_t n = fread(buf, 1, (size_t)len, f);
+    fclose(f);
+    return n == (size_t)len;
+}
+
+static int save_write(const uint8_t *buf, int len)
+{
+    FILE *f = fopen(SAVE_PATH, "wb");
+    if (!f)
+        return 0;
+    size_t n = fwrite(buf, 1, (size_t)len, f);
+    fclose(f);
+    return n == (size_t)len;
+}
+
 /* SDL pulls audio from us on its own thread; we just forward to the core */
 static void audio_callback(void *userdata, Uint8 *stream, int len)
 {
@@ -85,6 +112,14 @@ int main(int argc, char **argv)
     if (adev) SDL_PauseAudioDevice(adev, 0);
 
     /* ---- the loop: 60 updates per second, forever --------------------- */
+    /* if a save is sitting there, offer it: the title will say CONTINUE */
+    {
+        uint8_t blob[GAME_SAVE_SIZE];
+        if (save_read(blob, GAME_SAVE_SIZE) &&
+            game_save_load(blob, GAME_SAVE_SIZE))
+            printf("save loaded\n");
+    }
+
     long frame = 0;
     int running = 1;
     Uint64 next_tick = SDL_GetPerformanceCounter();
@@ -100,6 +135,19 @@ int main(int argc, char **argv)
         }
 
         game_update(read_buttons(SDL_GetKeyboardState(NULL)));
+
+        /* did the player just pick SAVE or LOAD in the pack? */
+        if (game_save_pending()) {
+            uint8_t blob[GAME_SAVE_SIZE];
+            game_save_write(blob);
+            game_save_done(save_write(blob, GAME_SAVE_SIZE));
+        }
+        if (game_load_pending()) {
+            uint8_t blob[GAME_SAVE_SIZE];
+            int ok = save_read(blob, GAME_SAVE_SIZE) &&
+                     game_save_load(blob, GAME_SAVE_SIZE);
+            game_load_done(ok);
+        }
 
         SDL_UpdateTexture(tex, NULL, game_framebuffer(),
                           SCREEN_W * (int)sizeof(uint16_t));

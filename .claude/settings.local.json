@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION \" && sed -i 's/items_taken/spawns_gone/g' src/game/game_internal.h src/game/overworld.c && grep -rn \"spawns_gone\" src/game/ | head)"
+    ],
+    "additionalDirectories": [
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game"
+    ]
+  }
+}

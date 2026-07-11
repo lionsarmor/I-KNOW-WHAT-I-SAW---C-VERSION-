@@ -41,7 +41,16 @@ enum {
     SPR_STOREKEEP,     SPR_STOREKEEP_1,
     SPR_ITEM_HERB,     SPR_ITEM_MEDKIT,   /* pickups lying on maps       */
     SPR_ITEM_SHELLS,   SPR_ITEM_SHOTGUN,
-    SPR_GUN_AIM,                          /* the shotgun raised (battle) */
+    SPR_ITEM_FLASHLIGHT,
+    SPR_GUN_AIM,                          /* the shotgun leveled (firing) */
+    SPR_GUN_READY,                        /* the shotgun shouldered       */
+    SPR_BOSS_0,        SPR_BOSS_1,        /* the Hopkinsville goblin      */
+    SPR_ITEM_KEY,
+    SPR_COW,     SPR_COW_1,               /* the livestock (2 frames each) */
+    SPR_GOAT,    SPR_GOAT_1,
+    SPR_DOG,     SPR_DOG_1,
+    SPR_CAT,     SPR_CAT_1,
+    SPR_UFO,     SPR_UFO_1,               /* the name-screen cursor        */
     NUM_SPRITES
 };
 
@@ -62,7 +71,7 @@ enum {
  *      { ENT_NPC, x, y, LOOK_SHERIFF, "BACK INSIDE, SON." }
  * That's the whole job -- talking, blocking, animation are automatic.
  */
-enum { SPECIES_GREY, SPECIES_TALL, NUM_SPECIES };
+enum { SPECIES_GREY, SPECIES_TALL, SPECIES_GOBLIN, NUM_SPECIES };
 
 typedef struct {
     const char *name;      /* shown in battle ("A <NAME> BLOCKS...")     */
@@ -71,13 +80,24 @@ typedef struct {
     int xp;                /* awarded on defeat                          */
     int spr0, spr1;        /* two animation frames                       */
     int bright;            /* 256 = as drawn; lower = darker variant     */
+
+    /* A BOSS is different in three ways, all from this one flag:
+     *   - it never wanders: it stands where it was spawned, guarding
+     *   - it is drawn BIGGER in battle
+     *   - once killed it STAYS killed, even after you leave the map
+     * Everything else (stats, xp, art) is just a normal row. */
+    int boss;
 } species_t;
 
 extern const species_t species[NUM_SPECIES];
 
 enum {
     LOOK_WITNESS, LOOK_SKEPTIC, LOOK_PA, LOOK_MA,
-    LOOK_NEIGHBOR, LOOK_STOREKEEP, NUM_LOOKS
+    LOOK_NEIGHBOR, LOOK_STOREKEEP,
+    /* the animals. Same machinery as people: two idle frames, solid, and
+     * they "talk" when you face them and press A. */
+    LOOK_COW, LOOK_GOAT, LOOK_DOG, LOOK_CAT,
+    NUM_LOOKS
 };
 
 typedef struct { int spr0, spr1; } npc_look_t;   /* two idle frames */
@@ -91,10 +111,16 @@ extern const npc_look_t npc_looks[NUM_LOOKS];
  * The player walks over it: chime, pocket, message. A taken item stays
  * gone for the rest of the run, even if you leave and re-enter the map.
  *
- * HERB and MEDKIT are usable from the battle ITEM menu. SHELLS feed the
- * SHOTGUN; the SHOTGUN itself unlocks SHOOT in battle (see battle.c).
+ * HERB and MEDKIT are usable from the battle ITEM menu AND from the PACK
+ * (press START while walking). SHELLS feed the SHOTGUN; the SHOTGUN
+ * unlocks SHOOT in battle (see battle.c). The FLASHLIGHT isn't consumed
+ * -- using it toggles it on and off, and it lights your way at night.
  */
-enum { ITEM_HERB, ITEM_MEDKIT, ITEM_SHELLS, ITEM_SHOTGUN, NUM_ITEMS };
+enum {
+    ITEM_HERB, ITEM_MEDKIT, ITEM_SHELLS, ITEM_SHOTGUN, ITEM_FLASHLIGHT,
+    ITEM_KEY,
+    NUM_ITEMS
+};
 
 typedef struct {
     const char *name;         /* shown in the battle ITEM menu       */
@@ -130,7 +156,9 @@ extern sprite16_t tiles[NUM_TILES];
 extern const uint8_t tile_solid[NUM_TILES];  /* 1 = blocks walking */
 
 /* ---- Maps -----------------------------------------------------------------*/
-enum { MAP_FARM, MAP_TOWN, MAP_HOME, MAP_HOUSE, MAP_STORE, NUM_MAPS };
+enum {
+    MAP_FARM, MAP_TOWN, MAP_HOME, MAP_HOUSE, MAP_STORE, MAP_RIDGE, NUM_MAPS
+};
 
 enum { ENT_NONE, ENT_ALIEN, ENT_NPC, ENT_ITEM };  /* entity types on a map */
 
@@ -139,7 +167,17 @@ typedef struct {          /* something living (or lying) on a map */
     int tx, ty;           /* spawn tile                                */
     int kind;             /* ALIEN: SPECIES_*  NPC: LOOK_*  ITEM: ITEM_* */
     const char *dialog;   /* NPCs: what they say (0 otherwise)         */
+
+    /* An NPC can hand you something the first time you talk to them.
+     * Write it as GIFT(ITEM_FLASHLIGHT). The +1 inside GIFT() is what
+     * keeps "gives nothing" as the natural 0 default, so every spawn
+     * line that doesn't mention a gift keeps working untouched. */
+    int gift;
+    const char *after;    /* what they say once the gift is handed over
+                             (0 = just repeat `dialog`)                */
 } spawn_t;
+
+#define GIFT(item) ((item) + 1)
 
 /* Warps fire two ways (both handled automatically):
  *   - on a WALKABLE tile (an exit mat): step on it, you teleport
