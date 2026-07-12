@@ -97,7 +97,10 @@ static void goto_title(void)
 
 void intro_update(void)
 {
-    if (PRESSED(BTN_START) || PRESSED(BTN_A))   /* skip */
+    /* START skips the cinematic -- deliberately, on a button you have to
+     * reach for. NOT A: A is the button players mash, and mashing it used to
+     * blow through the one scene the whole game is selling itself on. */
+    if (PRESSED(BTN_START))
         goto_title();
     else if (G.t == PHASE_BAM)
         goto_title();
@@ -173,6 +176,15 @@ void intro_render(void)
     if (G.t < PHASE_FACE + 60) {
         draw_typed(CAPTION_1, 24, 28, 20,          RGB565(150, 150, 150));
         draw_typed(CAPTION_2, 24, 44, PHASE_TEXT2, RGB565(150, 150, 150));
+    }
+
+    /* Tell them how to skip -- quietly, and only after they've had a moment
+     * to be unsettled. A no longer does it (see intro_update), so without
+     * this a player who wanted out would just mash and feel trapped. */
+    if (G.t > 180) {
+        const char *k = "START: SKIP";
+        gfx_text_small(SCREEN_W - gfx_text_small_width(k) - 6, SCREEN_H - 9, k,
+                       RGB565(70, 70, 78));
     }
 
     /* --- the words you almost read --------------------------------------*/

@@ -277,12 +277,12 @@ JAVA_HOME    ?= $(HOME)/android-tools/jdk
 APK_STAGE := $(HOME)/.cache/ikwis-apk
 APK_OUT   := $(APK_STAGE)/platform/android/app/build/outputs/apk/debug/app-debug.apk
 
-apk: $(CORE_SRC) $(HDRS) platform/android/touch.c
+# vendor-sdl-src is a prerequisite, not an error message: vendor/ is gitignored,
+# so a fresh clone has no SDL source. Fetch it rather than telling the user to.
+apk: vendor-sdl-src $(CORE_SRC) $(HDRS) platform/android/touch.c
 	@test -d "$(ANDROID_HOME)" || { \
 	    echo "ERROR: no Android SDK at $(ANDROID_HOME)"; \
-	    echo "       run once:  make android-sdk"; exit 1; }
-	@test -d vendor/SDL2-src || { \
-	    echo "ERROR: SDL2 source missing. run:  make vendor-sdl-src"; exit 1; }
+	    echo "       run once:  make android-sdk    (~2.6GB, no sudo)"; exit 1; }
 	@mkdir -p $(DIST) $(APK_STAGE)/platform/android $(APK_STAGE)/src/game \
 	         $(APK_STAGE)/platform/desktop $(APK_STAGE)/vendor/SDL2-src
 	@rsync -a --delete --exclude 'app/build' --exclude '.gradle' \

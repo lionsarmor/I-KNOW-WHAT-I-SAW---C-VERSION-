@@ -69,6 +69,11 @@ typedef struct {
     int gift;            /* NPC: ITEM_*+1 to hand over; 0 = nothing  */
     const char *after;   /* NPC: line to say once the gift is given  */
 
+    /* COLLISION / INTERACTION BOX, in pixels from (x,y). Almost everything
+     * is one tile, but the VAN is a van -- it is drawn four tiles wide and
+     * has to be solid across all of it, or you walk through the bodywork. */
+    int cw, ch;
+
     /* ZELDA MODE (aliens only) */
     int hp;              /* shotgun blasts left in it                */
     int stun;            /* ticks staggered -- can't move or grab you */

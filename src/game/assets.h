@@ -221,6 +221,9 @@ extern uint16_t face_big[FACE_W * FACE_H];
 
 /* The van, 32x32, seen from behind -- the whole driving cutscene is the
  * back of it, so it gets four times the pixels. [0] cruising, [1] braking. */
+/* The van is drawn from this 32x32 art. VAN_SCALE is how big it is OUT IN
+ * THE WORLD -- 2 makes it 64x64, four tiles across, which is a van. */
+#define VAN_SCALE 2
 #define VAN_W 32
 #define VAN_H 32
 extern uint16_t van_big[2][VAN_W * VAN_H];

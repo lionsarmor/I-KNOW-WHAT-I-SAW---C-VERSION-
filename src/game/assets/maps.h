@@ -431,7 +431,9 @@ static const spawn_t MAP_SPAWNS_VANLOT[] = {
       "GO GET HER." },
 
     { ENT_ITEM,  3, 8, ITEM_SHELLS, 0 },
-    { ENT_ITEM, 20, 8, ITEM_MEDKIT, 0 },
+    /* NOT at (20,8) any more -- the van is four tiles wide now and that spot
+     * is underneath it. An item you cannot reach is an item that isn't there. */
+    { ENT_ITEM,  6, 10, ITEM_MEDKIT, 0 },
 };
 
 static const warp_t MAP_WARPS_VANLOT[] = {

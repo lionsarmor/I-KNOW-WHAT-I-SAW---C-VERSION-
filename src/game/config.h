@@ -201,7 +201,16 @@
  * player's name. assets_init() checks every line in the game against this
  * and reports any that are too long, rather than silently chopping the end
  * off somebody's sentence. */
-#define DIALOG_BUF_MAX 512
+/* One NPC's whole speech, after the '~' name expansion. It has to hold the
+ * LONGEST line in maps.h -- and now also a generous NPC line PLUS the gift
+ * line tacked on after it (see boon_line), so it needs headroom. */
+#define DIALOG_BUF_MAX 768
+
+/* A battle message has to sit on screen at least this long before A will
+ * dismiss it. Battle text appears instantly (no typewriter), so without this
+ * a player leaning on the button never sees "IT DRAINS 9 AND SWELLS!" at
+ * all -- the message is drawn and gone inside two frames. */
+#define MSG_MIN_TICKS 26
 
 /* ---- Buttons --------------------------------------------------------------
  * The abstract gamepad. The CORE only ever sees these bits; each platform

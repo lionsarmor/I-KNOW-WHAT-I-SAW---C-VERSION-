@@ -355,10 +355,13 @@ static void return_to_overworld(void)
     audio_music(map_music(G.map_id));    /* the world's song comes back */
 }
 
-/* a message phase advances on A, or by itself after 1.5s */
+/* A message phase advances on A -- but not INSTANTLY. It has to have been
+ * readable for MSG_MIN_TICKS first, or a player mashing the button skips
+ * every line the game says to them. It still auto-advances after 1.5s. */
 static int msg_done(void)
 {
-    return PRESSED(BTN_A) || G.battle.timer > 90;
+    return (PRESSED(BTN_A) && G.battle.timer >= MSG_MIN_TICKS)
+        || G.battle.timer > 90;
 }
 
 void battle_update(void)

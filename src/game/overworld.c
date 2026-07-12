@@ -38,16 +38,30 @@ static int touching(int ax, int ay, int bx, int by)
            ay + 3 < by + 13 && by + 3 < ay + 13;
 }
 
+/* Do two boxes overlap? The 3px inset is the same forgiveness `touching`
+ * gives: sprites have transparent margins, and a hitbox that matched the
+ * sprite's full square would feel sticky. */
+static int boxes_hit(int ax, int ay, int aw, int ah,
+                     int bx, int by, int bw, int bh)
+{
+    return ax + 3 < bx + bw - 3 && bx + 3 < ax + aw - 3 &&
+           ay + 3 < by + bh - 3 && by + 3 < ay + ah - 3;
+}
+
 /* would a character standing at (x,y) overlap a living entity?
  * returns its index, or -1. `self` skips one entity (pass -1 for the
  * player). Characters are solid to each other -- this is what stops
- * everyone walking through everyone. */
+ * everyone walking through everyone.
+ *
+ * Entities carry their OWN box size (cw/ch) because the van is four tiles
+ * wide and you should not be able to walk through it. */
 static int hits_entity(int x, int y, int self)
 {
     for (int i = 0; i < MAX_ENTITIES; i++) {
-        if (i == self || G.ents[i].type == ENT_NONE)
+        const entity_t *e = &G.ents[i];
+        if (i == self || e->type == ENT_NONE)
             continue;
-        if (touching(x, y, G.ents[i].x, G.ents[i].y))
+        if (boxes_hit(x, y, TILE, TILE, e->x, e->y, e->cw, e->ch))
             return i;
     }
     return -1;
@@ -101,7 +115,7 @@ static void roll_boon(int map)
 
 /* What they say as they hand it over. Assembled here rather than stored in
  * the table, because the item is only decided at run time. */
-static char boon_buf[192];
+static char boon_buf[DIALOG_BUF_MAX];
 
 static void boon_cat(int *p, const char *s)
 {
@@ -109,7 +123,14 @@ static void boon_cat(int *p, const char *s)
         boon_buf[(*p)++] = *s++;
 }
 
-static const char *boon_line(int kind)
+/* THE NPC STILL GETS TO SPEAK.
+ *
+ * This used to return only the gift line, which meant that whenever somebody
+ * happened to be the map's generous one, the thing they were actually WRITTEN
+ * to say was silently thrown away -- a random item was quietly costing the
+ * player a piece of the story. Now their own line runs first, and the gift is
+ * a page after it. */
+static const char *boon_line(const char *npc_says, int kind)
 {
     static const char *lead[4] = {
         "WAIT. WAIT -- TAKE THIS WITH YOU. I'M NOT GOING BACK OUT THERE "
@@ -122,6 +143,10 @@ static const char *boon_line(int kind)
         "AND KEEP MOVING.",
     };
     int p = 0;
+    if (npc_says && npc_says[0]) {
+        boon_cat(&p, npc_says);      /* what they were always going to say */
+        boon_cat(&p, "\n");
+    }
     boon_cat(&p, lead[rng_range(0, 3)]);
     boon_cat(&p, "\n");
     boon_cat(&p, "THEY PRESS ");
@@ -173,6 +198,14 @@ void overworld_enter_map(int map, int tx, int ty)
         e->after  = m->spawns[i].after;
         e->stun = e->hurt = e->aggro = 0;
         e->hp = (e->type == ENT_ALIEN) ? species[e->kind].ow_hits : 0;
+
+        /* one tile each, except the van -- which is a VAN (see the render) */
+        e->cw = e->ch = TILE;
+        if (e->type == ENT_NPC && e->kind == LOOK_VAN) {
+            e->cw = VAN_W * VAN_SCALE;
+            e->ch = VAN_H * VAN_SCALE;
+        }
+
         /* a hill is already working when you walk in on it */
         if (e->type == ENT_ALIEN && species[e->kind].brood > 0)
             e->timer = rng_range(30, species[e->kind].brood);
@@ -279,6 +312,7 @@ static void restock_items(void)
         e->after  = 0;
         e->stun = e->hurt = e->aggro = 0;
         e->timer  = rng_range(30, 90);
+        e->cw = e->ch = TILE;
         e->hp     = (s->type == ENT_ALIEN) ? species[s->kind].ow_hits : 0;
     }
 
@@ -771,6 +805,7 @@ static int hill_spawn(int hill)
         e->dialog = 0;
         e->gift   = 0;
         e->after  = 0;
+        e->cw = e->ch = TILE;
         e->stun   = e->hurt = 0;
         e->aggro  = 0;                 /* it doesn't know where you are --
                                           it crawls out and casts about like
@@ -886,8 +921,8 @@ static void try_talk(void)
         entity_t *e = &G.ents[i];
         if (e->type != ENT_NPC || !e->dialog)
             continue;
-        if (px >= e->x && px < e->x + TILE &&
-            py >= e->y && py < e->y + TILE) {
+        if (px >= e->x && px < e->x + e->cw &&
+            py >= e->y && py < e->y + e->ch) {
             /* Some NPCs are holding something for you. The first time you
              * talk they hand it over (their `dialog` is the line that does
              * it); after that they fall back to `after`. We reuse the
@@ -917,7 +952,7 @@ static void try_talk(void)
                 G.boons_done |= (uint16_t)(1u << G.map_id);
                 G.boon_ent = -1;
                 audio_sfx(SFX_PICKUP);
-                dialog_start(boon_line(kind));
+                dialog_start(boon_line(e->dialog, kind));
                 return;
             }
 
@@ -1156,6 +1191,14 @@ void overworld_render(void)
                 spr = ((G.frame / 20) % 2) ? sp->spr1 : sp->spr0;
                 bob = (int)(((G.frame + (uint32_t)i * 7) / 16) % 2);
             }
+        } else if (e->kind == LOOK_VAN) {
+            /* IT IS A VAN. Drawn from the 32x32 cutscene art at VAN_SCALE, so
+             * it's four tiles across and actually looks like something a man
+             * could drive to the city -- not a toy. Its collision box (cw/ch)
+             * matches this exactly, so it's solid all the way across. */
+            gfx_blit_ex(van_big[0], VAN_W, VAN_H,
+                        e->x - cx, e->y - cy, VAN_SCALE, 256, 0);
+            continue;
         } else {
             const npc_look_t *lk = &npc_looks[e->kind];
             spr = ((G.frame / 45) % 2) ? lk->spr1 : lk->spr0;
@@ -1422,12 +1465,20 @@ void dialog_update(void)
     if (G.t % 2 == 0 && G.dialog_shown < total)
         G.dialog_shown++;
 
+    /* YOU CANNOT RUSH IT.
+     *
+     * A used to fast-forward the typewriter, which meant a player mashing the
+     * button -- and everyone mashes the button -- blew straight through every
+     * word in the game without reading one of them. The button does nothing
+     * until the page has finished typing itself out. Then, and only then, it
+     * turns the page. */
+    if (G.dialog_shown < total)
+        return;
+
     if (!PRESSED(BTN_A) && !PRESSED(BTN_B))
         return;
 
-    if (G.dialog_shown < total) {
-        G.dialog_shown = total;        /* impatient: show the whole page */
-    } else if (more) {
+    if (more) {
         G.dialog_page  = next;         /* turn the page */
         G.dialog_shown = 0;
         audio_sfx(SFX_BLIP);

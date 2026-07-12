@@ -197,7 +197,8 @@ what you've actually found, so it never spoils an item you haven't met.
 
 **🎁 The kindness of strangers** — on every map, exactly **one** person is holding
 something for you, drawn at random when you walk in. You won't know who until you talk
-to them. Resets on the day clock, so you can't farm it by door-scumming.
+to them. They still say **their own written line first** — a random gift never costs you
+a piece of the story. Resets on the day clock, so you can't farm it by door-scumming.
 
 **💀 Death costs you.** Lose 50% of your XP.
 
@@ -207,6 +208,13 @@ gone. Then the sun comes up and they've dug their way back out. Bosses die once,
 **🎬 Scary cutscenes** — a creeping intro (a light in the sky, a face that lunges once,
 words in the static you almost don't read), and a driving sequence down a night highway
 that ends the way you know it ends.
+
+**📖 You cannot mash through the words.** A does nothing until a page has finished typing
+itself out — *then* it turns the page. Everyone mashes the confirm button, and the game
+used to let them blow through every line in it without reading one. Battle text has a
+minimum time on screen for the same reason (`MSG_MIN_TICKS`), and the intro skips on
+**START only**, never on A. The prompt in the corner appears exactly when the button
+starts working, so the game never lies about what it's listening for.
 
 **💾 Save games, a pause menu, an options screen** — separate music/SFX volume, fullscreen,
 gamepad settings. All of it persists.
@@ -298,6 +306,8 @@ in a browser), **the window**, **gamepads**, **rumble**. Each is a tiny protocol
 | 🌗 Day/night length, night darkness, lamp radius | `DAY_LEN_TICKS` etc. in [config.h](src/game/config.h) |
 | 🔫 How many shells an enemy takes in the field | `ow_hits` in `species[]`, [assets.c](src/game/assets.c) |
 | 🐜 Ant-hill spawn rate, TNT damage, boss chase speed | [config.h](src/game/config.h) |
+| 📖 How long battle text must stay up before A works | `MSG_MIN_TICKS` in [config.h](src/game/config.h) |
+| 🚐 How big the van is in the overworld | `VAN_SCALE` in [assets.h](src/game/assets.h) |
 | 👹 Add an enemy species / NPC look | recipe: "THE CAST" in [assets.h](src/game/assets.h) · tables in [assets.c](src/game/assets.c) |
 | 🎒 Add an item | recipe: "THE ITEMS" in [assets.h](src/game/assets.h) |
 | 🗣️ Add an NPC + dialog, place enemies, drop items | spawn lists in [assets/maps.h](src/game/assets/maps.h) |
