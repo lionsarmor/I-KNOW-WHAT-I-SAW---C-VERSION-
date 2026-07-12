@@ -19,9 +19,10 @@ make run
 **Controls** — arrows/WASD move · `Z`/space = **A** · `X` = **B** · `Enter` = **START**
 `Esc` = pause menu · `F11` / `Alt+Enter` = fullscreen
 
-🎮 **Gamepads just work.** Xbox, Switch Pro, DualShock, no-name USB — plug one in
-mid-game and it's picked up automatically. `OPTIONS → CONTROLS` shows what's
-connected, and lets you swap A/B and toggle rumble.
+🎮 **Gamepads just work.** Plug one in mid-game and it's picked up automatically —
+`OPTIONS → CONTROLS` shows what's connected, and lets you swap A/B and toggle rumble.
+✅ **Tested on a real Nintendo Switch Pro controller.** Xbox, DualShock and no-name
+USB pads go through the same SDL layer, so they should behave identically.
 
 ---
 
@@ -311,8 +312,6 @@ The core needs **~92 KB of RAM** (77 KB framebuffer + decoded art + game state) 
 
 - 🪟 The Windows `.exe` cross-compiles and links cleanly, but **has not been run on an
   actual Windows machine** yet.
-- 🎮 Gamepad support is written and the menus work, but **no physical pad has been
-  pressed** — it needs a human with an Xbox or Switch Pro controller.
 - 🔌 The ESP32 build has **never been flashed to real hardware**.
 - 🔊 The handheld doesn't persist its volume settings yet (its NVS store is right there).
 - 📖 Part 1 doesn't exist. `CONTINUE` at END OF PROLOGUE starts you over.

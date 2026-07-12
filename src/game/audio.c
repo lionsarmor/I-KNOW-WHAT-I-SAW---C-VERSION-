@@ -42,6 +42,15 @@ static const instr_t instruments[NUM_INSTR] = {
     /* The long low one that never resolves. */
     [INS_DRONE] = { W_TRI,     50, 60, 190, 100, 130,  6,  4,    0 },
 
+    /* THE BEAM. A sawtooth is the right ugly, buzzing, irradiated shape --
+     * and then the vibrato is turned up until the note simply will not hold
+     * still. This is not a siren (a siren is a warning, and warnings are for
+     * people who can still do something). It just WAVERS at you. */
+    [INS_WARBLE]= { W_SAW,    30,   0, 255,  40, 165, 12, 60,   0 },
+
+    /* Broadband hiss under it: the sound of the air being wrong. */
+    [INS_WASH]  = { W_NOISE,  60,   0, 140,  50,  55,  0,  0,   0 },
+
     /* DRUMS. The pitch falling off a cliff is what your ear hears as a HIT
      * rather than a tone -- that's what the big negative slide is doing. */
     [INS_KICK]  = { W_TRI,     0,  16,   0,   2, 255,  0,  0, -900 },
@@ -314,6 +323,33 @@ static const track_t drive_tracks[] = {
     { drive_hat,   sizeof drive_hat   / sizeof(ev_t) },
 };
 
+/* ---- THE BEAM. -------------------------------------------------------------
+ * The van is off the ground. This is what that sounds like.
+ *
+ * A warbling tone that climbs -- and it climbs by SEMITONES, not by anything
+ * you could sing, so it never arrives anywhere. Under it a drone that rises
+ * with it, and a wash of noise that is just the air being wrong. It loops,
+ * and every loop is a little higher, and it does not stop until the white.
+ */
+static const ev_t beam_warble[] = {
+    { NOTE(N_E,5),  INS_WARBLE, 4 }, { NOTE(N_F,5),  INS_WARBLE, 4 },
+    { NOTE(N_FS,5), INS_WARBLE, 4 }, { NOTE(N_G,5),  INS_WARBLE, 4 },
+    { NOTE(N_GS,5), INS_WARBLE, 6 }, { NOTE(N_A,5),  INS_WARBLE, 6 },
+    { NOTE(N_AS,5), INS_WARBLE, 8 },
+};
+static const ev_t beam_drone[] = {
+    { NOTE(N_A,1),  INS_DRONE, 12 }, { NOTE(N_AS,1), INS_DRONE, 12 },
+    { NOTE(N_B,1),  INS_DRONE, 12 },
+};
+static const ev_t beam_hiss[] = {
+    { NOTE(N_C,6),  INS_WASH, 36 },
+};
+static const track_t beam_tracks[] = {
+    { beam_warble, sizeof beam_warble / sizeof(ev_t) },
+    { beam_drone,  sizeof beam_drone  / sizeof(ev_t) },
+    { beam_hiss,   sizeof beam_hiss   / sizeof(ev_t) },
+};
+
 /* ---- END OF PROLOGUE: low, slow, and it lands on the wrong note. --------- */
 static const ev_t prologue_lead[] = {
     { NOTE(N_A,3), INS_PAD, 16 }, { NOTE(N_E,3), INS_PAD, 16 },
@@ -341,6 +377,7 @@ static const song_t song_table[NUM_MUSIC] = {
     [MUSIC_BATTLE]   = { battle_tracks,   3, 20, 1 },   /* fast. urgent. */
     [MUSIC_BOSS]     = { boss_tracks,     4, 26, 1 },   /* heavy. slower. */
     [MUSIC_DRIVE]    = { drive_tracks,    3, 24, 1 },
+    [MUSIC_BEAM]     = { beam_tracks,     3, 26, 1 },
     [MUSIC_PROLOGUE] = { prologue_tracks, 2, 55, 1 },
 };
 

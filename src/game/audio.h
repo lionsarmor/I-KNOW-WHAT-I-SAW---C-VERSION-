@@ -69,6 +69,8 @@ enum {
     INS_ARP,       /* short plucks                               */
     INS_STAB,      /* saw. brass. it accuses you.                */
     INS_DRONE,     /* very long, very low, does not resolve      */
+    INS_WARBLE,    /* a tone that will not hold still. the beam. */
+    INS_WASH,      /* a hiss you feel more than hear             */
     INS_KICK,      /* pitch falls off a cliff = a thump          */
     INS_SNARE,     /* noise with a body                          */
     INS_HAT,       /* noise, gone almost before it arrives       */
@@ -125,6 +127,7 @@ enum {
     MUSIC_BATTLE,     /* a fight. driving, urgent, nasty.           */
     MUSIC_BOSS,       /* a fight you are probably going to lose.    */
     MUSIC_DRIVE,      /* the highway at night                       */
+    MUSIC_BEAM,       /* THE BEAM. it has you. it is not a siren.   */
     MUSIC_PROLOGUE,   /* END OF PROLOGUE                            */
     NUM_MUSIC
 };

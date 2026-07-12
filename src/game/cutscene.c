@@ -29,6 +29,10 @@
 /* the horizon: everything above is sky, below is road */
 #define HORIZON 70
 
+/* How far the van climbs before the white. Tuned against the saucer's final
+ * position so the two never overlap -- see the note in drive_render(). */
+#define LIFT_PX 34
+
 /* deterministic sparkle for the stars -- not the game rng */
 static uint32_t sn = 0x51ED270Bu;
 static uint32_t snoise(void)
@@ -51,6 +55,13 @@ void drive_update(void)
 
     if (G.drive_t == DRIVE_SWOOP)
         audio_sfx(SFX_STING);
+
+    /* The road goes green. The tyre-hum of the highway stops dead and THIS
+     * takes over -- a tone that will not hold still, climbing by semitones,
+     * arriving nowhere. It plays right through the lift and into the white. */
+    if (G.drive_t == DRIVE_BEAM)
+        audio_music(MUSIC_BEAM);
+
     if (G.drive_t == DRIVE_LIFT)
         audio_sfx(SFX_HURT);
 
@@ -61,6 +72,28 @@ void drive_update(void)
         G.state   = ST_PROLOGUE;
         G.t       = 0;
     }
+}
+
+/* ADD light to a pixel instead of replacing it.
+ *
+ * gfx_pixel() overwrites, which is right for sprites and wrong for a BEAM:
+ * an opaque triangle of green would simply erase the van it is supposed to
+ * be lifting. Light adds. So the van stays there, lit sick green from above,
+ * and you watch it leave the road. */
+static void glow_pixel(int x, int y, uint16_t col, int a)
+{
+    if (x < 0 || y < 0 || x >= SCREEN_W || y >= SCREEN_H || a <= 0)
+        return;
+    if (a > 256) a = 256;
+
+    uint16_t p = gfx_fb[y * SCREEN_W + x];
+    int r = ((p >> 11) & 0x1F) + ((((col >> 11) & 0x1F) * a) >> 8);
+    int g = ((p >>  5) & 0x3F) + ((((col >>  5) & 0x3F) * a) >> 8);
+    int b = ( p        & 0x1F) + ((( col        & 0x1F) * a) >> 8);
+    if (r > 31) r = 31;
+    if (g > 63) g = 63;
+    if (b > 31) b = 31;
+    gfx_fb[y * SCREEN_W + x] = (uint16_t)((r << 11) | (g << 5) | b);
 }
 
 /* how far down the saucer has come: 0 at SWOOP, 256 by LIFT */
@@ -177,9 +210,15 @@ void drive_render(void)
     vx += ((t / 4) % 2) ? 1 : 0;
     vy += ((t / 6) % 2) ? 1 : 0;
 
-    /* ...and then the ground lets go of it */
+    /* ...and then the ground lets go of it.
+     *
+     * It only climbs LIFT_PX. It has to stop short of the saucer: if it goes
+     * far enough to reach the thing lifting it, the saucer sprite simply
+     * draws over the top of it and the shot becomes a picture of a saucer.
+     * The van has to stay BELOW, hanging in the beam, with green either side
+     * of it -- that's the image. */
     if (t >= DRIVE_LIFT) {
-        int lift = (t - DRIVE_LIFT) * 64 / (DRIVE_BAM - DRIVE_LIFT);
+        int lift = (t - DRIVE_LIFT) * LIFT_PX / (DRIVE_BAM - DRIVE_LIFT);
         vy -= lift;
         vx += ((t / 2) % 2) ? 3 : -3;        /* and it swings, badly */
     }
@@ -198,8 +237,11 @@ void drive_render(void)
         int bright = 90;
 
         if (t >= DRIVE_SWOOP) {
-            scale  = 1 + prog * 3 / 256;     /* 1 -> 4 */
-            gy     = 10 + prog * 26 / 256;
+            scale  = 1 + prog * 3 / 256;     /* 1 -> 4: it looms */
+            /* Its TOP rides up as it grows, so its BOTTOM edge lands around
+             * y=60 -- low enough to feel on top of you, high enough to leave
+             * the van room to hang under it in the beam. */
+            gy     = 10 - prog * 14 / 256;
             bright = 150 + prog * 106 / 256;
         } else if (t >= DRIVE_FOLLOW) {
             scale  = 2;
@@ -228,27 +270,61 @@ void drive_render(void)
         int ufo = ((t / 6) % 2) ? SPR_UFO_1 : SPR_UFO;
         gfx_blit_ex(sprites[ufo].px, TILE, TILE, gx, gy, scale, bright, 0);
 
-        /* ---- THE BEAM ---------------------------------------------------*/
+        /* ---- THE BEAM -------------------------------------------------------
+         * RADIOACTIVE GREEN. Not a spotlight -- a column of something that
+         * is bad for you. It's built from three colours across its width:
+         * a near-white core that's too bright to look at, sick green either
+         * side of it, and a deep irradiated edge that bleeds into the dark.
+         *
+         * And it does not sit still. Bands of brightness CRAWL UP it (the
+         * `scan` term below), so the beam always looks like it is pulling.
+         */
         if (t >= DRIVE_BEAM) {
             int b = 256 * (t - DRIVE_BEAM) / (DRIVE_BAM - DRIVE_BEAM);
             int top = gy + 12 * scale;
             int cx  = SCREEN_W / 2;
+            int hgt = SCREEN_H - top;
+            if (hgt < 1) hgt = 1;
+
             for (int y = top; y < SCREEN_H; y++) {
                 /* a CONE: narrow at the saucer, and it swallows the road */
-                int half = (7 + (y - top) * 52 / (SCREEN_H - top)) * b / 256;
+                int half = (7 + (y - top) * 52 / hgt) * b / 256;
                 if (half < 1)
                     continue;
-                /* brightest in the middle of the shaft, softer at the edges */
+
+                /* bands crawling UP the shaft. This is the whole difference
+                 * between a beam and a triangle of paint. */
+                int scan = 210 + 46 * (((y * 3 - (int)t * 5) & 31) < 12);
+
                 for (int x = cx - half; x <= cx + half; x++) {
                     int off  = (x > cx) ? (x - cx) : (cx - x);
                     int edge = 256 - (off * 200 / (half ? half : 1));
-                    int a    = (90 + (y - top) * 130 / (SCREEN_H - top));
-                    a = a * b / 256 * edge / 256;
+                    int a    = (90 + (y - top) * 130 / hgt);
+                    a = a * b / 256 * edge / 256 * scan / 256;
                     if (a < 6)
                         continue;
-                    gfx_pixel(x, y, gfx_dim(RGB565(200, 248, 255), a));
+
+                    /* colour by how far across the shaft we are */
+                    int q = off * 256 / (half ? half : 1);   /* 0 core .. 256 */
+                    uint16_t col = (q <  70) ? RGB565(225, 255, 190)  /* core  */
+                                 : (q < 165) ? RGB565( 90, 255,  80)  /* green */
+                                             : RGB565( 20, 170,  40); /* edge  */
+                    glow_pixel(x, y, col, a);
                 }
             }
+
+            /* the pool it burns onto the tarmac, and the sick glow it throws
+             * back up onto the underside of the saucer */
+            int prad = 30 * b / 256;
+            for (int y = SCREEN_H - 14; y < SCREEN_H; y++)
+                for (int x = cx - prad * 2; x <= cx + prad * 2; x++) {
+                    int dx = (x - cx) / 2, dy = y - (SCREEN_H - 4);
+                    int d2 = dx * dx + dy * dy * 4;
+                    if (d2 > prad * prad || prad < 1)
+                        continue;
+                    int a = 150 - d2 * 150 / (prad * prad);
+                    glow_pixel(x, y, RGB565(120, 255, 110), a * b / 256);
+                }
         }
     }
 
