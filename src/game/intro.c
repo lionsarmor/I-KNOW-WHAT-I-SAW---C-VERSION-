@@ -189,12 +189,45 @@ void intro_render(void)
 
 /* ============================ TITLE SCREEN =================================*/
 
+/* The title menu. CONTINUE only exists if there's a save to continue, so the
+ * rows are built at run time rather than hard-coded -- ROW_* are what the
+ * chosen index MEANS, which is the only thing the rest of the code cares
+ * about. */
+enum { ROW_CONTINUE, ROW_NEWGAME, ROW_OPTIONS };
+
+static int title_rows(int *out)
+{
+    int n = 0;
+    if (G.has_save)
+        out[n++] = ROW_CONTINUE;
+    out[n++] = ROW_NEWGAME;
+    out[n++] = ROW_OPTIONS;
+    return n;
+}
+
+static const char *title_row_label(int row)
+{
+    switch (row) {
+    case ROW_CONTINUE: return "CONTINUE";
+    case ROW_NEWGAME:  return "NEW GAME";
+    default:           return "OPTIONS";
+    }
+}
+
 void title_update(void)
 {
-    /* With no save on disk there's nothing to choose: START just plays.
-     * With one, you get CONTINUE / NEW GAME. */
-    if (G.has_save && (PRESSED(BTN_UP) || PRESSED(BTN_DOWN))) {
-        G.title_sel ^= 1;
+    int rows[3];
+    int n = title_rows(rows);
+
+    if (G.title_sel >= n)
+        G.title_sel = 0;              /* a save appeared/vanished under us */
+
+    if (PRESSED(BTN_UP)) {
+        G.title_sel = (G.title_sel + n - 1) % n;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_DOWN)) {
+        G.title_sel = (G.title_sel + 1) % n;
         audio_sfx(SFX_BLIP);
     }
 
@@ -202,13 +235,490 @@ void title_update(void)
         return;
 
     audio_sfx(SFX_CONFIRM);
-    if (G.has_save && G.title_sel == 0) {
+    switch (rows[G.title_sel]) {
+    case ROW_CONTINUE:
         overworld_resume();          /* the save is already loaded into G */
         return;
+
+    case ROW_OPTIONS:
+        options_start(ST_TITLE);
+        return;
+
+    default:
+        /* reseed rng from how long the player dawdled -> unique run */
+        G.rng ^= (G.frame * 2654435761u) | 1u;
+        name_start();      /* who are you? then the game begins */
+        return;
     }
-    /* reseed rng from how long the player dawdled -> unique run */
-    G.rng ^= (G.frame * 2654435761u) | 1u;
-    name_start();          /* who are you? then the game begins */
+}
+
+/* ============================ OPTIONS ======================================
+ * One screen, and it stays playable on a d-pad and two buttons -- which is
+ * all the handheld has.
+ *
+ *   UP/DOWN     pick a row
+ *   LEFT/RIGHT  change it       (A also flips it, for one-button pads)
+ *   B / START   back to the title
+ *
+ * DISPLAY is the only setting so far. The core does NOT touch the window: it
+ * writes G.fullscreen, and the platform reads it through
+ * game_want_fullscreen() and makes the world match (see game.h).
+ */
+enum { OPT_DISPLAY, OPT_MUSIC, OPT_SFX, OPT_CONTROLS, OPT_BACK, NUM_OPTS };
+
+/* DISPLAY and CONTROLS only appear on a machine that HAS a resizable window
+ * and pads -- the platform declares each (game_enable_display_menu /
+ * game_enable_controls_menu). The handheld shows only the two volumes: its
+ * screen is 240x160 and always will be, and its buttons are soldered on. A
+ * menu row that does nothing when you press it is a lie. */
+static int opt_rows(int *out)
+{
+    int n = 0;
+    if (G.display_menu)
+        out[n++] = OPT_DISPLAY;
+    out[n++] = OPT_MUSIC;
+    out[n++] = OPT_SFX;
+    if (G.controls_menu)
+        out[n++] = OPT_CONTROLS;
+    out[n++] = OPT_BACK;
+    return n;
+}
+
+/* OPTIONS is reachable from the title AND from the pause screen (ESC), and
+ * it must go back to whichever one you came from -- if the music is too loud
+ * you should not have to quit the game to turn it down. */
+void options_start(int from)
+{
+    G.opt_from = from;
+    G.opt_sel  = 0;
+    G.state    = ST_OPTIONS;
+    G.t        = 0;
+}
+
+void options_update(void)
+{
+    int rows[NUM_OPTS];
+    int n = opt_rows(rows);
+    if (G.opt_sel >= n)
+        G.opt_sel = 0;
+
+    if (PRESSED(BTN_UP)) {
+        G.opt_sel = (G.opt_sel + n - 1) % n;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_DOWN)) {
+        G.opt_sel = (G.opt_sel + 1) % n;
+        audio_sfx(SFX_BLIP);
+    }
+
+    int leave = PRESSED(BTN_B) || PRESSED(BTN_START);
+    int row   = rows[G.opt_sel];
+    int dec   = PRESSED(BTN_LEFT);
+    int inc   = PRESSED(BTN_RIGHT);
+
+    switch (row) {
+    case OPT_DISPLAY:
+        if (dec || inc || PRESSED(BTN_A)) {
+            G.fullscreen = !G.fullscreen;   /* the platform picks this up */
+            audio_sfx(SFX_CONFIRM);
+        }
+        break;
+
+    case OPT_MUSIC:
+        if (dec || inc) {
+            game_set_music_volume(G.music_vol + (inc ? 1 : -1));
+            audio_sfx(SFX_BLIP);
+        }
+        break;
+
+    case OPT_SFX:
+        if (dec || inc) {
+            game_set_sfx_volume(G.sfx_vol + (inc ? 1 : -1));
+            /* play something AT the new level, so you're setting it by ear
+             * and not by looking at a bar */
+            audio_sfx(SFX_CONFIRM);
+        }
+        break;
+
+    case OPT_CONTROLS:
+        if (PRESSED(BTN_A)) {
+            audio_sfx(SFX_CONFIRM);
+            G.ctl_sel = 0;
+            G.state = ST_CONTROLS;
+            G.t = 0;
+            return;
+        }
+        break;
+
+    default:
+        if (PRESSED(BTN_A))
+            leave = 1;
+        break;
+    }
+
+    if (leave) {
+        audio_sfx(SFX_BLIP);
+        G.state = (state_t)(G.opt_from ? G.opt_from : ST_TITLE);
+        G.t = 0;
+    }
+}
+
+/* a 10-notch level meter. Filled notches are bright, empty ones are a dark
+ * outline, so the level reads at a glance without a number. */
+static void draw_meter(int x, int y, int val, int sel)
+{
+    for (int i = 0; i < VOL_STEPS; i++) {
+        int bx = x + i * 8;
+        int h  = 3 + i;                          /* it ramps up, like volume */
+        int by = y + 11 - h;
+        if (i < val)
+            gfx_fill_rect(bx, by, 6, h,
+                          sel ? RGB565(255, 200, 90) : RGB565(150, 120, 60));
+        else
+            gfx_rect(bx, by, 6, h, RGB565(70, 66, 74));
+    }
+}
+
+/* ============================ CONTROLS =====================================
+ * What's plugged in, and the two things about it worth arguing over.
+ *
+ * SDL's GameController layer already turns an Xbox pad, a Switch Pro pad and
+ * a PlayStation pad into the same buttons -- so there is nothing to remap and
+ * no per-brand code anywhere in this game. What it CAN'T decide for you is
+ * which button you think means "yes": Nintendo and Xbox put A and B in
+ * opposite corners, and people are religious about it. Hence SWAP A/B.
+ */
+enum { CTL_PAD, CTL_SWAP, CTL_RUMBLE, CTL_BACK, NUM_CTL };
+
+void controls_update(void)
+{
+    if (PRESSED(BTN_UP)) {
+        G.ctl_sel = (G.ctl_sel + NUM_CTL - 1) % NUM_CTL;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_DOWN)) {
+        G.ctl_sel = (G.ctl_sel + 1) % NUM_CTL;
+        audio_sfx(SFX_BLIP);
+    }
+
+    int flip = PRESSED(BTN_LEFT) || PRESSED(BTN_RIGHT) || PRESSED(BTN_A);
+    int leave = PRESSED(BTN_B) || PRESSED(BTN_START);
+
+    switch (G.ctl_sel) {
+    case CTL_SWAP:
+        if (flip) {
+            G.swap_ab = !G.swap_ab;      /* the platform reads this when it
+                                            maps the pad's buttons */
+            audio_sfx(SFX_CONFIRM);
+        }
+        break;
+    case CTL_RUMBLE:
+        if (flip) {
+            G.rumble_on = !G.rumble_on;
+            audio_sfx(SFX_CONFIRM);
+            if (G.rumble_on)
+                rumble(200);             /* so you can feel what you turned on */
+        }
+        break;
+    case CTL_BACK:
+        if (PRESSED(BTN_A))
+            leave = 1;
+        break;
+    default:
+        break;                           /* CTL_PAD is just a readout */
+    }
+
+    if (leave) {
+        audio_sfx(SFX_BLIP);
+        G.opt_sel = 0;
+        G.state = ST_OPTIONS;
+        G.t = 0;
+    }
+}
+
+void controls_render(void)
+{
+    gfx_clear(0);
+    gfx_blit_ex(face_big, FACE_W, FACE_H, (SCREEN_W - FACE_W * 4) / 2, 8,
+                4, 40, 0);
+
+    const char *t = "CONTROLS";
+    gfx_text_ex((SCREEN_W - gfx_text_width(t, 2)) / 2, 16, t,
+                RGB565(216, 40, 32), 2);
+
+    uint16_t on   = RGB565(255, 255, 255);
+    uint16_t off  = RGB565(120, 120, 128);
+    uint16_t val  = RGB565(255, 200, 90);
+
+    static const char *label[NUM_CTL] = { "GAMEPAD", "SWAP A/B", "RUMBLE",
+                                          "BACK" };
+    for (int i = 0; i < NUM_CTL; i++) {
+        int y = 54 + i * 18;
+        int sel = (i == G.ctl_sel);
+        gfx_text(24, y, label[i], sel ? on : off);
+        if (sel)
+            gfx_cursor(12, y, G.frame);
+
+        const char *v = 0;
+        if (i == CTL_PAD)
+            v = G.pad_name[0] ? G.pad_name : "NONE - KEYBOARD";
+        else if (i == CTL_SWAP)
+            v = G.swap_ab ? "ON" : "OFF";
+        else if (i == CTL_RUMBLE)
+            v = G.rumble_on ? "ON" : "OFF";
+        if (!v)
+            continue;
+
+        /* the pad's name can be long, so it gets the small font */
+        if (i == CTL_PAD) {
+            int vx = SCREEN_W - 16 - gfx_text_small_width(v);
+            gfx_text_small_outlined(vx, y + 2, v,
+                                    G.pad_name[0] ? val : off);
+        } else {
+            int vx = SCREEN_W - 16 - gfx_text_width(v, 1);
+            gfx_text(vx, y, v, sel ? val : off);
+        }
+    }
+
+    const char *hint = G.pad_name[0]
+        ? "LEFT/RIGHT CHANGE   B: BACK"
+        : "PLUG IN A PAD - IT IS FOUND AUTOMATICALLY";
+    gfx_text_small_outlined(
+        (SCREEN_W - gfx_text_small_width(hint)) / 2, 142, hint,
+        RGB565(150, 150, 160));
+
+    draw_static(10, 110);
+}
+
+void options_render(void)
+{
+    gfx_clear(0);
+
+    /* the face is still back there, watching you fiddle with the settings */
+    gfx_blit_ex(face_big, FACE_W, FACE_H, (SCREEN_W - FACE_W * 4) / 2, 8,
+                4, 40, 0);
+
+    const char *title = "OPTIONS";
+    gfx_text_ex((SCREEN_W - gfx_text_width(title, 2)) / 2, 20, title,
+                RGB565(216, 40, 32), 2);
+
+    uint16_t on  = RGB565(255, 255, 255);
+    uint16_t off = RGB565(120, 120, 128);
+
+    int rows[NUM_OPTS];
+    int n = opt_rows(rows);
+
+    for (int i = 0; i < n; i++) {
+        int y   = 46 + i * 18;
+        int sel = (i == G.opt_sel);
+
+        static const char *label[NUM_OPTS] = {
+            "DISPLAY", "MUSIC", "SOUND", "CONTROLS", "BACK"
+        };
+        gfx_text(20, y, label[rows[i]], sel ? on : off);
+        if (sel)
+            gfx_cursor(8, y, G.frame);
+
+        if (rows[i] == OPT_DISPLAY) {
+            const char *val = G.fullscreen ? "FULLSCREEN" : "WINDOW";
+            int vx = SCREEN_W - 18 - gfx_text_width(val, 1);
+            gfx_text(vx, y, val, sel ? RGB565(255, 200, 90) : off);
+            if (sel) {
+                gfx_text(vx - 10, y, "-", on);
+                gfx_text(vx + gfx_text_width(val, 1) + 2, y, "-", on);
+            }
+        } else if (rows[i] == OPT_MUSIC) {
+            draw_meter(SCREEN_W - 18 - VOL_STEPS * 8, y - 2, G.music_vol, sel);
+        } else if (rows[i] == OPT_SFX) {
+            draw_meter(SCREEN_W - 18 - VOL_STEPS * 8, y - 2, G.sfx_vol, sel);
+        }
+    }
+
+    const char *hint = "LEFT/RIGHT CHANGE   B: BACK";
+    gfx_text_small_outlined(
+        (SCREEN_W - gfx_text_small_width(hint)) / 2, 146, hint,
+        RGB565(150, 150, 160));
+
+    draw_static(10, 110);
+}
+
+/* ============================ THE PAUSE SCREEN =============================
+ * ESC. The world stops but it does not go away -- it's still there behind
+ * the panel, dimmed and crawling with static, and it is still watching you.
+ *
+ *   SAVE AND QUIT   writes the save, and leaves only once it has LANDED
+ *   QUIT            leaves now, and loses everything since the last save
+ *   CANCEL          back to exactly where you were
+ *
+ * SAVE AND QUIT is greyed out anywhere the save wouldn't mean anything --
+ * the title, the intro, a cutscene, mid-battle.
+ */
+enum { PZ_SAVEQUIT, PZ_OPTIONS, PZ_QUIT, PZ_CANCEL, NUM_PZ };
+
+/* Is there a game worth saving right now? The save blob records the world
+ * and the player, not a menu or a battle turn -- so these are the moments
+ * where writing it and reloading it would put you back where you were. */
+static int pause_can_save(void)
+{
+    return G.pause_from == ST_OVERWORLD ||
+           G.pause_from == ST_DIALOG    ||
+           G.pause_from == ST_PACK;
+}
+
+static void pause_leave(void)
+{
+    G.state = (state_t)G.pause_from;
+    G.t     = 0;
+}
+
+void pause_update(void)
+{
+    /* while a SAVE AND QUIT is in flight, the menu is not interactive --
+     * the platform is writing bytes and will call game_save_done() */
+    if (G.quit_after_save || G.quit_pending)
+        return;
+
+    if (PRESSED(BTN_UP)) {
+        G.pause_sel = (G.pause_sel + NUM_PZ - 1) % NUM_PZ;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_DOWN)) {
+        G.pause_sel = (G.pause_sel + 1) % NUM_PZ;
+        audio_sfx(SFX_BLIP);
+    }
+
+    /* B backs out, same as CANCEL -- ESC again does too, via the platform
+     * calling game_request_quit() while we're already here (it no-ops), so
+     * B and START are the ways back. */
+    if (PRESSED(BTN_B) || PRESSED(BTN_START)) {
+        audio_sfx(SFX_BLIP);
+        pause_leave();
+        return;
+    }
+
+    if (!PRESSED(BTN_A))
+        return;
+
+    switch (G.pause_sel) {
+    case PZ_OPTIONS:
+        /* ...and it comes BACK here when you're done, not to the title. */
+        audio_sfx(SFX_CONFIRM);
+        options_start(ST_PAUSE);
+        return;
+
+    case PZ_SAVEQUIT:
+        if (!pause_can_save()) {
+            audio_sfx(SFX_BLIP);        /* nothing here worth writing */
+            return;
+        }
+        /* Raise the ordinary save flag. The platform writes the bytes and
+         * calls game_save_done(), which is where we actually leave. */
+        G.save_pending    = 1;
+        G.quit_after_save = 1;
+        G.pause_msg       = "SAVING...";
+        audio_sfx(SFX_CONFIRM);
+        return;
+
+    case PZ_QUIT:
+        audio_sfx(SFX_CONFIRM);
+        G.quit_pending = 1;
+        return;
+
+    default:
+        audio_sfx(SFX_BLIP);
+        pause_leave();
+        return;
+    }
+}
+
+/* The world, still there, dimmed under scanlines and a vignette. This is
+ * what makes it feel like a pause and not a screen change: you can still
+ * see where you were standing. */
+static void pause_veil(void)
+{
+    for (int y = 0; y < SCREEN_H; y++) {
+        /* every other line is darker -- a CRT that isn't coping */
+        int base = (y & 1) ? 58 : 96;
+        for (int x = 0; x < SCREEN_W; x++) {
+            /* vignette: the corners fall away into nothing */
+            int dx = x - SCREEN_W / 2, dy = y - SCREEN_H / 2;
+            int vig = 256 - (dx * dx + dy * dy) / 90;
+            if (vig < 70) vig = 70;
+
+            uint16_t *p = &gfx_fb[y * SCREEN_W + x];
+            *p = gfx_dim(*p, base * vig / 256);
+        }
+    }
+}
+
+void pause_render(void)
+{
+    /* the frozen world, drawn but NOT advanced (see render_scene) */
+    render_scene(G.pause_from);
+    pause_veil();
+    draw_static(70, 150);            /* and the signal is getting worse */
+
+    /* ---- the panel ------------------------------------------------------ */
+    const int pw = 172, ph = 106;
+    const int px = (SCREEN_W - pw) / 2, py = 22;
+
+    gfx_fill_rect(px, py, pw, ph, RGB565(10, 8, 12));
+
+    /* a border that flickers like the title's dying neon */
+    uint16_t edge = (G.frame % 190 < 3) ? RGB565(90, 16, 12)
+                                        : RGB565(200, 36, 30);
+    gfx_rect(px, py, pw, ph, edge);
+    gfx_rect(px + 2, py + 2, pw - 4, ph - 4, RGB565(40, 10, 10));
+
+    /* corner ticks -- the frame of something being LOOKED AT */
+    for (int i = 0; i < 2; i++) {
+        int cx = i ? px + pw - 7 : px + 1;
+        for (int j = 0; j < 2; j++) {
+            int cy = j ? py + ph - 7 : py + 1;
+            gfx_fill_rect(cx, cy, 6, 1, RGB565(255, 220, 200));
+            gfx_fill_rect(i ? cx + 5 : cx, cy, 1, 6, RGB565(255, 220, 200));
+        }
+    }
+
+    /* ---- the title, and the seam under it -------------------------------- */
+    const char *ttl = "PAUSED";
+    gfx_text((SCREEN_W - gfx_text_width(ttl, 1)) / 2, py + 10, ttl,
+             RGB565(230, 220, 220));
+    gfx_fill_rect(px + 14, py + 22, pw - 28, 1, RGB565(70, 18, 16));
+
+    /* ---- the rows -------------------------------------------------------- */
+    static const char *row[NUM_PZ] = {
+        "SAVE AND QUIT", "OPTIONS", "QUIT", "CANCEL"
+    };
+    int savable = pause_can_save();
+    int busy    = G.quit_after_save || G.quit_pending;
+
+    for (int i = 0; i < NUM_PZ; i++) {
+        int y = py + 32 + i * 14;
+        int dead = (i == PZ_SAVEQUIT && !savable) || busy;
+        uint16_t col = dead                 ? RGB565(80, 76, 84)
+                     : (i == G.pause_sel)   ? RGB565(255, 255, 255)
+                                            : RGB565(140, 138, 146);
+        /* QUIT is the one that costs you something. It reads hot. */
+        if (!dead && i == PZ_QUIT && i == G.pause_sel)
+            col = RGB565(255, 120, 90);
+
+        gfx_text(px + 30, y, row[i], col);
+        if (i == G.pause_sel && !busy)
+            gfx_cursor(px + 18, y, G.frame);
+    }
+
+    /* ---- the footer: a warning, or whatever just went wrong -------------- */
+    const char *foot = G.pause_msg;
+    if (!foot)
+        foot = (G.pause_sel == PZ_QUIT && !busy)
+             ? "UNSAVED PROGRESS WILL BE LOST"
+             : (!savable && G.pause_sel == PZ_SAVEQUIT)
+             ? "NOTHING TO SAVE YET"
+             : "";
+    if (foot[0])
+        gfx_text_small_outlined((SCREEN_W - gfx_text_small_width(foot)) / 2,
+                                py + ph - 12, foot, RGB565(210, 90, 70));
 }
 
 /* ============================ THE NAME SCREEN ==============================
@@ -406,22 +916,20 @@ void title_render(void)
     gfx_text_ex((SCREEN_W - gfx_text_width(l1, 2)) / 2, 44, l1, red, 2);
     gfx_text_ex((SCREEN_W - gfx_text_width(l2, 2)) / 2, 64, l2, red, 2);
 
-    if (G.has_save) {
-        /* someone has been here before */
-        static const char *opt[2] = { "CONTINUE", "NEW GAME" };
-        for (int i = 0; i < 2; i++) {
-            int ox = (SCREEN_W - gfx_text_width(opt[i], 1)) / 2;
-            gfx_text(ox, 106 + i * 14, opt[i],
-                     (i == G.title_sel) ? RGB565(255, 255, 255)
-                                        : RGB565(120, 120, 128));
-            if (i == G.title_sel)
-                gfx_cursor(ox - 12, 106 + i * 14, G.frame);
-        }
-    } else if (G.t % 60 < 40) {
-        /* blinking prompt (on 40 ticks, off 20) */
-        const char *p = "PRESS START!";
-        gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 108, p,
-                 RGB565(255, 255, 255));
+    /* the menu: CONTINUE (only if there's a save), NEW GAME, OPTIONS.
+     * Bottom-aligned so it doesn't jump when CONTINUE appears. */
+    int rows[3];
+    int n = title_rows(rows);
+    int top = 132 - n * 14;
+    for (int i = 0; i < n; i++) {
+        const char *label = title_row_label(rows[i]);
+        int ox = (SCREEN_W - gfx_text_width(label, 1)) / 2;
+        int oy = top + i * 14;
+        gfx_text(ox, oy, label,
+                 (i == G.title_sel) ? RGB565(255, 255, 255)
+                                    : RGB565(120, 120, 128));
+        if (i == G.title_sel)
+            gfx_cursor(ox - 12, oy, G.frame);
     }
 
     /* controls hint -- update this if you change the platform mappings */

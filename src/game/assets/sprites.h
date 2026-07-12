@@ -200,43 +200,128 @@ static const char *SPR_ART_FARMER_SIDE_2[16] = {
     ".....00.........",
 };
 
-/* ---- GIANT ANTS: mandibles, antennae, segmented bodies and six legs. ---- */
-static const char *SPR_ART_ALIEN_0[16] = {
-    "..0..........0..",
-    "...0..0000..0...",
-    "....00RRRR00....",
-    "...0RrRRRRrR0...",
-    "..0RR000000RR0..",
-    "..0R0m0RR0m0R0..",
-    "...0RRR00RRR0...",
-    "....00rrrr00....",
-    "..00..0RR0..00..",
-    ".0RR0.0RR0.0RR0.",
-    "0RR0..0RR0..0RR0",
+/* ---- THE GIANT ANTS ------------------------------------------------------
+ * Head, thorax, abdomen; six fanned legs; two antennae. FOUR DIRECTIONS,
+ * two frames each (the legs alternate, so they scuttle):
+ *
+ *   DOWN_0 DOWN_1  UP_0 UP_1  SIDE_0 SIDE_1     <- SIX CONSECUTIVE ids
+ *
+ * The renderer indexes them as spr0 + offset, so KEEP THEM IN THIS ORDER
+ * (see the `dirs` flag in species[], assets.c). Left-facing side art is
+ * mirrored for right, same trick as the farmer.
+ */
+static const char *SPR_ART_ANT_DOWN_0[16] = {
+    "......0000......",
     ".....0RRRR0.....",
-    "....0R0RR0R0....",
-    "...0R0.00.0R0...",
-    "..00......00....",
-    "................",
+    ".0..0RRrrRR0..0.",
+    "..0.0RRRRRR0.0..",
+    "...00RRRRRR00...",
+    "..0.00RRRR00.0..",
+    "..0..0RRRR0..0..",
+    "..0000RRRR0000..",
+    "00..00RRRR00..00",
+    "....00000000....",
+    "...0.0rRRr0.0...",
+    "..0.0R0RR0R0.0..",
+    "..0.0RRRRRR0.0..",
+    ".0...0RRRR0...0.",
+    "....0.0000.0....",
+    "....0......0....",
 };
 
-static const char *SPR_ART_ALIEN_1[16] = {
-    ".0............0.",
-    "..0....00....0..",
+static const char *SPR_ART_ANT_DOWN_1[16] = {
+    "......0000......",
+    ".....0RRRR0.....",
+    "....0RRrrRR0....",
+    ".0..0RRRRRR0..0.",
+    "..0.0RRRRRR0.0..",
+    "..0000RRRR0000..",
+    "..00.0RRRR0.00..",
+    "00..00RRRR00..00",
+    "....00RRRR00....",
+    "....00000000....",
+    "....00rRRr00....",
+    "...00R0RR0R00...",
+    "..0.0RRRRRR0.0..",
+    "..0..0RRRR0..0..",
+    ".0..0.0000.0..0.",
+    "....0......0....",
+};
+
+static const char *SPR_ART_ANT_UP_0[16] = {
+    "..0.0.0000.0.0..",
+    "..0..0RRRR0..0..",
+    ".0.00RRRRRR00.0.",
+    "..0.0RRRRRR0.0..",
+    "...000RRRR000...",
+    "....00RRRR00....",
+    ".....0RRRR0.....",
+    "..0000RRRR0000..",
+    "00...0RRRR0...00",
+    "....0.0000.0....",
     "...0.0RRRR0.0...",
-    "....0RrRRrR0....",
-    "...0RR0000RR0...",
-    "..0RR0m00m0RR0..",
-    "...0RRR00RRR0...",
-    "..00.0rrrr0.00..",
-    ".0RR00RRRR00RR0.",
-    "0RR0.0RRRR0.0RR0",
-    "....0RR00RR0....",
-    "...0RRRRRRRR0...",
-    "..0RR0RRRR0RR0..",
-    ".0R0..0RR0..0R0.",
-    "00....0..0....00",
+    "..0.0RRRRRR0.0..",
+    "..0.0RRRRRR0.0..",
+    ".0..0RRrrRR0..0.",
+    ".....0RRRR0.....",
+    "......0000......",
+};
+
+static const char *SPR_ART_ANT_UP_1[16] = {
+    "..0.0.0000.0.0..",
+    "...0.0RRRR0.0...",
+    "....0RRRRRR0....",
+    ".0..0RRRRRR0..0.",
+    "..0.00RRRR00.0..",
+    "...000RRRR000...",
+    "..00.0RRRR0.00..",
+    "00..00RRRR00..00",
+    ".....0RRRR0.....",
+    "....0.0000.0....",
+    "....00RRRR00....",
+    "...00RRRRRR00...",
+    "..0.0RRRRRR0.0..",
+    "..0.0RRrrRR0.0..",
+    ".0...0RRRR0...0.",
+    "......0000......",
+};
+
+static const char *SPR_ART_ANT_SIDE_0[16] = {
     "................",
+    ".0..............",
+    ".0..............",
+    "..0.........0...",
+    "..0.......00R00.",
+    "00.000...0RRRRR0",
+    "..0RrR000RRRRRRR",
+    ".0R0RRRRRRRRRRRR",
+    ".0RRRRRRRRRRRRR0",
+    "..0RRR0RRR00R00.",
+    "00.00000000.0...",
+    ".....0.0.0......",
+    ".....0.0.0......",
+    ".....0.0.0......",
+    "....0.0.0.......",
+    "....0.0.0.......",
+};
+
+static const char *SPR_ART_ANT_SIDE_1[16] = {
+    ".0..............",
+    ".0..............",
+    "..0.............",
+    "..0.........0...",
+    "...0......00R00.",
+    "00.000...0RRRRR0",
+    "..0RrR000RRRRRRR",
+    ".0R0RRRRRRRRRRRR",
+    ".0RRRRRRRRRRRRR0",
+    "..0RRR0RRR00R00.",
+    "00.00000000.0...",
+    "......00..0.....",
+    ".....0.0.0......",
+    ".....00..0......",
+    ".....00..0......",
+    "....0...0.......",
 };
 
 /* ---- INDIVIDUAL NPC LOOKS: each pair is a subtle idle sway. ------------- */
@@ -631,41 +716,41 @@ static const char *SPR_ART_ITEM_FLASHLIGHT[16] = {
  * much as arrive. Shotguns reportedly did nothing. We'll see.
  */
 static const char *SPR_ART_BOSS_0[16] = {
-    "................",
-    "0..............0",
-    "0V0..........0V0",
-    "0VV0........0VV0",
-    "0VVV0......0VVV0",
-    "0VVV0......0VVV0",
-    "0VVV00000000VVV0",
-    "0VVV0vvvvvv0VVV0",
-    "0VV00yyvvyy00VV0",
-    "0VV00y1vv1y00VV0",
+    ".0VV0.0000.0VV0.",
+    "0VVV00vvvv00VVV0",
+    "VVVV01yvv1y0VVVV",
+    "0VVV0yyvvyy0VVV0",
+    ".0VV0yyvvyy0VV0.",
+    "..000vv00vv000..",
+    ".....0vvvv0.....",
     "....0vvvvvv0....",
-    "....0v0000v0....",
-    "0v0.0vvvvvv0.0v0",
-    "0v00vvvvvvvv00v0",
-    ".0v0vvvvvvvv0v0.",
-    "..0V0v0..0v0V0..",
+    "...0v0vvvv0v0...",
+    "...0v0vvvv0v0...",
+    "...0v0vvvv0v0...",
+    "...0v0vvvv0v0...",
+    "...0v0v00v0v0...",
+    "..0v00v00v00v0..",
+    "..0v00v00v00v0..",
+    "...0.0v00v0.0...",
 };
 
 static const char *SPR_ART_BOSS_1[16] = {
-    "................",
-    "0..............0",
-    "0V0..........0V0",
-    "0VV0........0VV0",
-    "0VVV0......0VVV0",
-    "0VVVV0....0VVVV0",
-    "0VVV00000000VVV0",
-    "0VVV0vvvvvv0VVV0",
-    "0VV00y1vv1y00VV0",
-    "0VV00yyvvyy00VV0",
+    ".0VV0.0000.0VV0.",
+    "0VVV00vvvv00VVV0",
+    "VVVV01yvv1y0VVVV",
+    "0VVV0yyvvyy0VVV0",
+    ".0VV0yyvvyy0VV0.",
+    "..000vv00vv000..",
+    ".....0vvvv0.....",
     "....0vvvvvv0....",
-    "....0v0000v0....",
-    ".0v00vvvvvv00v0.",
-    "0v00vvvvvvvv00v0",
-    "0V0.vvvvvvvv.0V0",
-    "..0V0v0..0v0V0..",
+    "...0v0vvvv0v0...",
+    "...0v0vvvv0v0...",
+    "...0v0vvvv0v0...",
+    "...0v0vvvv0v0...",
+    "...0v0v00v0v0...",
+    "..0v00v00v00v0..",
+    "...0.0v00v0.0...",
+    ".....0v00v0.....",
 };
 
 /* ---- THE SHOTGUN, HELD AT THE READY -- worn over the shoulder, seen from
@@ -910,6 +995,656 @@ static const char *SPR_ART_ITEM_KEY[16] = {
     ".......0yy0.....",
     ".......000......",
     "................",
+};
+
+/* ---- THE TALL ONE ---------------------------------------------------------
+ * Witnesses never agree on the face. They agree on two things: the HEIGHT,
+ * and the ARMS -- they hang past the knees, and they are always the last
+ * thing anybody remembers. The eyes are red and they do not blink.
+ * It doesn't run at you. It is just closer every time you look.
+ */
+static const char *SPR_ART_TALL_0[16] = {
+    "......0aa0......",
+    ".....0aaaa0.....",
+    ".....0raar0.....",   /* the eyes. they do not blink. */
+    ".....0aaaa0.....",
+    "......0aa0......",   /* the neck is too long as well */
+    "...0..0aa0..0...",
+    "..0a00aaaa00a0..",
+    "..0a0aaaaaa0a0..",
+    "..0a0aaaaaa0a0..",
+    "..0a0aAaaAa0a0..",
+    "..0a0aaaaaa0a0..",
+    "..0a00aaaa00a0..",
+    "..0a0.0aa0.0a0..",   /* the hands hang well past the hips */
+    "...0..0aa0..0...",
+    "......0aa0......",
+    ".....0A00A0.....",
+};
+static const char *SPR_ART_TALL_1[16] = {
+    "......0aa0......",
+    ".....0aaaa0.....",
+    ".....0raar0.....",
+    ".....0aaaa0.....",
+    "......0aa0......",
+    "..0...0aa0...0..",
+    ".0a000aaaa000a0.",
+    ".0a0aaaaaaaa0a0.",
+    "..0a0aaaaaa0a0..",
+    "..0a0aAaaAa0a0..",
+    "...0aaaaaaaa0...",
+    "...0a0aaaa0a0...",
+    "...0a00aa00a0...",
+    "....0.0aa0.0....",
+    "......0aa0......",
+    ".....0A00A0.....",
+};
+
+/* ---- THE ANT HILL ---------------------------------------------------------
+ * A mound of turned earth with a hole in it. It does not move. Things come
+ * out of it. Frame 1 has more of them out, and the hole is wider.
+ */
+static const char *SPR_ART_ANTHILL_0[16] = {
+    "................",
+    "................",
+    "......0000......",
+    ".....0DDDD0.....",
+    "....0DDddDD0....",
+    "...0DD0000DD0...",
+    "...0Dd000000....",
+    "..0DDd00000d0...",
+    "..0DDDd000dDD0..",
+    ".0DDdDDddDDdDD0.",
+    ".0DdDDDDDDDDdD0.",
+    "0DDDDdDDDDdDDDD0",
+    "0DdDDDDDDDDDDdD0",
+    "0DDDDDDDDDDDDDD0",
+    ".00000000000000.",
+    "................",
+};
+static const char *SPR_ART_ANTHILL_1[16] = {
+    "................",
+    "...0R0......0R0.",
+    "..0R0.0000...R0.",
+    "...0.0DDDD0.....",
+    "....0DDddDD0....",
+    "...0DD0000DD0...",
+    "..0Dd0000000R0..",
+    "..0DDd00000dR0..",
+    ".0RDDDd000dDD0..",
+    ".0DDdDDddDDdDD0.",
+    "0RDdDDDDDDDDdD0.",
+    "0DDDDdDDDDdDDDD0",
+    "0DdDDDDDDDDDDdR0",
+    "0DDDDDDDDDDDDDD0",
+    ".00000000000000.",
+    "..0R0.......0R0.",
+};
+
+/* ---- THE MUTANT QUEEN -----------------------------------------------------
+ * Whatever the lights did to the ants, they did it to her first and they
+ * did it worst. She is bloated, she is wet, and she has WINGS -- ragged,
+ * useless-looking, and she is still faster than you. The pale 'y' is the
+ * egg sac. It moves on its own.
+ */
+static const char *SPR_ART_QUEEN_0[16] = {
+    "..0..0RRRR0..0..",
+    "...00RRrrRR00...",
+    "..0R0R1RR1R0R0..",
+    ".0RR0RRRRRR0RR0.",
+    "0aRR00RRRR00RRa0",
+    "0aaR0.0RR0.0Raa0",
+    ".0aa00RRRR00aa0.",
+    "..0a0RRRRRR0a0..",
+    "...0RRrRRrRR0...",
+    "..0RyyRRRRyyR0..",
+    ".0RyyyyRRyyyyR0.",
+    ".0RyyyyyyyyyyR0.",
+    "..0RyyyyyyyyR0..",
+    "...0RRyyyyRR0...",
+    "....0RR00RR0....",
+    ".....0000000....",
+};
+static const char *SPR_ART_QUEEN_1[16] = {
+    "0.0..0RRRR0..0.0",
+    ".0.00RRrrRR00.0.",
+    "..0R01RRRR1R0R..",
+    "0aa0RRRRRRRR0aa0",
+    "0aaR00RRRR00Raa0",
+    ".0aaR.0RR0.Raa0.",
+    "..0a00RRRR00a0..",
+    "...00RRRRRR00...",
+    "...0RRrRRrRR0...",
+    "..0RyyRRRRyyR0..",
+    ".0RyyyyRRyyyyR0.",
+    ".0Ryyy1yy1yyyR0.",
+    "..0RyyyyyyyyR0..",
+    "...0RRyyyyRR0...",
+    "...0RR0..0RR0...",
+    "..0.00....00.0..",
+};
+
+/* PA'S TNT. Three sticks, taped, with a fuse he cut short on purpose.
+ * It was for stumps. */
+static const char *SPR_ART_ITEM_TNT[16] = {
+    "................",
+    "..........0y0...",
+    ".........0y0....",
+    "........0y0.....",
+    ".......0y0......",
+    "......00000.....",
+    "....0rrrrrrr0...",
+    "....0rRrRrRr0...",
+    "....0rrrrrrr0...",
+    "....0KKKKKKK0...",
+    "....0rrrrrrr0...",
+    "....0rRrRrRr0...",
+    "....0rrrrrrr0...",
+    "....0KKKKKKK0...",
+    "....000000000...",
+    "................",
+};
+
+/* ============================ THE BESTIARY ================================
+ * Two frames each. Non-directional: these things face you.
+ * ==========================================================================*/
+
+/* DOVER DEMON -- Dover, Massachusetts, 1977. A watermelon head on a
+ * body like a coat-hanger, and two orange eyes that do not blink. */
+static const char *SPR_ART_DOVER_0[16] = {
+    ".......00.......",
+    ".....00ss00.....",
+    "....00000000....",
+    "....0yo00oy0....",
+    "....0oo00oo0....",
+    "....0oo00oo0....",
+    "....00000000....",
+    ".....000s00.....",
+    ".....0SSSS0.....",
+    "....0SSSSSS0....",
+    "...0S0SSSS0S0...",
+    "...0S0SSSS0S0...",
+    "..0S00S00S00S0..",
+    "..0S0S0..0S0S0..",
+    "...00S0..0S00...",
+    "....0S0..0S0....",
+};
+
+static const char *SPR_ART_DOVER_1[16] = {
+    ".......00.......",
+    ".....00ss00.....",
+    "....00000000....",
+    "....0yo00oy0....",
+    "....0oo00oo0....",
+    "....0oo00oo0....",
+    "....00000000....",
+    ".....000s00.....",
+    ".....0SSSS0.....",
+    "....0SSSSSS0....",
+    "...0S0SSSS0S0...",
+    "...0S0SSSS0S0...",
+    "..0S00S00S00S0..",
+    "..0S0S0..0S0S0..",
+    "..0S0S0..0S0S0..",
+    "...00S0..0S00...",
+};
+
+/* MOTHMAN -- Point Pleasant, 1966. Man-shaped, winged, and its eyes
+ * are not reflecting your light: they are MAKING it. */
+static const char *SPR_ART_MOTH_0[16] = {
+    "................",
+    ".00....00....00.",
+    "0KK00.0kk0.00KK0",
+    "KKKKK1rkkr1KKKK0",
+    "KKKKKrrkkrrKKKKK",
+    "KKKKK0kkkk0KKKKK",
+    "KKKKK0KKKK0KKKKK",
+    "0KKKK0KKKK0KKKK0",
+    ".00KK0KKKK0KK00.",
+    "...000KKKK000...",
+    ".....0KKKK0.....",
+    ".....0KKKK0.....",
+    ".....0K00K0.....",
+    ".....0K00K0.....",
+    ".....0K00K0.....",
+    ".....0K00K0.....",
+};
+
+static const char *SPR_ART_MOTH_1[16] = {
+    ".0............0.",
+    "0K0....00....0K0",
+    "KKK00.0kk0.00KK0",
+    "0KKKK1rkkr1KKKK0",
+    "KKKKKrrkkrrKKKKK",
+    "KKKKK0kkkk0KKKKK",
+    "KKKKK0KKKK0KKKKK",
+    "KKKKK0KKKK0KKKKK",
+    "00KKK0KKKK0KKK00",
+    "..0000KKKK0000..",
+    ".....0KKKK0.....",
+    ".....0KKKK0.....",
+    ".....0K00K0.....",
+    ".....0K00K0.....",
+    ".....0K00K0.....",
+    ".....0K00K0.....",
+};
+
+/* EL CHUPACABRA -- spined, upright, and it drains what it catches. */
+static const char *SPR_ART_CHUPA_0[16] = {
+    "................",
+    ".....0000.......",
+    "....0GGGG0......",
+    "..00GrGrGG0.....",
+    ".0GGGGGGGGg0....",
+    "..1G0GGGG00g0...",
+    "...10GGGGGG0g0..",
+    "...0GGGGGGGG0g0.",
+    "..0G0GGGGGG0G0..",
+    "..0G0GGGGGG0G0..",
+    ".0G00GGGGGG00G0.",
+    ".0G00GGGGGG00G0.",
+    "..0..0G00G0..0..",
+    "....0G0..0G0....",
+    "....0G0..0G0....",
+    "....0G0..0G0....",
+};
+
+static const char *SPR_ART_CHUPA_1[16] = {
+    "................",
+    ".....0000.......",
+    "....0GGGG0......",
+    "..00GrGrGG00....",
+    ".0GGGGGGGG0g0...",
+    "..1G0GGGG000g0..",
+    "...10GGGGGG00g0.",
+    "...0GGGGGGGG00g0",
+    "..0G0GGGGGG0G00.",
+    "..0G0GGGGGG0G0..",
+    ".0G00GGGGGG00G0.",
+    ".0G00GGGGGG00G0.",
+    ".0G0.0G00G0.0G0.",
+    "..0.0G0..0G0.0..",
+    "....0G0..0G0....",
+    "....0G0..0G0....",
+};
+
+/* THE GREY -- you already know what it looks like. Everyone does.
+ * That's the part that keeps you up. */
+static const char *SPR_ART_GREY_0[16] = {
+    "......0000......",
+    ".....0aaaa0.....",
+    "....0aaaaaa0....",
+    "....00aaaa00....",
+    "...0000aa0000...",
+    "....000aa000....",
+    "....0aaAAaa0....",
+    ".....0aaaa0.....",
+    ".....0aaaa0.....",
+    "....0aaaaaa0....",
+    "...0a0aaaa0a0...",
+    "...0a0aaaa0a0...",
+    "..0a00a00a00a0..",
+    "..0a00a00a00a0..",
+    "...0.0a00a0.0...",
+    ".....0a00a0.....",
+};
+
+static const char *SPR_ART_GREY_1[16] = {
+    "......0000......",
+    ".....0aaaa0.....",
+    "....0aaaaaa0....",
+    "....00aaaa00....",
+    "...0000aa0000...",
+    "....000aa000....",
+    "....0aaAAaa0....",
+    ".....0aaaa0.....",
+    ".....0aaaa0.....",
+    "....0aaaaaa0....",
+    "...0a0aaaa0a0...",
+    "...0a0aaaa0a0...",
+    "..0a00a00a00a0..",
+    "..0a00a00a00a0..",
+    "..0a00a00a00a0..",
+    "...0.0a00a0.0...",
+};
+
+/* REPTOID -- upright, scaled, patient. It has been here longer
+ * than you have. */
+static const char *SPR_ART_REPTOID_0[16] = {
+    ".......00.......",
+    "......0gg0......",
+    ".....0gggg0.....",
+    "...00yggggy0....",
+    "..01g0gggg00....",
+    "...010gggg0.....",
+    ".....0ygy0y0....",
+    "....0gGGGGg0....",
+    "...0gGGGGGGg0...",
+    "..0g0GGGGGG0g0..",
+    "..0g0GGGGGGGg0..",
+    ".0g00GGGGGG0GG0.",
+    ".0g00G0000G00gG0",
+    "..0.0G0..0G0.00G",
+    "....0G0..0G0..0G",
+    "....0G0..0G0...0",
+};
+
+static const char *SPR_ART_REPTOID_1[16] = {
+    ".......00.......",
+    "......0gg0......",
+    ".....0gggg0.....",
+    "...00yggggy0....",
+    "..01g0gggg00....",
+    "...010gggg0.....",
+    ".....0ygy0y0....",
+    "....0gGGGGg0....",
+    "...0gGGGGGGg0...",
+    "..0g0GGGGGG0g0..",
+    "..0g0GGGGGGGg0..",
+    ".0g00GGGGGG0GG0.",
+    ".0g00G0000G00gG0",
+    ".0g00G0..0G00g0G",
+    "..0.0G0..0G0.0.0",
+    "....0G0..0G0....",
+};
+
+/* THE LOCH NESS MONSTER -- a long neck, and far more underneath. */
+static const char *SPR_ART_NESSIE_0[16] = {
+    "................",
+    "..000...........",
+    ".0yGy0..........",
+    "0GGGGG0.........",
+    ".1GGG0..........",
+    "..0GG0..........",
+    "..0GG0..........",
+    "..0GG0..........",
+    ".00GG0..000...0.",
+    "0W0GG000GGG000W0",
+    ".00GGGGGGGGGGG0G",
+    "..0GGGGGGGGGGGG0",
+    "...0GGGGGGGGGG0.",
+    "...0GGGGGGGGGG0.",
+    "...0GGGGGGGGGG0.",
+    "....0000000000..",
+};
+
+static const char *SPR_ART_NESSIE_1[16] = {
+    "................",
+    "..000...........",
+    ".0yGy0..........",
+    "0GGGGG0.........",
+    ".1GGG0..........",
+    "..0GG0..........",
+    "..0GG0..........",
+    "..0GG0..000.....",
+    ".00GG000GGG00000",
+    "0W0GGGGGGGGGGGWG",
+    ".00GGGGGGGGGGGG0",
+    "..0GGGGGGGGGGGG0",
+    "...0GGGGGGGGGG0.",
+    "...0GGGGGGGGGG0.",
+    "...0GGGGGGGGGG0.",
+    "....0000000000..",
+};
+
+/* SASQUATCH -- eight feet of shoulders and a very small, very
+ * interested head. */
+static const char *SPR_ART_SQUATCH_0[16] = {
+    "................",
+    "......0000......",
+    ".....0DDDD0.....",
+    "....00yDDy00....",
+    "...0DDDddDDD0...",
+    "..0DDDDDDDDDD0..",
+    "..0DDDDDDDDDD0..",
+    ".0DDDDDDDDDDDD0.",
+    ".0DDDDDDDDDDDD0.",
+    "0D0DDDDDDDDDD0D0",
+    "0D0DDDDDDDDDD0D0",
+    "0D0DdDDDdDDDd0D0",
+    "0D000Dd00Dd000D0",
+    "0D0.0DD00DD0.0D0",
+    ".0..0DD00DD0..0.",
+    "....0DD00DD0....",
+};
+
+static const char *SPR_ART_SQUATCH_1[16] = {
+    "................",
+    "......0000......",
+    ".....0DDDD0.....",
+    "....00yDDy00....",
+    "...0DDDddDDD0...",
+    "..0DDDDDDDDDD0..",
+    "..0DDDDDDDDDD0..",
+    ".0DDDDDDDDDDDD0.",
+    ".0DDDDDDDDDDDD0.",
+    "0D0DDDDDDDDDD0D0",
+    "0D0DDDDDDDDDD0D0",
+    "0D0DDDdDDDdDD0D0",
+    "0D00dDD0dDD0d0D0",
+    "0D0.0DD00DD000D0",
+    "0D0.0DD00DD0.0D0",
+    ".0..0DD00DD0..0.",
+};
+
+/* THE DOGMAN -- Michigan, 1887. It stands up. That's the wrong part. */
+static const char *SPR_ART_DOGMAN_0[16] = {
+    ".....00.00......",
+    "....0DD0DD0.....",
+    "....0DDDD0......",
+    "..00DrDrDD0.....",
+    ".0DDDDDDDD0.....",
+    "..1D0DDDD00.....",
+    "...11DDDDDD0....",
+    "...0DDDDDDDD0..0",
+    "..0D0DDDDDD0D00D",
+    "..0D0DDDDDDDD0D0",
+    ".0D00DDDDDD0DD0.",
+    ".0D00DDDDDD00D0.",
+    "..0..0D00D0..0..",
+    "....0D0..0D0....",
+    "....0D0..0D0....",
+    "....0D0..0D0....",
+};
+
+static const char *SPR_ART_DOGMAN_1[16] = {
+    ".....00.00......",
+    "....0DD0DD0.....",
+    "....0DDDD0......",
+    "..00DrDrDD0.....",
+    ".0DDDDDDDD0.....",
+    "..1D0DDDD00.....",
+    "...11DDDDDD0...0",
+    "...0DDDDDDDD0.0D",
+    "..0D0DDDDDD0D0D0",
+    "..0D0DDDDDDDD0D0",
+    ".0D00DDDDDD0DD0.",
+    ".0D00DDDDDD00D0.",
+    ".0D0.0D00D0.0D0.",
+    "..0.0D0..0D0.0..",
+    "....0D0..0D0....",
+    "....0D0..0D0....",
+};
+
+/* ---- THE SHOTGUN, CARRIED -------------------------------------------------
+ * Overlaid on the farmer in the OVERWORLD once he owns it -- one per
+ * facing, drawn on top of his walk frames.
+ *
+ * Facing toward or away from the camera he can't point it at you, so he
+ * carries it SLUNG ACROSS HIS CHEST (and across his back going away):
+ * barrel up over one shoulder, stock down by the opposite hip. Sideways
+ * he holds it out level, because that's the way he's aiming.
+ */
+static const char *SPR_ART_CARRY_DOWN[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..........0k0...",
+    ".........0kk0...",
+    "........0kk0....",
+    ".......0kk0.....",
+    "......0kk0......",
+    ".....0dd0.......",
+    "....0dD0........",
+    "....0D0.........",
+};
+static const char *SPR_ART_CARRY_UP[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "...0k0..........",
+    "...0kk0.........",
+    "....0kk0........",
+    ".....0kk0.......",
+    "......0kk0......",
+    ".......0dd0.....",
+    "........0dD0....",
+    ".........0D0....",
+};
+static const char *SPR_ART_CARRY_SIDE[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".0000000........",
+    "0kkkkkkk0.......",
+    "0kKKKKKk0.......",
+    "0dddddDd0.......",
+    ".0DDDDD0........",
+    "..00000.........",
+    "................",
+    "................",
+    "................",
+};
+
+/* ---- THE VAN -- 1980s, rust-brown, and it still starts. ------------------
+ * TOP-DOWN, because the overworld is: windscreen at the nose, the long
+ * roof, the rear window, wheels poking out at the sides. Frame 2 shivers
+ * (it's idling).
+ */
+static const char *SPR_ART_VAN[16] = {
+    "....0DDDDDD0....",
+    "...0yBBBBBBy0...",
+    "...0DBiiiBBD0...",
+    "..0KDBBBBBBDK0..",
+    "..0KDddddddDK0..",
+    "..0KDddddddDK0..",
+    "...0DDDDDDDD0...",
+    "...0DDddddDD0...",
+    "...0DDddddDD0...",
+    "...0DDddddDD0...",
+    "...0DDddddDD0...",
+    "..0KDDDDDDDDK0..",
+    "..0KDBBBBBBDK0..",
+    "..0KDBBBBBBDK0..",
+    "...0rDDDDDDr0...",
+    "....00000000....",
+};
+static const char *SPR_ART_VAN_1[16] = {
+    "....0DDDDDD0....",
+    "...0yBBBBBBy0...",
+    "...0DBWiiBBD0...",
+    "..0KDBBBBBBDK0..",
+    "..0KDddddddDK0..",
+    "..0KDddddddDK0..",
+    "...0DDDDDDDD0...",
+    "...0DDddddDD0...",
+    "...0DDddddDD0...",
+    "...0DDddddDD0...",
+    "...0DDddddDD0...",
+    "..0KDDDDDDDDK0..",
+    "..0KDBBBBBBDK0..",
+    "..0KDBBBBBBDK0..",
+    "...0RDDDDDDR0...",
+    "....00000000....",
+};
+
+/* ---- THE VAN AGAIN, 32x32, SEEN FROM BEHIND -----------------------------
+ * The whole driving cutscene is the back of this thing, so it gets four
+ * times the pixels: rear window with the sky in it, door seam and handles,
+ * a lit plate, a chrome bumper, fat tyres. Frame 2 is BRAKING -- the tail
+ * lights flare, because he has just seen what is behind him.
+ */
+static const char *SPR_ART_VAN_BIG_0[32] = {
+    "......00000..........00000......",
+    ".....0KKKKK0000000000KKKKK0.....",
+    "....0DDDDDDDDDDDDDDDDDDDDDD0....",
+    "...0DDDDDDDDDDDDDDDDDDDDDDDD0...",
+    "...0DDDDDDDDDDDDDDDDDDDDDDDD0...",
+    "...0DDDD0000000000000000DDDD0...",
+    "...0DDDD0BBBBBBBBBBBBBB0DDDD0...",
+    "...0DDDD0BiiiiiiiBBBBBB0DDDD0...",
+    "..0DDDDD0BiiiiiiiBBBBBB0DDDDD0..",
+    "..0DDDDD0BWWWWBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0BBBBBBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0BBBBBBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0BBBBBBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0000000000000000DDDDD0..",
+    "..0DDDDDDDDDDDD0DDDDDDDDDDDDD0..",
+    "..0D00000DDDDDD0DDDDDDD00000D0..",
+    "..0D0RRR0DDDDDD0DDDDDDD0RRR0D0..",
+    "..0D0RrR0DDDDDD0DDDDDDD0RrR0D0..",
+    "..0D0RRR0DDDkkk0DkkkDDD0RRR0D0..",
+    "..0D0RRR0DDDDDD0DDDDDDD0RRR0D0..",
+    "..0D0RRR0DDDDDD0DDDDDDD0RRR0D0..",
+    "..0D00000DDDkkkkkkkkDDD00000D0..",
+    "..0DDDDDDDDDk1K1K11kDDDDDDDDD0..",
+    "..0DDDDDDDDDk1111K1kDDDDDDDDD0..",
+    "..0DDDDDDDDDkkkkkkkkDDDDDDDDD0..",
+    ".0kkkkkkkkkkkkkkkkkkkkkkkkkkkk0.",
+    ".0KKKKKKKKKKKKKKKKKKKKKKKKKKKK0.",
+    ".0k00000000kkkkkkkkkkk00000000..",
+    "..00KKKKKK0000000000000KKKKKK0..",
+    "...0Kk11kK0...........0Kk11kK0..",
+    "...0KkkkkK0...........0KkkkkK0..",
+    "...00000000...........00000000..",
+};
+static const char *SPR_ART_VAN_BIG_1[32] = {
+    "......00000..........00000......",
+    ".....0KKKKK0000000000KKKKK0.....",
+    "....0DDDDDDDDDDDDDDDDDDDDDD0....",
+    "...0DDDDDDDDDDDDDDDDDDDDDDDD0...",
+    "...0DDDDDDDDDDDDDDDDDDDDDDDD0...",
+    "...0DDDD0000000000000000DDDD0...",
+    "...0DDDD0BBBBBBBBBBBBBB0DDDD0...",
+    "...0DDDD0BiiiiiiiBBBBBB0DDDD0...",
+    "..0DDDDD0BiiiiiiiBBBBBB0DDDDD0..",
+    "..0DDDDD0BWWWWBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0BBBBBBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0BBBBBBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0BBBBBBBBBBBBBB0DDDDD0..",
+    "..0DDDDD0000000000000000DDDDD0..",
+    "..0DDDDDDDDDDDD0DDDDDDDDDDDDD0..",
+    "..0D00000DDDDDD0DDDDDDD00000D0..",
+    "..0D0rrr0DDDDDD0DDDDDDD0rrr0D0..",
+    "..0D0rmr0DDDDDD0DDDDDDD0rmr0D0..",
+    "..0D0rmr0DDDkkk0DkkkDDD0rmr0D0..",
+    "..0D0rmr0DDDDDD0DDDDDDD0rmr0D0..",
+    "..0D0rrr0DDDDDD0DDDDDDD0rrr0D0..",
+    "..0D00000DDDkkkkkkkkDDD00000D0..",
+    "..0DDDDDDDDDk1K1K11kDDDDDDDDD0..",
+    "..0DDDDDDDDDk1111K1kDDDDDDDDD0..",
+    "..0DDDDDDDDDkkkkkkkkDDDDDDDDD0..",
+    ".0kkkkkkkkkkkkkkkkkkkkkkkkkkkk0.",
+    ".0KKKKKKKKKKKKKKKKKKKKKKKKKKKK0.",
+    ".0k00000000kkkkkkkkkkk00000000..",
+    "..00KKKKKK0000000000000KKKKKK0..",
+    "...0Kk11kK0...........0Kk11kK0..",
+    "...0KkkkkK0...........0KkkkkK0..",
+    "...00000000...........00000000..",
 };
 
 #endif /* SPRITES_H */

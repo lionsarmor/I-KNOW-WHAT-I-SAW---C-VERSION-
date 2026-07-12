@@ -3,6 +3,7 @@
  * ==========================================================================*/
 #include "gfx.h"
 #include "assets.h" /* for font8 */
+#include "assets/font_small.h"
 
 uint16_t gfx_fb[SCREEN_W * SCREEN_H];
 
@@ -57,42 +58,78 @@ uint16_t gfx_dim(uint16_t color, int bright)
     return (uint16_t)((r << 11) | (g << 5) | b);
 }
 
-void gfx_night(int bright, int lx, int ly, int radius)
+void gfx_night(int bright, const light_t *lights, int nlights)
 {
     if (bright >= 256)
         return;                     /* broad daylight: nothing to dim */
 
-    /* squared radii, so the falloff needs no sqrt and no floats */
-    int r_out2 = radius * radius;
-    int r_in   = radius / 2;
-    int r_in2  = r_in * r_in;
-    int span   = 256 - bright;
+    if (nlights > MAX_LIGHTS)
+        nlights = MAX_LIGHTS;
+
+    int span = 256 - bright;
 
     for (int y = 0; y < SCREEN_H; y++) {
-        int dy2 = (y - ly) * (y - ly);
-        int lit_row = (radius > 0 && dy2 < r_out2);
+        /* Which lights even reach this scanline? Usually none or one, so
+         * the per-pixel loop below stays tiny. */
+        int act[MAX_LIGHTS], nact = 0;
+        for (int i = 0; i < nlights; i++) {
+            int dy = y - lights[i].y;
+            if (dy < 0) dy = -dy;
+            if (dy < lights[i].r)
+                act[nact++] = i;
+        }
+
         for (int x = 0; x < SCREEN_W; x++) {
             int b = bright;
+            int warm = 0;
 
-            if (lit_row) {
-                int dx = x - lx;
-                int d2 = dx * dx + dy2;
+            for (int k = 0; k < nact; k++) {
+                const light_t *L = &lights[act[k]];
+                int dx = x - L->x, dy = y - L->y;
+                int d2 = dx * dx + dy * dy;
+                int r_out2 = L->r * L->r;
+                if (d2 >= r_out2)
+                    continue;
+
+                int r_in  = L->r / 2;
+                int r_in2 = r_in * r_in;
+                int lb;
                 if (d2 <= r_in2) {
-                    continue;                       /* the bright core */
-                } else if (d2 < r_out2) {
-                    /* linear in SQUARED distance: cheap, and it gives a
-                     * pleasantly soft edge rather than a hard disc */
-                    b = 256 - span * (d2 - r_in2) / (r_out2 - r_in2);
-                    if (b >= 256)
-                        continue;
+                    lb = 256;                       /* the bright core */
+                } else {
+                    /* linear in SQUARED distance: cheap, and the edge
+                     * comes out soft rather than a hard disc */
+                    lb = 256 - span * (d2 - r_in2) / (r_out2 - r_in2);
+                }
+                if (lb > b) {           /* brightest light wins -- they do
+                                           NOT add up to daylight */
+                    b = lb;
+                    warm = L->warm;
                 }
             }
 
+            if (b >= 256 && warm == 0)
+                continue;               /* untouched daylight */
+
             uint16_t c = gfx_fb[y * SCREEN_W + x];
-            int bb = b + (256 - b) / 3;     /* moonlight keeps its blue */
-            int r = (((c >> 11) & 0x1F) * b ) >> 8;
-            int g = (((c >> 5)  & 0x3F) * b ) >> 8;
-            int l = (( c        & 0x1F) * bb) >> 8;
+            int r = (c >> 11) & 0x1F;
+            int g = (c >> 5)  & 0x3F;
+            int l =  c        & 0x1F;
+
+            /* moonlight keeps its blue; a sodium street lamp does the
+             * opposite -- it eats the blue and leaves everything amber */
+            int br = b + (warm * (256 - b) / 256) / 2;
+            int bg = b;
+            int bl = b + (256 - b) / 3 - (warm / 3);
+            if (bl < 0) bl = 0;
+
+            r = (r * br) >> 8;
+            g = (g * bg) >> 8;
+            l = (l * bl) >> 8;
+            if (r > 31) r = 31;
+            if (g > 63) g = 63;
+            if (l > 31) l = 31;
+
             gfx_fb[y * SCREEN_W + x] = (uint16_t)((r << 11) | (g << 5) | l);
         }
     }
@@ -118,6 +155,17 @@ void gfx_cursor(int x, int y, uint32_t frame)
 void gfx_blit(const uint16_t *px, int w, int h, int x, int y)
 {
     gfx_blit_ex(px, w, h, x, y, 1, 256, 0);
+}
+
+void gfx_blit_flash(const uint16_t *px, int w, int h, int x, int y,
+                    uint16_t color, int flip_h)
+{
+    for (int sy = 0; sy < h; sy++)
+        for (int sx = 0; sx < w; sx++) {
+            int src = flip_h ? (w - 1 - sx) : sx;
+            if (px[sy * w + src] != COLOR_KEY)
+                gfx_pixel(x + sx, y + sy, color);
+        }
 }
 
 void gfx_blit_ex(const uint16_t *px, int w, int h, int x, int y,
@@ -195,4 +243,49 @@ int gfx_text_width(const char *s, int scale)
         if (n > best) best = n;
     }
     return best * 8 * scale;
+}
+
+/* ---- the small font --------------------------------------------------------
+ * 3x5 glyphs, 4px apart. See assets/font_small.h.
+ */
+static const unsigned char *glyph_small(char ch)
+{
+    if (ch >= 'a' && ch <= 'z')                 /* fold to uppercase */
+        ch = (char)(ch - 'a' + 'A');
+    if (ch < FONT_SMALL_FIRST || ch > FONT_SMALL_LAST)
+        ch = ' ';
+    return font_small[ch - FONT_SMALL_FIRST];
+}
+
+void gfx_text_small(int x, int y, const char *s, uint16_t color)
+{
+    for (int cx = x; *s; s++, cx += FONT_SMALL_ADV) {
+        const unsigned char *g = glyph_small(*s);
+        for (int row = 0; row < FONT_SMALL_ROWS; row++)
+            for (int col = 0; col < FONT_SMALL_W; col++)
+                if (g[row] & (1u << (FONT_SMALL_W - 1 - col)))
+                    gfx_pixel(cx + col, y + row, color);
+    }
+}
+
+void gfx_text_small_outlined(int x, int y, const char *s, uint16_t color)
+{
+    /* the halo first (the glyph nudged one pixel in every direction), then
+     * the glyph on top -- so it reads against ANY background and needs no
+     * panel behind it */
+    static const int off[8][2] = {
+        {-1,-1},{0,-1},{1,-1},{-1,0},{1,0},{-1,1},{0,1},{1,1}
+    };
+    uint16_t halo = RGB565(8, 8, 12);
+    for (int i = 0; i < 8; i++)
+        gfx_text_small(x + off[i][0], y + off[i][1], s, halo);
+    gfx_text_small(x, y, s, color);
+}
+
+int gfx_text_small_width(const char *s)
+{
+    int n = 0;
+    for (; *s; s++)
+        n++;
+    return n * FONT_SMALL_ADV;
 }

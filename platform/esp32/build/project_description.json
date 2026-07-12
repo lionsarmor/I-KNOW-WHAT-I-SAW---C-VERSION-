@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "iknowwhatisaw",
-    "project_version":    "2963ec8-dirty",
+    "project_version":    "b523208-dirty",
     "project_path":       "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32",
     "idf_path":           "/home/legion/esp/esp-idf",
     "build_dir":          "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32/build",
@@ -1270,7 +1270,7 @@
             "managed_reqs": [],
             "managed_priv_reqs": [ "espressif__esp_lcd_ili9341" ],
             "file": "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32/build/esp-idf/main/libmain.a",
-            "sources": [ "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32/main/esp32_main.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/game.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/gfx.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/audio.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/assets.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/intro.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/overworld.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/battle.c" ],
+            "sources": [ "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32/main/esp32_main.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/game.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/gfx.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/audio.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/assets.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/intro.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/overworld.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/battle.c", "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game/cutscene.c" ],
             "include_dirs": [ "../../../src/game" ]
         },
         "mbedtls": {

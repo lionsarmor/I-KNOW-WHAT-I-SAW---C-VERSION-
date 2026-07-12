@@ -32,7 +32,7 @@
  *   A door with no warp is simply locked ("nobody's answering").
  *
  * SPAWNS place living things (see "THE CAST" in assets.h):
- *   { ENT_ALIEN, x, y, SPECIES_GREY, 0 }              an enemy
+ *   { ENT_ALIEN, x, y, SPECIES_ANT, 0 }              an enemy
  *   { ENT_NPC,   x, y, LOOK_ELDER, "WHAT THEY SAY" }  a person
  *   { ENT_ITEM,  x, y, ITEM_HERB, 0 }                 a pickup
  *   { ENT_NPC,   x, y, LOOK_COW, "MOO." }              a cow (animals are
@@ -79,9 +79,27 @@ static const spawn_t MAP_SPAWNS_FARM[] = {
     { ENT_NPC,    8,  3, LOOK_PA,
       "PA: THE CROPS WERE FLAT IN CIRCLES AGAIN THIS MORNING, ~. "
       "AND THE COWS WON'T GO NEAR THE POND. YOU BE CAREFUL OUT THERE." },
-    { ENT_ALIEN, 20, 15, SPECIES_GREY, 0 },
-    { ENT_ALIEN,  7, 16, SPECIES_GREY, 0 },
-    { ENT_ALIEN, 17,  8, SPECIES_GREY, 0 },   /* open ground by the pond   */
+    /* The farm is HOME. It is where you feed the dog and get mooed at, and
+     * it should feel like that most of the time -- so there is exactly one
+     * ant wandering it, and exactly one hill making more. If you want the
+     * place to feel besieged again, add a second hill here rather than more
+     * loose ants: the hill is the thing the player can actually solve. */
+    { ENT_ALIEN, 17,  8, SPECIES_ANT, 0 },   /* open ground by the pond   */
+
+    /* THE HILL. Shoved right into the far south-east corner, hard against
+     * the queen -- and deliberately NOT next to the livestock. That corner
+     * is the nest, and it's where the farm turns dangerous; the pasture and
+     * the yard stay somewhere you can stand and talk to a cow.
+     *
+     * It does not move. It just keeps making more, and every ant on this
+     * farm comes out of it -- the only way to stop that is to put the mound
+     * itself down. */
+    { ENT_ALIEN, 26, 16, SPECIES_ANTHILL, 0 },
+
+    /* HER. Down in the far corner, past everything, where the grass is dead.
+     * She does not come at you until you make her -- and then she is faster
+     * than you are. */
+    { ENT_ALIEN, 24, 18, SPECIES_QUEEN, 0 },
     { ENT_ITEM,  12, 16, ITEM_HERB,    0 },   /* growing in the south field */
     { ENT_ITEM,  26,  2, ITEM_SHELLS,  0 },   /* dropped behind the house   */
 
@@ -137,7 +155,7 @@ static const char *const MAP_ROWS_TOWN[20] = {
     "T....#....#....#.........#...T",
     "T....#....#....#.........#...T",
     "T....#....#....#.........#...T",
-    "#############################T",
+    "##############################",   /* <- the road EAST, once it's open */
     "T....*...............*.......T",
     "T............................T",
     "T...RRRRRRR.........,........T",
@@ -153,7 +171,7 @@ static const spawn_t MAP_SPAWNS_TOWN[] = {
       "YOU'VE GOT THAT LOOK. NOBODY BELIEVES US." },
     { ENT_NPC,   20, 14, LOOK_SKEPTIC,
       "SHERIFF SAYS IT WAS SWAMP GAS. SWAMP GAS DON'T HUM, FRIEND." },
-    { ENT_ALIEN, 26, 17, SPECIES_TALL, 0 },   /* something worse in town */
+    { ENT_ALIEN, 26, 17, SPECIES_SOLDIER, 0 },   /* something worse in town */
     { ENT_ITEM,  17, 13, ITEM_HERB,    0 },   /* by the flowerbeds       */
     { ENT_NPC,   18, 13, LOOK_DOG,
       "WOOF! A TOWN DOG. HE IS DELIGHTED TO SEE YOU AND HAS NO NEWS." },
@@ -166,7 +184,13 @@ static const spawn_t MAP_SPAWNS_TOWN[] = {
 
 static const warp_t MAP_WARPS_TOWN[] = {
     {  0, 12, MAP_FARM,  28, 12 },  /* west end of Main St -> the farm */
-    { 15,  5, MAP_HOUSE,  7,  8 },  /* middle house door (others locked) */
+    { 15,  5, MAP_HOUSE,  7,  8 },  /* middle house door                 */
+    {  5,  5, MAP_WRECK,  7,  8, 1 },  /* WEST HOUSE -- needs the brass key */
+    /* THE ROAD EAST. Shut until the thing in the north road is dealt with. */
+    { 29, 12, MAP_VANLOT,  1, 11, 0, FLAG_GOBLIN_DEAD,
+      "THE ROAD EAST IS STILL BLOCKED. SOMETHING CAME DOWN ACROSS IT IN "
+      "THE NIGHT, AND NOBODY WILL GO NEAR IT WHILE THAT THING IS STANDING "
+      "IN THE NORTH ROAD." },
     {  7, 17, MAP_STORE,  7,  8 },  /* the general store */
     { 10,  0, MAP_RIDGE,  7,  8 },  /* north road -- past the goblin   */
 };
@@ -253,31 +277,165 @@ static const warp_t MAP_WARPS_STORE[] = {
 };
 
 /* ============================ THE NORTH RIDGE ==============================
- * What the goblin was standing in front of. One screen of open ground
- * where the lights come down. Whatever else goes here later, this is
- * where the road out of town leads.
+ * What the goblin was standing in front of.
+ *
+ * *** THE BESTIARY / TEST ARENA ***
+ * Every creature in the game is here, one of each, spaced out so you can
+ * walk up and look at them -- or shoot them, or let them come at you.
+ * A crate of shells and a medkit sit by the gate so you can actually
+ * fight. This is a testbed: thin it out (or wall it off) when the real
+ * content for the ridge arrives.
  */
-static const char *const MAP_ROWS_RIDGE[10] = {
-    "TTTTTTTTTTTTTTT",
-    "T.............T",
-    "T..,.......,..T",
-    "T.............T",
-    "T....*...*....T",
-    "T.............T",
-    "T....,...,....T",
-    "T.............T",
-    "T......#......T",
-    "TTTTTTT#TTTTTTT",
+static const char *const MAP_ROWS_RIDGE[20] = {
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "T............................T",
+    "T..,......,.......,......,...T",
+    "T............................T",
+    "T....*..........*...........,T",
+    "T............................T",
+    "T.,.......,.........,........T",
+    "T............................T",
+    "T............................T",
+    "T......,.........,...........T",
+    "T............................T",
+    "T...*..........,.........*...T",
+    "T............................T",
+    "T........,.........,.........T",
+    "T............................T",
+    "T....,...........,..........,T",
+    "T............................T",
+    "T..........,.................T",
+    "T.............##.............T",
+    "TTTTTTTTTTTTTT##TTTTTTTTTTTTTT",
 };
 
 static const spawn_t MAP_SPAWNS_RIDGE[] = {
-    { ENT_ALIEN,  3, 3, SPECIES_TALL, 0 },
-    { ENT_ALIEN, 11, 6, SPECIES_TALL, 0 },
-    { ENT_ITEM,   7, 2, ITEM_MEDKIT,  0 },
+    /* supplies, right by the gate -- you'll want them */
+    { ENT_ITEM,  12, 17, ITEM_SHELLS, 0 },
+    { ENT_ITEM,  17, 17, ITEM_MEDKIT, 0 },
+
+    /* THE BESTIARY. One of everything. */
+    { ENT_ALIEN,  3,  3, SPECIES_ANT,        0 },
+    { ENT_ALIEN,  8,  3, SPECIES_SOLDIER,    0 },
+    { ENT_ALIEN, 14,  3, SPECIES_DOVER,      0 },
+    { ENT_ALIEN, 20,  3, SPECIES_GREY,       0 },
+    { ENT_ALIEN, 25,  3, SPECIES_CHUPACABRA, 0 },
+    { ENT_ALIEN,  3, 10, SPECIES_REPTOID,    0 },
+    { ENT_ALIEN,  9, 10, SPECIES_DOGMAN,     0 },
+    { ENT_ALIEN, 15, 10, SPECIES_MOTHMAN,    0 },
+    { ENT_ALIEN, 21, 10, SPECIES_SASQUATCH,  0 },
+    { ENT_ALIEN, 26, 10, SPECIES_NESSIE,     0 },
+    { ENT_ALIEN, 15, 14, SPECIES_GOBLIN,     0 },
+    /* the two new ones, for inspection. The hill will start filling the
+     * arena with ants the moment you walk in, so don't dawdle. */
+    { ENT_ALIEN,  5, 14, SPECIES_ANTHILL,    0 },
+    { ENT_ALIEN, 25, 14, SPECIES_QUEEN,      0 },
+    { ENT_ALIEN, 20, 14, SPECIES_TALL,       0 },
 };
 
 static const warp_t MAP_WARPS_RIDGE[] = {
-    { 7, 9, MAP_TOWN, 10, 1 },   /* back down the road into town */
+    { 14, 19, MAP_TOWN, 10, 1 },   /* back down the road into town */
+    { 15, 19, MAP_TOWN, 10, 1 },
+};
+
+
+/* ============================ THE WRECKED HOUSE ============================
+ * The west house on Main Street. The brass key opens it. Nobody has been
+ * inside in a while, and it shows: the floor is holed, the furniture is
+ * where it landed, and the man who owns the place is still sitting in it.
+ *
+ * >>> THE LANDOWNER'S NAME IS A PLACEHOLDER -- you left it blank. Change
+ * >>> "ELIAS HOLLIS" below to whatever you actually want him called.
+ */
+static const char *const MAP_ROWS_WRECK[10] = {
+    "HHHHHHHHHHHHHHH",
+    "HB_x____xtt__xH",
+    "H__x___x__t__xH",
+    "H___t____x___xH",
+    "Hx__x_x____x__H",
+    "H__t____x__t__H",
+    "Hx____x____x__H",
+    "H__x__t__x____H",
+    "H_____________H",
+    "HHHHHHHMHHHHHHH",
+};
+
+static const spawn_t MAP_SPAWNS_WRECK[] = {
+    /* He is sitting in the wreckage of his own front room. He has been
+     * sitting there for some time. */
+    { ENT_NPC, 5, 4, LOOK_PA,   /* NOTE: shares Pa's sprite for now */
+      "...OH. YOU FOUND THE KEY. I WONDERED WHO'D COME.\n"
+      "ELIAS HOLLIS. I OWN THIS. OWNED IT. THEY TOOK ME OUT THROUGH THAT "
+      "ROOF, ~, AND THEY PUT ME BACK IN THE WRONG ORDER.",
+      0,
+      "THE CEILING IS STILL OPEN. I DON'T LOOK UP ANY MORE. "
+      "YOU SHOULDN'T EITHER." },
+
+    { ENT_ITEM, 11, 8, ITEM_MEDKIT, 0 },
+    { ENT_ITEM,  2, 8, ITEM_SHELLS, 0 },
+};
+
+static const warp_t MAP_WARPS_WRECK[] = {
+    { 7, 9, MAP_TOWN, 5, 6 },   /* the doormat -> back out onto Main St */
+};
+
+
+/* ============================ THE PARKING LOT ==============================
+ * East of town, once the goblin is off the north road.
+ *
+ * A grocery store and a lot of empty asphalt. The store lights are on and
+ * nobody is shopping. Four sodium lamps, and they all buzz.
+ *
+ * Your van is in a space. So is the owner, and he is not going inside.
+ *
+ *   a  asphalt      -  a painted line      L  a street lamp (lit at night)
+ */
+static const char *const MAP_ROWS_VANLOT[14] = {
+    "TTTTTTTTTTTTTTTTTTTTTTTT",
+    "T......RRRRRRRRR.......T",
+    "T......RRRRRRRRR.......T",
+    "T......HHHHDHHHH.......T",
+    "T.aaaaaaaaaaaaaaaaaaaa.T",
+    "TLaaaaaaaaaaaaaaaaaaaaLT",
+    "T.aaaa-aaaa-aaaa-aaaaa.T",
+    "T.aaaa-aaaa-aaaa-aaaaa.T",
+    "T.aaaa-aaaa-aaaa-aaaaa.T",
+    "T.aaaaaaaaaaaaaaaaaaaa.T",
+    "TLaaaaaaaaaaaaaaaaaaaaLT",
+    "#.aaaaaaaaaaaaaaaaaaaa.T",
+    "T......................T",
+    "TTTTTTTTTTTTTTTTTTTTTTTT",
+};
+
+static const spawn_t MAP_SPAWNS_VANLOT[] = {
+    /* THE OWNER. He is standing in his own car park at night with the
+     * lights on behind him, and he will not go back inside. */
+    { ENT_NPC, 11, 4, LOOK_STOREKEEP,
+      "PLEASE. PLEASE -- YOU'VE GOT A VAN.\n"
+      "MY GIRL WENT OUT AT NINE TO BRING THE CARTS IN. THAT'S ALL. THE "
+      "CARTS ARE STILL OUT THERE, ~. HER SHOES ARE STILL OUT THERE, SET "
+      "SIDE BY SIDE LIKE SHE MEANT TO COME BACK FOR THEM.\n"
+      "THE PHONE JUST CLICKS. IT'S BEEN CLICKING ALL NIGHT. NOBODY PICKS "
+      "UP IN THE WHOLE COUNTY.\n"
+      "DRIVE TO THE CITY. GET THE POLICE. TELL THEM SOMETHING TOOK MY "
+      "DAUGHTER AND TELL THEM TO HURRY.",
+      0,
+      "GO. PLEASE GO. I'LL WAIT BY THE DOOR IN CASE SHE COMES BACK.\n"
+      "...I'M NOT GOING INSIDE. I CAN'T HEAR THE LOT FROM INSIDE." },
+
+    /* Not a person. Get in it and the prologue is over. */
+    { ENT_NPC, 17, 7, LOOK_VAN,
+      "YOUR VAN. IT'S BEEN SITTING HERE SINCE THE LIGHTS CAME.\n"
+      "THE STATION IS FORTY MINUTES DOWN THE HIGHWAY. SOMEBODY HAS TO SAY "
+      "THIS OUT LOUD TO SOMEBODY, ~. AND HE'S RIGHT -- SOMEBODY HAS TO "
+      "GO GET HER." },
+
+    { ENT_ITEM,  3, 8, ITEM_SHELLS, 0 },
+    { ENT_ITEM, 20, 8, ITEM_MEDKIT, 0 },
+};
+
+static const warp_t MAP_WARPS_VANLOT[] = {
+    { 0, 11, MAP_TOWN, 28, 12 },   /* back west into town */
 };
 
 /* ============================ THE MAP TABLE ===============================*/
@@ -299,9 +457,15 @@ const map_t maps[NUM_MAPS] = {                       /* outdoor? (night) */
     [MAP_STORE] = { "GENERAL STORE",   MAP_ROWS_STORE, 15, 10,
                     MAP_SPAWNS_STORE, N(MAP_SPAWNS_STORE),
                     MAP_WARPS_STORE,  N(MAP_WARPS_STORE), 0 },
-    [MAP_RIDGE] = { "THE NORTH RIDGE", MAP_ROWS_RIDGE, 15, 10,
+    [MAP_RIDGE] = { "THE NORTH RIDGE", MAP_ROWS_RIDGE, 30, 20,
                     MAP_SPAWNS_RIDGE, N(MAP_SPAWNS_RIDGE),
                     MAP_WARPS_RIDGE,  N(MAP_WARPS_RIDGE), 1 },
+    [MAP_WRECK] = { "THE HOLLIS PLACE", MAP_ROWS_WRECK, 15, 10,
+                    MAP_SPAWNS_WRECK, N(MAP_SPAWNS_WRECK),
+                    MAP_WARPS_WRECK,  N(MAP_WARPS_WRECK), 0 },
+    [MAP_VANLOT] = { "THE PARKING LOT", MAP_ROWS_VANLOT, 24, 14,
+                    MAP_SPAWNS_VANLOT, N(MAP_SPAWNS_VANLOT),
+                    MAP_WARPS_VANLOT,  N(MAP_WARPS_VANLOT), 1 },
 };
 
 #undef N

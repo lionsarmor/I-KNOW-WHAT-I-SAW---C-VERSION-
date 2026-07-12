@@ -348,4 +348,67 @@ static const char *TILE_ART_VOID[16] = {
     "0000000000000000",
 };
 
+/* ---- THE PARKING LOT -----------------------------------------------------*/
+
+/* cracked asphalt */
+static const char *TILE_ART_ASPHALT[16] = {
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKkKKKKKK",
+    "KKKkKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKkKK",
+    "KKKKKKKKKKKKKKKK",
+    "KkKKKKKKKKKKKKKK",
+    "KKKKKKKKKkKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKk",
+    "KKKKKkKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKkKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KkKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKkKKKKKKKK",
+};
+
+/* a painted parking line, going grey */
+static const char *TILE_ART_LINE[16] = {
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKKkkKKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKKk1KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKKkkKKKKKKK",
+    "KKKKKKK11KKKKKKK",
+    "KKKKKKK11KKKKKKK",
+};
+
+/* a street light. The head is lit -- see the lights[] list in overworld.c,
+ * which finds these tiles and puts a pool of light under each one. */
+static const char *TILE_ART_LAMP[16] = {
+    "....000000......",
+    "...0yyyyyy0.....",
+    "...0y1111y0.....",
+    "...0yyyyyy0.....",
+    "....00KK00......",
+    "......KK........",
+    "......KK........",
+    "......KK........",
+    "......KK........",
+    "......KK........",
+    "......KK........",
+    "......KK........",
+    "......KK........",
+    ".....0KK0.......",
+    "....0KKKK0......",
+    "...0KKKKKK0.....",
+};
+
 #endif /* TILES_H */

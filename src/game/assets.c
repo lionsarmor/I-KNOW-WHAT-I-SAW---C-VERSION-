@@ -79,6 +79,7 @@ const uint8_t tile_solid[NUM_TILES] = {
     [TILE_CROP]   = 0, [TILE_FLOWER] = 0, [TILE_WATER2] = 1,
     [TILE_FLOOR]  = 0, [TILE_MAT]    = 0, [TILE_BED]    = 1,
     [TILE_TABLE]  = 1, [TILE_VOID]   = 1,
+    [TILE_ASPHALT]= 0, [TILE_LINE]   = 0, [TILE_LAMP] = 1,
 };
 /* NOTE: TILE_DOOR stays SOLID -- walking INTO a door is what triggers
  * its warp (see check_door_bump in overworld.c). The doormat is the
@@ -104,6 +105,9 @@ static int char_to_tile(char c)
     case 'B': return TILE_BED;
     case 't': return TILE_TABLE;
     case 'x': return TILE_VOID;
+    case 'a': return TILE_ASPHALT;
+    case '-': return TILE_LINE;
+    case 'L': return TILE_LAMP;
     default:  return TILE_GRASS;   /* unknown char = grass, harmless */
     }
 }
@@ -121,6 +125,7 @@ int map_tile(const map_t *m, int tx, int ty)
 sprite16_t sprites[NUM_SPRITES];
 sprite16_t tiles[NUM_TILES];
 uint16_t   face_big[FACE_W * FACE_H];
+uint16_t   van_big[2][VAN_W * VAN_H];
 
 /* returns 1 if the art was malformed: a row of the wrong length, OR a
  * character that isn't in the palette (which would silently decode to
@@ -162,8 +167,12 @@ int assets_init(void)
         { SPR_FARMER_SIDE_0, SPR_ART_FARMER_SIDE_0 },
         { SPR_FARMER_SIDE_1, SPR_ART_FARMER_SIDE_1 },
         { SPR_FARMER_SIDE_2, SPR_ART_FARMER_SIDE_2 },
-        { SPR_ALIEN_0,       SPR_ART_ALIEN_0       },
-        { SPR_ALIEN_1,       SPR_ART_ALIEN_1       },
+        { SPR_ANT_DOWN_0,    SPR_ART_ANT_DOWN_0    },
+        { SPR_ANT_DOWN_1,    SPR_ART_ANT_DOWN_1    },
+        { SPR_ANT_UP_0,      SPR_ART_ANT_UP_0      },
+        { SPR_ANT_UP_1,      SPR_ART_ANT_UP_1      },
+        { SPR_ANT_SIDE_0,    SPR_ART_ANT_SIDE_0    },
+        { SPR_ANT_SIDE_1,    SPR_ART_ANT_SIDE_1    },
         { SPR_NPC,           SPR_ART_NPC           },
         { SPR_NPC_1,         SPR_ART_NPC_1         },
         { SPR_ELDER,         SPR_ART_ELDER         },
@@ -186,6 +195,13 @@ int assets_init(void)
         { SPR_BOSS_0,        SPR_ART_BOSS_0        },
         { SPR_BOSS_1,        SPR_ART_BOSS_1        },
         { SPR_ITEM_KEY,      SPR_ART_ITEM_KEY      },
+        { SPR_ITEM_TNT,      SPR_ART_ITEM_TNT      },
+        { SPR_TALL_0,        SPR_ART_TALL_0        },
+        { SPR_TALL_1,        SPR_ART_TALL_1        },
+        { SPR_ANTHILL_0,     SPR_ART_ANTHILL_0     },
+        { SPR_ANTHILL_1,     SPR_ART_ANTHILL_1     },
+        { SPR_QUEEN_0,       SPR_ART_QUEEN_0       },
+        { SPR_QUEEN_1,       SPR_ART_QUEEN_1       },
         { SPR_COW,           SPR_ART_COW           },
         { SPR_COW_1,         SPR_ART_COW_1         },
         { SPR_GOAT,          SPR_ART_GOAT          },
@@ -196,6 +212,27 @@ int assets_init(void)
         { SPR_CAT_1,         SPR_ART_CAT_1         },
         { SPR_UFO,           SPR_ART_UFO           },
         { SPR_UFO_1,         SPR_ART_UFO_1         },
+        { SPR_CARRY_DOWN,    SPR_ART_CARRY_DOWN    },
+        { SPR_CARRY_UP,      SPR_ART_CARRY_UP      },
+        { SPR_CARRY_SIDE,    SPR_ART_CARRY_SIDE    },
+        { SPR_DOVER_0,       SPR_ART_DOVER_0       },
+        { SPR_DOVER_1,       SPR_ART_DOVER_1       },
+        { SPR_MOTH_0,        SPR_ART_MOTH_0        },
+        { SPR_MOTH_1,        SPR_ART_MOTH_1        },
+        { SPR_CHUPA_0,       SPR_ART_CHUPA_0       },
+        { SPR_CHUPA_1,       SPR_ART_CHUPA_1       },
+        { SPR_GREY_0,        SPR_ART_GREY_0        },
+        { SPR_GREY_1,        SPR_ART_GREY_1        },
+        { SPR_REPTOID_0,     SPR_ART_REPTOID_0     },
+        { SPR_REPTOID_1,     SPR_ART_REPTOID_1     },
+        { SPR_NESSIE_0,      SPR_ART_NESSIE_0      },
+        { SPR_NESSIE_1,      SPR_ART_NESSIE_1      },
+        { SPR_SQUATCH_0,     SPR_ART_SQUATCH_0     },
+        { SPR_SQUATCH_1,     SPR_ART_SQUATCH_1     },
+        { SPR_DOGMAN_0,      SPR_ART_DOGMAN_0      },
+        { SPR_DOGMAN_1,      SPR_ART_DOGMAN_1      },
+        { SPR_VAN,           SPR_ART_VAN           },
+        { SPR_VAN_1,         SPR_ART_VAN_1         },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -211,12 +248,17 @@ int assets_init(void)
         { TILE_FLOOR,  TILE_ART_FLOOR  }, { TILE_MAT,    TILE_ART_MAT    },
         { TILE_BED,    TILE_ART_BED    }, { TILE_TABLE,  TILE_ART_TABLE  },
         { TILE_VOID,   TILE_ART_VOID   },
+        { TILE_ASPHALT, TILE_ART_ASPHALT },
+        { TILE_LINE,   TILE_ART_LINE   },
+        { TILE_LAMP,   TILE_ART_LAMP   },
     };
     for (unsigned i = 0; i < sizeof tile_art / sizeof tile_art[0]; i++)
         errors += decode(tile_art[i].art, TILE, TILE,
                          tiles[tile_art[i].id].px);
 
     errors += decode(SPR_ART_FACE_BIG, FACE_W, FACE_H, face_big);
+    errors += decode(SPR_ART_VAN_BIG_0, VAN_W, VAN_H, van_big[0]);
+    errors += decode(SPR_ART_VAN_BIG_1, VAN_W, VAN_H, van_big[1]);
 
     /* sanity-check the maps: every row must be exactly w chars */
     for (int m = 0; m < NUM_MAPS; m++)
@@ -271,18 +313,113 @@ int assets_init(void)
  * =========================================================================*/
 
 const species_t species[NUM_SPECIES] = {
-    /*                 name       hp atk xp  frames                  bright boss */
-    [SPECIES_GREY] = { "GIANT ANT",  10, 2,  5, SPR_ALIEN_0, SPR_ALIEN_1, 256 },
-    [SPECIES_TALL] = { "SOLDIER ANT",16, 4, 12, SPR_ALIEN_0, SPR_ALIEN_1, 180 },
+/* Each row: name, hp, atk, xp, frame0, frame1, bright, boss, dirs, ow_hits,
+ * then up to TWO SPECIAL MOVES taken straight from the creature's legend.
+ * A move rolls its `chance` each turn; the first one that lands is used.
+ *
+ * ow_hits = shotgun blasts to drop it out in the field (Zelda mode). */
 
-    /* THE BOSS. It guards the north road out of town and it does not move.
-     * Tuned to be a real wall: by the time you reach it you're likely
-     * level 3-5 (max_hp ~30-40, spade ~7-10, shotgun ~13-17). At 55+ HP
-     * it eats every shell you own and then some -- you WILL end up
-     * swinging the spade and drinking herbs. It hits for 6-8, so it kills
-     * you in about five clean turns. Bring the medkit. */
-    [SPECIES_GOBLIN] = { "HOPKINSVILLE GOBLIN",
-                                    55, 6, 60, SPR_BOSS_0,  SPR_BOSS_1,  256, 1 },
+    /* --- the ants: the only things here that walk in four directions --- */
+    [SPECIES_ANT] = { "GIANT ANT", 10, 2, 5,
+        SPR_ANT_DOWN_0, SPR_ANT_DOWN_1, 256, 0, 1, 1,
+        { { "FORMIC ACID SPRAY", MV_HEAVY, 6, 25 } } },
+
+    [SPECIES_SOLDIER] = { "SOLDIER ANT", 16, 4, 12,
+        SPR_ANT_DOWN_0, SPR_ANT_DOWN_1, 180, 0, 1, 2,
+        { { "MANDIBLE LOCK", MV_MULTI, 3, 30 } } },
+
+    /* --- KELLY, KENTUCKY, 1955. They shot at it all night. It kept coming.
+     * NINE blasts out in the field, and it does not stagger and it does not
+     * get knocked back (see BOSS_STUN_TICKS in config.h). Shooting it is the
+     * alternative to the brutal turn-based fight -- it is not the easy way. */
+    [SPECIES_GOBLIN] = { "HOPKINSVILLE GOBLIN", 55, 6, 60,
+        SPR_BOSS_0, SPR_BOSS_1, 256, 1, 0, 9,
+        { { "IMPOSSIBLE LEAP", MV_STUN, 0, 22 },
+          { "THE BULLETS DO NOTHING", MV_HEAL, 9, 20 } } },
+
+    /* --- DOVER, MASSACHUSETTS, 1977. Two orange eyes, and it just stares. */
+    [SPECIES_DOVER] = { "DOVER DEMON", 30, 5, 30,
+        SPR_DOVER_0, SPR_DOVER_1, 256, 0, 0, 2,
+        { { "GLASS-EYED STARE", MV_STUN, 0, 30 },
+          { "SPINDLE GRASP", MV_HEAVY, 8, 22 } } },
+
+    /* --- POINT PLEASANT, 1966. It shows up before the bridge comes down. */
+    [SPECIES_MOTHMAN] = { "MOTHMAN", 45, 7, 55,
+        SPR_MOTH_0, SPR_MOTH_1, 256, 0, 0, 3,
+        { { "PROPHECY OF DISASTER", MV_HEAVY, 14, 25 },
+          { "WING GUST", MV_MULTI, 4, 25 } } },
+
+    /* --- it drains what it catches, and leaves the rest. */
+    [SPECIES_CHUPACABRA] = { "CHUPACABRA", 35, 6, 40,
+        SPR_CHUPA_0, SPR_CHUPA_1, 256, 0, 0, 2,
+        { { "EXSANGUINATE", MV_DRAIN, 9, 35 } } },
+
+    /* --- the classic. You lose time around them and never get it back. */
+    [SPECIES_GREY] = { "THE GREY", 32, 5, 38,
+        SPR_GREY_0, SPR_GREY_1, 256, 0, 0, 2,
+        { { "MISSING TIME", MV_STUN, 0, 32 },
+          { "THE PROBE", MV_HEAVY, 9, 20 } } },
+
+    /* --- it sheds, and what's underneath is fine. */
+    [SPECIES_REPTOID] = { "REPTOID", 48, 7, 58,
+        SPR_REPTOID_0, SPR_REPTOID_1, 256, 0, 0, 3,
+        { { "SHED SKIN", MV_HEAL, 11, 25 },
+          { "TAIL WHIP", MV_HEAVY, 10, 25 } } },
+
+    /* --- most of it is under the water. */
+    [SPECIES_NESSIE] = { "LOCH NESS MONSTER", 60, 8, 70,
+        SPR_NESSIE_0, SPR_NESSIE_1, 256, 0, 0, 3,
+        { { "TIDAL SURGE", MV_HEAVY, 16, 30 },
+          { "SOUND THE DEPTHS", MV_HEAL, 10, 18 } } },
+
+    /* --- eight feet of shoulders. It throws what's lying around. */
+    [SPECIES_SASQUATCH] = { "SASQUATCH", 65, 9, 75,
+        SPR_SQUATCH_0, SPR_SQUATCH_1, 256, 0, 0, 3,
+        { { "TIMBER SLAM", MV_HEAVY, 17, 28 },
+          { "STONE THROW", MV_HEAVY, 9, 22 } } },
+
+    /* --- Michigan, 1887. The wrong part is that it STANDS UP. */
+    [SPECIES_DOGMAN] = { "DOGMAN", 50, 8, 62,
+        SPR_DOGMAN_0, SPR_DOGMAN_1, 256, 0, 0, 3,
+        { { "FRENZY", MV_MULTI, 6, 30 },
+          { "HOWL AT THE RIDGE", MV_STUN, 0, 20 } } },
+
+    /* --- THE TALL ONE. Nobody who saw it agrees on the face. Everybody
+     * agrees on the height, and on the arms. It does not charge and it does
+     * not hurry -- it moves at exactly your speed, and it is simply closer
+     * every time you look up. Very tough: five shells, and it hits like a
+     * falling tree. */
+    [SPECIES_TALL] = { "THE TALL ONE", 78, 10, 95,
+        SPR_TALL_0, SPR_TALL_1, 256, 0, 0, 5,
+        { { "IT IS ALREADY BEHIND YOU", MV_STUN, 0, 30 },
+          { "THOSE ARMS", MV_HEAVY, 15, 32 } },
+        2, 0, 0 },
+
+    /* --- THE ANT HILL. It is not an animal. It is a hole in the ground that
+     * things come out of, and it will keep making them until you close it.
+     * ROOTED: it never takes a step. Shoot it and it seethes. Walk into it
+     * and the whole mound comes up your leg.
+     *
+     * The last three numbers are ow_speed / rooted / brood -- brood is the
+     * gap in ticks between ants, so a smaller number is a worse night. */
+    [SPECIES_ANTHILL] = { "ANT HILL", 26, 3, 45,
+        SPR_ANTHILL_0, SPR_ANTHILL_1, 256, 0, 0, 4,
+        { { "THE MOUND ERUPTS", MV_MULTI, 4, 40 },
+          { "SWARM", MV_DRAIN, 5, 25 } },
+        0, 1, ANTHILL_BROOD_TICKS },
+
+    /* --- THE MUTANT QUEEN. Whatever came down did this to her first, and it
+     * did it worst. Bloated, wet, winged, and FASTER THAN YOU CAN RUN
+     * (ow_speed 3 against your 2) -- you cannot simply walk away from her.
+     * She births soldiers mid-fight and she does not stop.
+     *
+     * A boss: she waits where she stands, she's drawn huge in battle, and
+     * once she's down she is down for good. */
+    [SPECIES_QUEEN] = { "MUTANT QUEEN", 62, 7, 75,
+        SPR_QUEEN_0, SPR_QUEEN_1, 256, 1, 0, 7,
+        { { "BIRTH A SOLDIER", MV_MULTI, 5, 30 },
+          { "FESTERING BITE", MV_DRAIN, 11, 30 } },
+        3, 0, 0 },
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
@@ -296,6 +433,7 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_GOAT]      = { SPR_GOAT,       SPR_GOAT_1       },
     [LOOK_DOG]       = { SPR_DOG,        SPR_DOG_1        },
     [LOOK_CAT]       = { SPR_CAT,        SPR_CAT_1        },
+    [LOOK_VAN]       = { SPR_VAN,        SPR_VAN_1        },
 };
 
 /* ============================ THE ITEMS ====================================
@@ -319,4 +457,8 @@ const item_info_t item_info[NUM_ITEMS] = {
         "IN THEM YET." },
     [ITEM_KEY] = { "KEY", SPR_ITEM_KEY,
         "A HEAVY BRASS KEY. YOU DON'T KNOW WHAT IT OPENS. NOT YET." },
+    [ITEM_TNT] = { "TNT", SPR_ITEM_TNT,
+        "PA'S TNT, FROM WHEN HE WAS CLEARING STUMPS. THE FUSE IS SHORT.\n"
+        "HE ALWAYS SAID DON'T RUN WITH IT. HE ALSO SAID THERE'S NOTHING "
+        "OUT THERE." },
 };

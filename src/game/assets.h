@@ -32,7 +32,11 @@ enum {
     SPR_FARMER_DOWN_0, SPR_FARMER_DOWN_1, SPR_FARMER_DOWN_2,
     SPR_FARMER_UP_0,   SPR_FARMER_UP_1,   SPR_FARMER_UP_2,
     SPR_FARMER_SIDE_0, SPR_FARMER_SIDE_1, SPR_FARMER_SIDE_2, /* faces LEFT */
-    SPR_ALIEN_0,       SPR_ALIEN_1,       /* the visitors...             */
+    /* THE GIANT ANTS -- six frames, and the ORDER MATTERS: the renderer
+     * indexes them as spr0 + {0,1 = down} {2,3 = up} {4,5 = side}. */
+    SPR_ANT_DOWN_0, SPR_ANT_DOWN_1,
+    SPR_ANT_UP_0,   SPR_ANT_UP_1,
+    SPR_ANT_SIDE_0, SPR_ANT_SIDE_1,       /* faces LEFT; mirrored for right */
     SPR_NPC,           SPR_NPC_1,         /* villager (2 idle frames)    */
     SPR_ELDER,         SPR_ELDER_1,       /* old farmhand (2 frames)     */
     SPR_SKEPTIC,       SPR_SKEPTIC_1,
@@ -45,12 +49,27 @@ enum {
     SPR_GUN_AIM,                          /* the shotgun leveled (firing) */
     SPR_GUN_READY,                        /* the shotgun shouldered       */
     SPR_BOSS_0,        SPR_BOSS_1,        /* the Hopkinsville goblin      */
-    SPR_ITEM_KEY,
+    SPR_ITEM_KEY,      SPR_ITEM_TNT,
     SPR_COW,     SPR_COW_1,               /* the livestock (2 frames each) */
     SPR_GOAT,    SPR_GOAT_1,
     SPR_DOG,     SPR_DOG_1,
     SPR_CAT,     SPR_CAT_1,
     SPR_UFO,     SPR_UFO_1,               /* the name-screen cursor        */
+    /* the shotgun carried in the overworld, one per facing */
+    SPR_CARRY_DOWN, SPR_CARRY_UP, SPR_CARRY_SIDE,
+    /* THE BESTIARY -- two frames each */
+    SPR_DOVER_0,   SPR_DOVER_1,
+    SPR_MOTH_0,    SPR_MOTH_1,
+    SPR_CHUPA_0,   SPR_CHUPA_1,
+    SPR_GREY_0,    SPR_GREY_1,
+    SPR_REPTOID_0, SPR_REPTOID_1,
+    SPR_NESSIE_0,  SPR_NESSIE_1,
+    SPR_SQUATCH_0, SPR_SQUATCH_1,
+    SPR_DOGMAN_0,  SPR_DOGMAN_1,
+    SPR_TALL_0,    SPR_TALL_1,            /* THE TALL ONE                 */
+    SPR_ANTHILL_0, SPR_ANTHILL_1,         /* the mound, seething          */
+    SPR_QUEEN_0,   SPR_QUEEN_1,           /* the MUTANT QUEEN             */
+    SPR_VAN, SPR_VAN_1,                   /* the 1980s van               */
     NUM_SPRITES
 };
 
@@ -71,7 +90,35 @@ enum {
  *      { ENT_NPC, x, y, LOOK_SHERIFF, "BACK INSIDE, SON." }
  * That's the whole job -- talking, blocking, animation are automatic.
  */
-enum { SPECIES_GREY, SPECIES_TALL, SPECIES_GOBLIN, NUM_SPECIES };
+/* ---- SPECIAL MOVES --------------------------------------------------------
+ * Every creature has up to two, taken from its legend. Each turn it rolls
+ * for them in order; if none land it just hits you the ordinary way.
+ */
+enum {
+    MV_NONE = 0,
+    MV_HEAVY,   /* one big hit                                    */
+    MV_MULTI,   /* 2-3 quick hits of `power` each                 */
+    MV_DRAIN,   /* hits for `power` AND heals itself that much    */
+    MV_HEAL,    /* heals itself `power`                           */
+    MV_STUN,    /* you lose your next turn -- it hits you free    */
+};
+
+typedef struct {
+    const char *name;   /* shouted in the message box   */
+    int kind;           /* MV_*                         */
+    int power;
+    int chance;         /* percent, rolled each turn    */
+} move_t;
+
+enum {
+    SPECIES_ANT, SPECIES_SOLDIER, SPECIES_GOBLIN,
+    SPECIES_DOVER, SPECIES_MOTHMAN, SPECIES_CHUPACABRA, SPECIES_GREY,
+    SPECIES_REPTOID, SPECIES_NESSIE, SPECIES_SASQUATCH, SPECIES_DOGMAN,
+    SPECIES_ANTHILL,      /* a mound. it does not move. it makes more ants. */
+    SPECIES_QUEEN,        /* the MUTANT QUEEN -- big, fast, winged, wrong   */
+    SPECIES_TALL,         /* THE TALL ONE -- grey, red-eyed, arms too long  */
+    NUM_SPECIES
+};
 
 typedef struct {
     const char *name;      /* shown in battle ("A <NAME> BLOCKS...")     */
@@ -87,6 +134,37 @@ typedef struct {
      *   - once killed it STAYS killed, even after you leave the map
      * Everything else (stats, xp, art) is just a normal row. */
     int boss;
+
+    /* 1 = this creature has FOUR DIRECTIONS. Its spr0 is then the first of
+     * SIX consecutive sprites -- down0 down1 up0 up1 side0 side1 -- and it
+     * is drawn facing the way it walks (side art mirrored for right).
+     * 0 = it just idles between spr0 and spr1, wherever it's facing. */
+    int dirs;
+
+    /* ZELDA MODE: how many shotgun blasts it takes to drop this thing out
+     * in the field (1-3). It gets stunned on every hit that doesn't kill. */
+    int ow_hits;
+
+    /* its legend, made mechanical */
+    move_t moves[2];
+
+    /* ---- ADDED AFTER THE FACT --------------------------------------------
+     * These live at the END on purpose: every row written before they
+     * existed simply zero-fills them, which is exactly the old behaviour.
+     * Only the rows that care mention them. */
+
+    /* field chase speed in pixels/tick. 0 = the default for its class
+     * (CHASE_SPEED, or BOSS_CHASE_SPEED for a boss). The MUTANT QUEEN is
+     * the reason this exists: she is FASTER than you can run. */
+    int ow_speed;
+
+    /* 1 = it is ROOTED. It never wanders, never charges, never takes a
+     * step: it is a mound of earth. It just sits there and produces. */
+    int rooted;
+
+    /* rooted things with a brood > 0 SPAWN: one new creature every `brood`
+     * ticks, up to BROOD_MAX alive at once (config.h). 0 = spawns nothing. */
+    int brood;
 } species_t;
 
 extern const species_t species[NUM_SPECIES];
@@ -97,6 +175,7 @@ enum {
     /* the animals. Same machinery as people: two idle frames, solid, and
      * they "talk" when you face them and press A. */
     LOOK_COW, LOOK_GOAT, LOOK_DOG, LOOK_CAT,
+    LOOK_VAN,            /* not a person. talk to it and you drive away. */
     NUM_LOOKS
 };
 
@@ -119,6 +198,8 @@ extern const npc_look_t npc_looks[NUM_LOOKS];
 enum {
     ITEM_HERB, ITEM_MEDKIT, ITEM_SHELLS, ITEM_SHOTGUN, ITEM_FLASHLIGHT,
     ITEM_KEY,
+    ITEM_TNT,      /* pa's dynamite: enormous damage, and out in the field
+                      the blast leaves things reeling twice as long */
     NUM_ITEMS
 };
 
@@ -138,6 +219,12 @@ extern sprite16_t sprites[NUM_SPRITES];
 #define FACE_H 32
 extern uint16_t face_big[FACE_W * FACE_H];
 
+/* The van, 32x32, seen from behind -- the whole driving cutscene is the
+ * back of it, so it gets four times the pixels. [0] cruising, [1] braking. */
+#define VAN_W 32
+#define VAN_H 32
+extern uint16_t van_big[2][VAN_W * VAN_H];
+
 /* ---- Tiles (16x16 map squares) --------------------------------------------
  * To add a tile: draw it in assets/tiles.h, add an id here, decode it in
  * assets.c, give it a map character in char_to_tile(), and mark whether
@@ -149,6 +236,7 @@ enum {
     TILE_FLOWER,
     TILE_FLOOR, TILE_MAT,    TILE_BED,  TILE_TABLE, TILE_VOID, /* interiors */
     TILE_WATER2,   /* animation frame only -- maps never use it directly */
+    TILE_ASPHALT, TILE_LINE, TILE_LAMP,     /* the parking lot */
     NUM_TILES
 };
 
@@ -157,7 +245,10 @@ extern const uint8_t tile_solid[NUM_TILES];  /* 1 = blocks walking */
 
 /* ---- Maps -----------------------------------------------------------------*/
 enum {
-    MAP_FARM, MAP_TOWN, MAP_HOME, MAP_HOUSE, MAP_STORE, MAP_RIDGE, NUM_MAPS
+    MAP_FARM, MAP_TOWN, MAP_HOME, MAP_HOUSE, MAP_STORE, MAP_RIDGE,
+    MAP_WRECK,          /* the locked house. the key opens it. */
+    MAP_VANLOT,         /* east of town. your van. opens after the goblin. */
+    NUM_MAPS
 };
 
 enum { ENT_NONE, ENT_ALIEN, ENT_NPC, ENT_ITEM };  /* entity types on a map */
@@ -179,6 +270,13 @@ typedef struct {          /* something living (or lying) on a map */
 
 #define GIFT(item) ((item) + 1)
 
+/* ---- STORY FLAGS ---------------------------------------------------------
+ * Set once, checked forever, and SAVED. A warp can require one
+ * (warp_t.needs_flag below), which is how the road east of town stays shut
+ * until the thing standing in the north road has been dealt with.
+ */
+#define FLAG_GOBLIN_DEAD (1u << 0)
+
 /* Warps fire two ways (both handled automatically):
  *   - on a WALKABLE tile (an exit mat): step on it, you teleport
  *   - on a SOLID door tile: WALK INTO it, you teleport ("entering")
@@ -187,6 +285,9 @@ typedef struct {
     int tx, ty;           /* trigger tile on this map   */
     int dest_map;
     int dest_tx, dest_ty; /* arrival tile               */
+    int needs_key;        /* 1 = the brass key, or it stays shut */
+    unsigned needs_flag;  /* a FLAG_* that must be set, or it stays shut */
+    const char *shut;     /* what to say when it won't open              */
 } warp_t;
 
 typedef struct {

@@ -38,8 +38,38 @@ int game_init(void)
     G.t     = 0;
     G.rng   = 0x1D872665u;   /* any nonzero seed works */
 
+    /* Sensible until the platform loads the player's saved settings over
+     * the top -- and correct forever on a platform that has none. */
+    G.music_vol = VOL_DEFAULT;
+    G.sfx_vol   = VOL_DEFAULT;
+    audio_apply_volumes();
+
     audio_music(MUSIC_INTRO);   /* the heartbeat starts immediately */
     return asset_errors;
+}
+
+/* Draw a scene WITHOUT advancing it. Every xxx_render() is a pure function
+ * of G, so it is safe to call one for a scene that isn't the current one --
+ * which is exactly what the PAUSE screen does to paint the frozen world
+ * behind its menu, at no cost in memory. */
+void render_scene(int s)
+{
+    switch (s) {
+    case ST_INTRO:     intro_render();     break;
+    case ST_TITLE:     title_render();     break;
+    case ST_OVERWORLD: overworld_render(); break;
+    case ST_NAME:      name_render();      break;
+    case ST_OPTIONS:   options_render();   break;
+    case ST_DIALOG:    dialog_render();    break;
+    case ST_PACK:      pack_render();      break;
+    case ST_SLEEP:     sleep_render();     break;
+    case ST_DRIVE:     drive_render();     break;
+    case ST_PROLOGUE:  prologue_render();  break;
+    case ST_BATTLE:    battle_render();    break;
+    case ST_GAMEOVER:  gameover_render();  break;
+    case ST_PAUSE:     pause_render();     break;
+    case ST_CONTROLS:  controls_render();  break;
+    }
 }
 
 void game_update(uint16_t buttons_held)
@@ -49,16 +79,25 @@ void game_update(uint16_t buttons_held)
     G.held    = buttons_held;
 
     switch (G.state) {
-    case ST_INTRO:     intro_update();     intro_render();     break;
-    case ST_TITLE:     title_update();     title_render();     break;
-    case ST_OVERWORLD: overworld_update(); overworld_render(); break;
-    case ST_NAME:      name_update();      name_render();      break;
-    case ST_DIALOG:    dialog_update();    dialog_render();    break;
-    case ST_PACK:      pack_update();      pack_render();      break;
-    case ST_SLEEP:     sleep_update();     sleep_render();     break;
-    case ST_BATTLE:    battle_update();    battle_render();    break;
-    case ST_GAMEOVER:  gameover_update();  gameover_render();  break;
+    case ST_INTRO:     intro_update();     break;
+    case ST_TITLE:     title_update();     break;
+    case ST_OVERWORLD: overworld_update(); break;
+    case ST_NAME:      name_update();      break;
+    case ST_OPTIONS:   options_update();   break;
+    case ST_DIALOG:    dialog_update();    break;
+    case ST_PACK:      pack_update();      break;
+    case ST_SLEEP:     sleep_update();     break;
+    case ST_DRIVE:     drive_update();     break;
+    case ST_PROLOGUE:  prologue_update();  break;
+    case ST_BATTLE:    battle_update();    break;
+    case ST_GAMEOVER:  gameover_update();  break;
+    case ST_PAUSE:     pause_update();     break;
+    case ST_CONTROLS:  controls_update();  break;
     }
+
+    /* Draw whatever scene we are in NOW -- an update may have switched it,
+     * and a brand-new scene should never show one frame of the old one. */
+    render_scene(G.state);
 
     G.frame++;
     G.t++;      /* scenes reset this to 0 when they change G.state */
@@ -79,7 +118,7 @@ const uint16_t *game_framebuffer(void)
  * rather than being misread.
  * ==========================================================================*/
 #define SAVE_MAGIC   0x494B5753u   /* "IKWS" */
-#define SAVE_VERSION 3             /* v2 last_restock, v3 the player's name */
+#define SAVE_VERSION 5             /* v5 adds TNT + who has been kind */
 
 /* Exactly how many bytes game_save_write() lays down. Kept next to the
  * writer so the two can't drift apart, and checked at COMPILE TIME below:
@@ -90,7 +129,8 @@ const uint16_t *game_framebuffer(void)
                   + NUM_ITEMS * 4                                            \
                   + (PLAYER_NAME_MAX + 1)                                           \
                   + 4 /*map*/ + 4 /*daytime*/ + 4 /*restock*/                \
-                  + 4 /*seen*/ + 4 /*rng*/                                   \
+                  + 4 /*seen*/ + 4 /*flags*/ + 4 /*rng*/                       \
+                  + 4 /*boons_done*/                                         \
                   + NUM_MAPS * 4                                             \
                   + 4 /*checksum*/)
 
@@ -156,7 +196,9 @@ void game_save_write(uint8_t *buf)
     w32(&c, G.daytime);
     w32(&c, G.last_restock);
     w32(&c, (uint32_t)G.items_seen);
+    w32(&c, G.flags);
     w32(&c, G.rng);
+    w32(&c, (uint32_t)G.boons_done);
     for (int m = 0; m < NUM_MAPS; m++)
         w32(&c, (uint32_t)G.spawns_gone[m]);
 
@@ -196,10 +238,12 @@ int game_save_load(const uint8_t *buf, int len)
     uint32_t daytime = r32(&c);
     uint32_t restock = r32(&c);
     uint16_t seen    = (uint16_t)r32(&c);
+    uint32_t flags   = r32(&c);
     uint32_t rng     = r32(&c);
-    uint16_t gone[NUM_MAPS];
+    uint16_t boons   = (uint16_t)r32(&c);
+    uint32_t gone[NUM_MAPS];
     for (int m = 0; m < NUM_MAPS; m++)
-        gone[m] = (uint16_t)r32(&c);
+        gone[m] = r32(&c);
 
     if (r32(&c) != save_sum(buf, c.n - 4))
         return 0;                       /* corrupt / truncated */
@@ -216,7 +260,9 @@ int game_save_load(const uint8_t *buf, int len)
     G.daytime = daytime;
     G.last_restock = restock;
     G.items_seen = seen;
+    G.flags = flags;
     G.rng = rng ? rng : 0x1D872665u;    /* an all-zero rng never advances */
+    G.boons_done = boons;
     for (int m = 0; m < NUM_MAPS; m++)
         G.spawns_gone[m] = gone[m];
 
@@ -252,6 +298,17 @@ void game_save_done(int ok)
     if (ok)
         G.has_save = 1;      /* LOAD is now selectable, and so is CONTINUE */
     toast(ok ? "SAVED." : "SAVE FAILED", ok);
+
+    /* SAVE AND QUIT: the write has landed, so now -- and ONLY now -- we go.
+     * If it FAILED we stay open and say so on the pause panel. Quitting
+     * anyway would throw away the very thing they asked us to protect. */
+    if (G.quit_after_save) {
+        G.quit_after_save = 0;
+        if (ok)
+            G.quit_pending = 1;
+        else
+            G.pause_msg = "COULD NOT SAVE. NOT LEAVING.";
+    }
 }
 
 int game_load_pending(void)
@@ -266,4 +323,99 @@ void game_load_done(int ok)
     /* On success game_save_load() has already dropped us into the loaded
      * game, so this is only about telling the player what happened. */
     toast(ok ? "LOADED." : "NO SAVE FOUND", ok);
+}
+
+/* ---- DISPLAY ---------------------------------------------------------------
+ * The whole of the core's involvement with the window. See game.h.
+ * G.fullscreen is what the player asked for in OPTIONS; the platform reads
+ * it and makes the window match, and pushes the truth back if it changes
+ * the mode by some other route (an F11 key, say). */
+int game_want_fullscreen(void)
+{
+    return G.fullscreen;
+}
+
+void game_set_fullscreen(int on)
+{
+    G.fullscreen = on ? 1 : 0;
+}
+
+/* ---- QUITTING -------------------------------------------------------------
+ * ESC does not close the game. It raises the pause screen, and the player
+ * decides. See game.h, and pause_update() in intro.c. */
+void game_request_quit(void)
+{
+    if (G.state == ST_PAUSE)
+        return;                 /* already asking; ESC again is handled there */
+
+    G.pause_from = (int)G.state;
+    G.pause_sel  = 0;
+    G.pause_msg  = 0;
+    G.state      = ST_PAUSE;
+    G.t          = 0;
+    audio_sfx(SFX_BLIP);
+}
+
+int game_quit_pending(void)
+{
+    return G.quit_pending;
+}
+
+/* ---- GAMEPADS -------------------------------------------------------------
+ * See game.h. The core stores what the player chose and what's plugged in;
+ * it never touches the device. */
+void game_set_pad(const char *name)
+{
+    int i = 0;
+    if (name)
+        for (; name[i] && i < (int)sizeof G.pad_name - 1; i++)
+            G.pad_name[i] = name[i];
+    G.pad_name[i] = '\0';
+}
+
+/* ---- VOLUME ---------------------------------------------------------------
+ * The core keeps them as menu notches; audio.c wants 0..255. One place does
+ * the conversion, and it is called whenever either changes. */
+void audio_apply_volumes(void)
+{
+    audio_volume(G.music_vol * 255 / VOL_STEPS,
+                 G.sfx_vol   * 255 / VOL_STEPS);
+}
+
+static int clamp_vol(int v)
+{
+    if (v < 0) return 0;
+    if (v > VOL_STEPS) return VOL_STEPS;
+    return v;
+}
+
+int  game_music_volume(void)      { return G.music_vol; }
+int  game_sfx_volume(void)        { return G.sfx_vol;   }
+void game_set_music_volume(int v) { G.music_vol = clamp_vol(v);
+                                    audio_apply_volumes(); }
+void game_set_sfx_volume(int v)   { G.sfx_vol = clamp_vol(v);
+                                    audio_apply_volumes(); }
+
+void game_enable_controls_menu(int on) { G.controls_menu = on ? 1 : 0; }
+void game_enable_display_menu(int on)  { G.display_menu  = on ? 1 : 0; }
+int  game_swap_ab(void)                { return G.swap_ab; }
+void game_set_swap_ab(int on)          { G.swap_ab = on ? 1 : 0; }
+int  game_rumble_enabled(void)         { return G.rumble_on; }
+void game_set_rumble(int on)           { G.rumble_on = on ? 1 : 0; }
+
+/* The game asks for a shake; the platform collects it once per frame and
+ * the request is cleared. A stronger request in the same frame wins. */
+void rumble(int strength)
+{
+    if (!G.rumble_on)
+        return;
+    if (strength > G.rumble_req)
+        G.rumble_req = strength;
+}
+
+int game_rumble_take(void)
+{
+    int r = G.rumble_req;
+    G.rumble_req = 0;
+    return r;
 }

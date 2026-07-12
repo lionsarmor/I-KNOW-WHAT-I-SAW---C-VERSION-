@@ -30,9 +30,31 @@
 #define TICKS_PER_SEC 60
 
 /* ---- Audio ----------------------------------------------------------------
- * Mono, signed 16-bit. 22050 Hz keeps the math cheap on a microcontroller.
+ * Mono, signed 16-bit, and a software tracker (see audio.h).
+ *
+ * THE TWO NUMBERS THAT DIFFER PER MACHINE. Both can be overridden by the
+ * build (-DAUDIO_CHANS=4), which is exactly what the ESP32 does -- same
+ * songs, same code, fewer voices and a cheaper mix.
+ *
+ *   DESKTOP   44100Hz, 8 voices  -- 7 for music, 1 for sfx
+ *   ESP32     22050Hz, 4 voices  -- 3 for music, 1 for sfx. A four-track
+ *             song keeps its lead, bass and drums and loses the pad. It is
+ *             the same tune; it just has less air around it.
+ *
+ * Every extra voice costs one multiply-add per output sample. On a 160MHz
+ * RISC-V at 22kHz that is nothing; be careful anyway.
  */
-#define AUDIO_RATE 22050
+#ifndef AUDIO_RATE
+#define AUDIO_RATE 44100
+#endif
+
+#ifndef AUDIO_CHANS
+#define AUDIO_CHANS 8
+#endif
+
+/* How many notches the volume sliders have. */
+#define VOL_STEPS   10
+#define VOL_DEFAULT  7
 
 /* ---- Player / gameplay tunables ------------------------------------------*/
 #define PLAYER_SPEED      2   /* pixels moved per tick while walking        */
@@ -45,7 +67,7 @@
 
 /* ---- Items ----------------------------------------------------------------*/
 #define HERB_HEAL         8   /* HP restored by one herb                    */
-#define SHELLS_PER_BOX    4   /* shotgun shells in one SHELLS pickup        */
+#define SHELLS_PER_BOX    6   /* shotgun shells in one SHELLS pickup        */
 #define SHOTGUN_BASE_DMG  8   /* a blast does this + level + rng(0..4)      */
 
 /* The world restocks: every this many ticks, every ITEM you've taken comes
@@ -59,6 +81,88 @@
  * One full day+night is a natural rhythm: sleep on it, and the fields have
  * grown back. Shorten it if you want to farm shells faster. */
 #define ITEM_RESPAWN_TICKS (DAY_LEN_TICKS + NIGHT_LEN_TICKS)
+
+/* ---- ZELDA MODE: fighting out in the field --------------------------------
+ * Once you have the shotgun you can just SHOOT things in the overworld
+ * (press B). No menus, no turn order. Creatures notice you from
+ * AGGRO_RADIUS away and come at a run; a blast staggers them, and enough
+ * blasts and they come apart.
+ *
+ * It's quicker and more dangerous than a proper battle, so it pays LESS:
+ * an overworld kill is worth OVERWORLD_XP_PCT of the creature's XP. Walk
+ * into one instead and you get the full amount for the turn-based fight.
+ */
+#define SHOOT_COOLDOWN     16   /* ticks between blasts (pump the gun) */
+#define SHOT_SPEED          6   /* pixels per tick                     */
+#define SHOT_RANGE        100   /* pixels before the shot dies         */
+#define AGGRO_RADIUS       72   /* they notice you from this far       */
+#define CHASE_SPEED         1   /* pixels per tick when charging       */
+#define ENEMY_STUN_TICKS   45   /* how long a hit staggers them        */
+#define KNOCKBACK          10   /* pixels a blast shoves them          */
+#define OVERWORLD_XP_PCT   60   /* an overworld kill is worth 60%      */
+
+/* THE BOSS IS DIFFERENT.
+ * The turn-based fight with the goblin is meant to be brutal, so gunning it
+ * down in the field is a legitimate alternative -- but not a free one. It
+ * eats a lot of shells (see ow_hits in species[], assets.c) and, unlike
+ * every other thing out here:
+ *
+ *   - it barely staggers, so you cannot chain-stun it into a statue;
+ *   - a blast does not knock it back AT ALL. Kelly, Kentucky, 1955: they
+ *     shot at it from the porch all night and it kept coming back;
+ *   - once you shoot it, it charges as fast as you can run.
+ *
+ * And you can't shoot without turning to face it. Let it reach you and you
+ * get the turn-based fight anyway -- with whatever HP you have left. */
+#define BOSS_STUN_TICKS     8   /* it rocks, and that's all            */
+#define BOSS_CHASE_SPEED    2   /* exactly PLAYER_SPEED. it keeps up.  */
+
+/* ---- THE ANT HILL ----------------------------------------------------------
+ * A rooted species with a `brood` (see species[] in assets.c) opens up and
+ * pushes another ant out every ANTHILL_BROOD_TICKS -- but only while it has
+ * fewer than BROOD_MAX of its children alive on the map, so a hill you
+ * ignore becomes a problem and a hill you ignore forever does not become an
+ * infinite one. Kill the hill and the spawning stops; the ants it already
+ * made are still your problem.
+ *
+ * ANTHILL_SOLDIER_PCT of what crawls out are the tougher SOLDIER ants.
+ */
+#define ANTHILL_BROOD_TICKS 600   /* 10s between ants -- slow enough that
+                                     you can cross the farm, talk to the
+                                     cows, and not be swarmed doing it   */
+#define BROOD_MAX             2   /* live children on the map at once     */
+#define ANTHILL_SOLDIER_PCT  30   /* the rest are ordinary giant ants      */
+
+/* ---- PA'S TNT --------------------------------------------------------------
+ * The panic button. In a battle it's a flat, enormous hit -- more than the
+ * shotgun does, and it doesn't care how tough the thing is.
+ *
+ * Out in the field you lob it: it lands TNT_THROW pixels ahead of you and
+ * blows a hole in everything inside TNT_RADIUS. It takes TNT_OW_HITS off
+ * each of them (so it drops most things outright) and, crucially, leaves
+ * whatever survives reeling for TWICE the normal stagger -- which is the
+ * only way to buy real distance from something that doesn't stagger, like
+ * the goblin. It's the answer to being cornered.
+ */
+#define TNT_DMG           34   /* battle damage. it does not roll.     */
+#define TNT_RADIUS        44   /* blast radius in pixels               */
+#define TNT_THROW         26   /* how far ahead of you it lands        */
+#define TNT_OW_HITS        3   /* field hits taken off everything near */
+#define TNT_STUN_MULT      2   /* survivors reel for DOUBLE the usual  */
+#define TNT_BOOM_TICKS    26   /* how long the fireball is on screen   */
+
+/* ---- WHAT THE TOWN GIVES YOU -----------------------------------------------
+ * People help. Not all of them, and not on cue: on each map, exactly ONE
+ * person -- picked at random when you walk in -- is holding something for
+ * you, and you won't know who until you talk to them. They hand over a
+ * random item and patch you up while they're at it.
+ *
+ * It resets on the same clock as the fields (ITEM_RESPAWN_TICKS), so you
+ * can't farm it by walking in and out of a door: one kindness per place,
+ * per day. */
+#define BOON_HEAL         12   /* HP they patch you up for             */
+#define MAX_SHOTS           4
+#define MAX_GORE           28
 
 /* ---- Day / night ----------------------------------------------------------
  * The overworld clock. Day and night each last this many ticks
@@ -78,6 +182,10 @@
  * Costs nothing in daylight -- the whole pass is skipped.
  */
 #define FLASHLIGHT_RADIUS 60   /* pixels */
+
+/* A street lamp throws a wider, warmer pool than your torch -- and it
+ * flickers, because the ones out here always do. */
+#define LAMP_RADIUS       46
 
 /* ---- Your name ------------------------------------------------------------
  * Chosen on the name screen at the start of a new game. NPCs who know you

@@ -87,7 +87,85 @@ check:
 	    -I../../src/game
 	@echo "core is freestanding-clean"
 
+# =============================================================================
+# SHIPPING IT.  `make dist` builds both, into dist/ .
+#
+#   dist/linux/     iknowwhatisaw + lib/libSDL2 + run.sh   (Steam depot)
+#   dist/windows/   iknowwhatisaw.exe + SDL2.dll           (Steam depot)
+#
+# Each folder is SELF-CONTAINED: point a Steam depot at it and ship. The
+# player needs nothing installed -- SDL travels with the game.
+#
+# WINDOWS needs the cross-compiler (one time):
+#     sudo apt install mingw-w64
+# The SDL2 Windows SDK is vendored in vendor/SDL2-mingw (make vendor-sdl).
+#
+# NOTE: saves do NOT go next to the binary -- they go to the OS's per-user
+# app-data dir (SDL_GetPrefPath, see main_sdl.c). A shipped game lives
+# somewhere read-only, so a save file beside the .exe would fail for
+# everyone who didn't build it themselves.
+# =============================================================================
+VERSION   ?= 0.1.0
+DIST      := dist
+SDL_MINGW := vendor/SDL2-mingw/x86_64-w64-mingw32
+MINGW_CC  := x86_64-w64-mingw32-gcc
+SDL_MINGW_URL := https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-devel-2.30.11-mingw.tar.gz
+
+dist: dist-linux dist-windows
+	@echo
+	@echo "  ready to ship:"
+	@du -sh $(DIST)/linux $(DIST)/windows
+
+# ---- LINUX -----------------------------------------------------------------
+# SDL2 is BUNDLED next to the binary rather than statically linked: a static
+# SDL2 still drags in ~50 system libraries (X11, wayland, pulse, alsa...) and
+# pins you to this machine's versions of them. Bundling the .so and pointing
+# the loader at $ORIGIN/lib is what actually travels between distros -- and
+# it's what the Steam Linux Runtime expects.
+dist-linux: $(CORE_SRC) $(DESK_SRC) $(HDRS)
+	@rm -rf $(DIST)/linux && mkdir -p $(DIST)/linux/lib
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) $(CORE_SRC) $(DESK_SRC) \
+	    -o $(DIST)/linux/iknowwhatisaw \
+	    $(SDL_LIBS) -Wl,-rpath,'$$ORIGIN/lib'
+	@cp -L $$(ldd $(DIST)/linux/iknowwhatisaw | awk '/libSDL2/{print $$3}') \
+	    $(DIST)/linux/lib/
+	@printf '#!/bin/sh\ncd "$$(dirname "$$0")" && exec ./iknowwhatisaw "$$@"\n' \
+	    > $(DIST)/linux/run.sh && chmod +x $(DIST)/linux/run.sh
+	@strip $(DIST)/linux/iknowwhatisaw
+	@echo "linux  -> $(DIST)/linux/  (SDL bundled, rpath \$$ORIGIN/lib)"
+
+# ---- WINDOWS ---------------------------------------------------------------
+# -mwindows = no console window pops up behind the game.
+dist-windows: $(CORE_SRC) $(DESK_SRC) $(HDRS)
+	@command -v $(MINGW_CC) >/dev/null 2>&1 || { \
+	    echo "ERROR: $(MINGW_CC) not found."; \
+	    echo "       run once:  sudo apt install mingw-w64"; exit 1; }
+	@test -d $(SDL_MINGW) || { \
+	    echo "ERROR: $(SDL_MINGW) missing. run:  make vendor-sdl"; exit 1; }
+	@rm -rf $(DIST)/windows && mkdir -p $(DIST)/windows
+	$(MINGW_CC) $(CFLAGS) -I$(SDL_MINGW)/include/SDL2 \
+	    $(CORE_SRC) $(DESK_SRC) \
+	    -o $(DIST)/windows/iknowwhatisaw.exe \
+	    -L$(SDL_MINGW)/lib -lmingw32 -lSDL2main -lSDL2 -mwindows
+	@cp $(SDL_MINGW)/bin/SDL2.dll $(DIST)/windows/
+	@x86_64-w64-mingw32-strip $(DIST)/windows/iknowwhatisaw.exe
+	@echo "windows -> $(DIST)/windows/  (SDL2.dll alongside)"
+
+# Fetch the SDL2 Windows SDK (no sudo, lands in vendor/, gitignored).
+vendor-sdl:
+	@mkdir -p vendor
+	@test -d $(SDL_MINGW) && echo "already have $(SDL_MINGW)" || { \
+	    echo "fetching SDL2 mingw SDK..."; \
+	    curl -sSL $(SDL_MINGW_URL) -o /tmp/sdl2-mingw.tar.gz && \
+	    tar xzf /tmp/sdl2-mingw.tar.gz -C vendor && \
+	    mv vendor/SDL2-2.30.11 vendor/SDL2-mingw && \
+	    echo "-> vendor/SDL2-mingw"; }
+
+dist-clean:
+	rm -rf $(DIST)
+
 clean:
 	rm -rf build *.o
 
-.PHONY: pc ascii esp32 flash run run-ascii check clean
+.PHONY: pc ascii esp32 flash run run-ascii check clean \
+        dist dist-linux dist-windows vendor-sdl dist-clean

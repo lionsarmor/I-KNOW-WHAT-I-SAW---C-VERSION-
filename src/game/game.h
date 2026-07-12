@@ -97,4 +97,82 @@ void game_save_done(int ok);
 int  game_load_pending(void);
 void game_load_done(int ok);
 
+/* ---- DISPLAY ---------------------------------------------------------------
+ * The core owns the OPTIONS menu; the PLATFORM owns the window. The core
+ * never touches a window, a driver or a monitor -- it just records what the
+ * player picked, and the platform makes the world match.
+ *
+ * Desktop wiring (see platform/desktop/main_sdl.c):
+ *
+ *   at boot   game_set_fullscreen(read_from_your_settings_file());
+ *             -- so the OPTIONS menu opens showing the truth
+ *
+ *   each frame
+ *             if (game_want_fullscreen() != window_is_fullscreen) {
+ *                 make_the_window_match();
+ *                 save_the_setting();
+ *             }
+ *
+ * If your platform toggles fullscreen by some other route (an F11 key, a
+ * window manager), call game_set_fullscreen() to tell the core -- otherwise
+ * the menu will lie about the current state.
+ *
+ * Platforms with no window at all (the terminal build, the ESP32) simply
+ * ignore both of these. */
+int  game_want_fullscreen(void);   /* 1 = fullscreen, 0 = windowed */
+void game_set_fullscreen(int on);  /* push the real state back into the core */
+
+/* ---- QUITTING --------------------------------------------------------------
+ * The player pressed ESC (or Back, or whatever your platform calls it). Do
+ * NOT close the window: hand it to the core and it raises the pause screen,
+ * which offers SAVE AND QUIT / QUIT / CANCEL. Losing an hour of play to a
+ * misplaced thumb is not acceptable.
+ *
+ *   on ESC     game_request_quit();
+ *   each frame if (game_quit_pending()) break;   -- now you may close
+ *
+ * SAVE AND QUIT goes through the ordinary save protocol above: the core
+ * raises game_save_pending(), you write the blob and call game_save_done(),
+ * and only THEN does game_quit_pending() come true. If your write fails the
+ * game stays open and says so, rather than quietly eating the save. */
+void game_request_quit(void);
+int  game_quit_pending(void);
+
+/* ---- GAMEPADS --------------------------------------------------------------
+ * Same split as the display: the PLATFORM owns the hardware, the CORE owns
+ * the menu. The desktop uses SDL's GameController layer, which already
+ * normalises an Xbox pad, a Switch Pro pad, a PlayStation pad and most
+ * no-name USB things into one layout -- so the core never learns what a
+ * "Nintendo" is.
+ *
+ *   game_set_pad(name)          the platform says what's plugged in (or NULL)
+ *   game_enable_controls_menu() the platform says "I can do pads" -- the
+ *                               CONTROLS row only appears in OPTIONS if so,
+ *                               so the handheld build never shows it
+ *   game_swap_ab()              the platform reads this when it maps buttons
+ *   game_rumble_take()          0..255, and CLEARS. Call it once per frame;
+ *                               nonzero = shake the pad. (The ESP32's
+ *                               vibrator motor can use exactly the same call.)
+ */
+/* ---- VOLUME ----------------------------------------------------------------
+ * 0..VOL_STEPS (config.h). The platform reads these back after the player
+ * touches OPTIONS and writes them to its settings file. */
+int  game_music_volume(void);
+void game_set_music_volume(int v);
+int  game_sfx_volume(void);
+void game_set_sfx_volume(int v);
+
+void game_set_pad(const char *name);
+void game_enable_controls_menu(int on);
+
+/* Does this machine even HAVE a resizable window? The handheld does not, and
+ * a DISPLAY row that does nothing when you press it is a lie. Call this with
+ * 1 from any platform with a real window. */
+void game_enable_display_menu(int on);
+int  game_swap_ab(void);
+void game_set_swap_ab(int on);
+int  game_rumble_enabled(void);
+void game_set_rumble(int on);
+int  game_rumble_take(void);
+
 #endif /* GAME_H */

@@ -16,13 +16,13 @@
 #define FONT_SMALL_H
 
 #define FONT_SMALL_W    3
-#define FONT_SMALL_H    5
+#define FONT_SMALL_ROWS 5
 #define FONT_SMALL_ADV  4   /* pixels per character, including the gap */
 #define FONT_SMALL_FIRST 32
 #define FONT_SMALL_LAST  90
 
 static const unsigned char font_small[FONT_SMALL_LAST - FONT_SMALL_FIRST + 1]
-                                      [FONT_SMALL_H] = {
+                                      [FONT_SMALL_ROWS] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00 },   /* space */
     { 0x04, 0x04, 0x04, 0x00, 0x04 },   /* ! */
     { 0x00, 0x00, 0x00, 0x00, 0x00 },   /* " */

@@ -53,6 +53,98 @@ static int hits_entity(int x, int y, int self)
     return -1;
 }
 
+/* ============================ THE KINDNESS OF STRANGERS =====================
+ * People help -- but not all of them, and not on cue. On every map, exactly
+ * ONE person is holding something for you, drawn at random the moment you
+ * walk in, and you don't know who until you talk to them. They give you a
+ * random item and patch you up while they're at it.
+ *
+ * Animals are not eligible. Neither is the van. Neither is anyone already
+ * scripted to hand you something -- they have their own line to say.
+ *
+ * boons_done keeps one bit per map so a town is only kind ONCE; walking
+ * back out the door and in again gets you a shrug. It clears when the
+ * world restocks, so the towns warm up again after a day and a night.
+ * ==========================================================================*/
+static void roll_boon(int map)
+{
+    G.boon_ent = -1;
+    if (G.boons_done & (1u << map))
+        return;                    /* this place has already been kind today */
+
+    /* Reservoir sample: one pass, no array, and every candidate ends up
+     * equally likely to be the one. */
+    int seen = 0;
+    for (int i = 0; i < MAX_ENTITIES; i++) {
+        const entity_t *e = &G.ents[i];
+        if (e->type != ENT_NPC || !e->dialog || e->gift)
+            continue;
+        if (e->kind > LOOK_STOREKEEP)
+            continue;              /* a cow is not going to give you a medkit */
+        seen++;
+        if (rng_range(1, seen) == 1)
+            G.boon_ent = i;
+    }
+    if (G.boon_ent < 0)
+        return;                    /* nobody here but the livestock */
+
+    /* whatever they happen to have on them. Herbs are what a farm town
+     * has; TNT is what somebody's frightened enough to part with. */
+    static const int pool[] = {
+        ITEM_HERB, ITEM_HERB, ITEM_HERB,
+        ITEM_SHELLS, ITEM_SHELLS,
+        ITEM_MEDKIT,
+        ITEM_TNT,
+    };
+    G.boon_item = pool[rng_range(0, (int)(sizeof pool / sizeof pool[0]) - 1)];
+}
+
+/* What they say as they hand it over. Assembled here rather than stored in
+ * the table, because the item is only decided at run time. */
+static char boon_buf[192];
+
+static void boon_cat(int *p, const char *s)
+{
+    while (*s && *p < (int)sizeof boon_buf - 1)
+        boon_buf[(*p)++] = *s++;
+}
+
+static const char *boon_line(int kind)
+{
+    static const char *lead[4] = {
+        "WAIT. WAIT -- TAKE THIS WITH YOU. I'M NOT GOING BACK OUT THERE "
+        "TO USE IT.",
+        "HERE. MY HUSBAND KEPT IT BY THE DOOR. HE HASN'T COME BACK IN "
+        "TWO NIGHTS.",
+        "TAKE IT. TAKE IT AND GO, AND DON'T TELL ME WHAT YOU SAW OUT "
+        "THERE. I DON'T WANT TO KNOW.",
+        "SIT DOWN, YOU'RE BLEEDING. ...NO. DON'T EXPLAIN. JUST TAKE THIS "
+        "AND KEEP MOVING.",
+    };
+    int p = 0;
+    boon_cat(&p, lead[rng_range(0, 3)]);
+    boon_cat(&p, "\n");
+    boon_cat(&p, "THEY PRESS ");
+    boon_cat(&p, item_info[kind].name);
+    boon_cat(&p, " INTO YOUR HANDS, PATCH YOU UP, AND LOOK AT THE SKY.");
+    boon_buf[p] = '\0';
+    return boon_buf;
+}
+
+/* Which song belongs to which place. Lives here (not in a table) because a
+ * BATTLE has to be able to put the right one BACK when it's over -- see
+ * return_to_overworld() in battle.c. Add a case when you add a map. */
+int map_music(int map)
+{
+    switch (map) {
+    case MAP_FARM:   return MUSIC_FARM;    /* home, and it is not safe    */
+    case MAP_TOWN:   return MUSIC_TOWN;    /* people. a pulse. still wrong */
+    case MAP_VANLOT: return MUSIC_TOWN;
+    case MAP_RIDGE:  return MUSIC_BOSS;    /* you should not be up here    */
+    default:         return MUSIC_NONE;    /* indoors: just the room       */
+    }
+}
+
 /* ---- entering maps / starting the game ------------------------------------*/
 
 void overworld_enter_map(int map, int tx, int ty)
@@ -79,13 +171,24 @@ void overworld_enter_map(int map, int tx, int ty)
         e->dialog = m->spawns[i].dialog;
         e->gift   = m->spawns[i].gift;
         e->after  = m->spawns[i].after;
+        e->stun = e->hurt = e->aggro = 0;
+        e->hp = (e->type == ENT_ALIEN) ? species[e->kind].ow_hits : 0;
+        /* a hill is already working when you walk in on it */
+        if (e->type == ENT_ALIEN && species[e->kind].brood > 0)
+            e->timer = rng_range(30, species[e->kind].brood);
     }
+    for (int i = 0; i < MAX_SHOTS; i++) G.shots[i].active = 0;
+    for (int i = 0; i < MAX_GORE;  i++) G.gore[i].active  = 0;
+    G.shoot_cd = 0;
+    G.boom_t   = 0;
 
-    G.state = ST_OVERWORLD;
-    G.t     = 0;            /* also drives the "map name" fade */
+    roll_boon(map);         /* who here is holding something for you? */
 
-    /* each map has its own ambience -- add a case when you add a map */
-    audio_music(map == MAP_FARM ? MUSIC_FARM : MUSIC_NONE);
+    G.state  = ST_OVERWORLD;
+    G.t      = 0;
+    G.banner = 90;          /* name the place -- ONCE, on the way in */
+
+    audio_music(map_music(map));
 }
 
 void overworld_start_game(void)
@@ -105,6 +208,10 @@ void overworld_start_game(void)
     G.daytime = 0;                         /* it starts at first light */
     G.last_restock = 0;
     G.toast_ticks = 0;
+    G.flags = 0;                           /* nothing has happened yet */
+    G.boons_done = 0;                      /* nobody has helped you yet */
+    G.boon_ent = -1;
+    G.boom_t = 0;
     overworld_enter_map(MAP_FARM, 5, 6);   /* on the path by the door */
 }
 
@@ -118,44 +225,69 @@ void overworld_resume(void)
     G.player.x = px;
     G.player.y = py;
     G.pack_sel = G.pack_top = 0;
-    G.t = 90;                               /* skip the map-name banner */
 }
 
 /* ---- the world restocks ----------------------------------------------------
- * Every ITEM_RESPAWN_TICKS, everything you PICKED UP comes back where it
- * lay: the herbs regrow, somebody leaves another box of shells out. Without
- * this the shotgun runs dry for good and the goblin is simply unbeatable.
+ * Every ITEM_RESPAWN_TICKS -- one day and one night -- the world resets:
  *
- * Only ENT_ITEM spawns are restocked. A gift an NPC handed over, and a boss
- * you put down, stay done -- their spawn bits are left alone.
+ *   ITEMS you picked up are lying where they lay again. The herbs regrow,
+ *   somebody leaves another box of shells on the porch. Without this the
+ *   shotgun runs dry for good and the goblin is unbeatable.
+ *
+ *   CREATURES you killed are back. Everything you put down STAYS down until
+ *   this moment -- clear a field of ants and it stays clear, walk out and
+ *   back in and it's still clear -- and then the sun comes up and they have
+ *   dug their way back out. The hills are open again.
+ *
+ * What does NOT come back, ever: a gift an NPC handed you, and a BOSS. The
+ * goblin and the queen die once.
  */
 static void restock_items(void)
 {
     for (int m = 0; m < NUM_MAPS; m++)
-        for (int i = 0; i < maps[m].nspawns && i < MAX_ENTITIES; i++)
-            if (maps[m].spawns[i].type == ENT_ITEM)
-                G.spawns_gone[m] &= (uint16_t)~(1u << i);
+        for (int i = 0; i < maps[m].nspawns && i < MAX_ENTITIES; i++) {
+            const spawn_t *s = &maps[m].spawns[i];
+            int back = (s->type == ENT_ITEM) ||
+                       (s->type == ENT_ALIEN && !species[s->kind].boss);
+            if (back)
+                G.spawns_gone[m] &= ~(1u << i);
+        }
 
     /* Anything on the map we're standing on has to appear NOW -- the map is
      * already populated, so re-entering it later isn't good enough. */
     const map_t *m = cur_map();
     for (int i = 0; i < m->nspawns && i < MAX_ENTITIES; i++) {
-        if (m->spawns[i].type != ENT_ITEM || G.ents[i].type != ENT_NONE)
+        const spawn_t *s = &m->spawns[i];
+        if (G.ents[i].type != ENT_NONE || (G.spawns_gone[G.map_id] & (1u << i)))
             continue;
+        if (s->type != ENT_ITEM && s->type != ENT_ALIEN)
+            continue;
+        /* Don't put a creature (or an item) down on top of the player: they'd
+         * be in a fight before they saw it coming, or pocket a thing they
+         * never saw. It'll be there the next time they're not standing on it. */
+        if (touching(s->tx * TILE, s->ty * TILE, G.player.x, G.player.y))
+            continue;
+
         entity_t *e = &G.ents[i];
-        e->type   = ENT_ITEM;
-        e->kind   = m->spawns[i].kind;
-        e->x      = m->spawns[i].tx * TILE;
-        e->y      = m->spawns[i].ty * TILE;
+        e->type   = s->type;
+        e->kind   = s->kind;
+        e->x      = s->tx * TILE;
+        e->y      = s->ty * TILE;
         e->dir    = DIR_DOWN;
         e->dialog = 0;
         e->gift   = 0;
         e->after  = 0;
-        /* don't drop an item on the player's head -- they'd pocket it
-         * without ever seeing it. It'll still be there when they move. */
+        e->stun = e->hurt = e->aggro = 0;
+        e->timer  = rng_range(30, 90);
+        e->hp     = (s->type == ENT_ALIEN) ? species[s->kind].ow_hits : 0;
     }
 
-    G.toast       = "THE FIELDS HAVE GROWN BACK";
+    /* A day has passed. People have had time to find something else they
+     * can spare -- every town is willing to be kind once more. */
+    G.boons_done = 0;
+    roll_boon(G.map_id);        /* including the one you're standing in */
+
+    G.toast       = "THE FIELDS GREW BACK. SO DID THEY.";
     G.toast_good  = 1;
     G.toast_ticks = 150;
 }
@@ -181,13 +313,242 @@ static int day_brightness(void)
                                    / DUSK_LEN_TICKS;      /* dawn      */
 }
 
+/* ============================ ZELDA MODE ====================================
+ * Shooting things in the field. Press B with the shotgun and a shell in it:
+ * a blast flies out the way you're facing. It staggers what it hits, and
+ * when the thing runs out of hit points it comes apart.
+ *
+ * You still get a proper turn-based battle if you WALK INTO one instead --
+ * both modes live side by side, and the battle pays better.
+ * ==========================================================================*/
+
+/* squared distance -- no sqrt anywhere in this file */
+static int dist2(int ax, int ay, int bx, int by)
+{
+    int dx = ax - bx, dy = ay - by;
+    return dx * dx + dy * dy;
+}
+
+static void spray_gore(int x, int y, int n)
+{
+    static const uint16_t blood[3] = { 0, 0, 0 };
+    (void)blood;
+    for (int k = 0; k < n; k++) {
+        for (int i = 0; i < MAX_GORE; i++) {
+            if (G.gore[i].active)
+                continue;
+            gore_t *g = &G.gore[i];
+            g->active = 1;
+            g->x = x + rng_range(2, 13);
+            g->y = y + rng_range(2, 13);
+            g->vx = rng_range(-40, 40);
+            g->vy = rng_range(-52, 12);
+            g->life = rng_range(24, 46);
+            g->col = (rng_range(0, 2) == 0) ? RGB565(140, 24, 20)
+                                            : RGB565(200, 40, 32);
+            break;
+        }
+    }
+}
+
+/* DEAD IS DEAD -- until tomorrow.
+ *
+ * Mark a creature's spawn slot so it does not come back the moment you step
+ * out of the map and back in. Ordinary creatures are un-marked again by the
+ * next restock (a day and a night later); BOSSES are never un-marked, so
+ * they stay dead for the rest of the run.
+ *
+ * Slots at or above the map's spawn count are things an ANT HILL made at run
+ * time. They have no spawn to come back from, so there is nothing to mark. */
+void mark_dead(int i)
+{
+    const map_t *m = cur_map();
+    if (i < m->nspawns)
+        G.spawns_gone[G.map_id] |= (1u << i);
+}
+
+static void kill_entity(int i)
+{
+    entity_t *e = &G.ents[i];
+    const species_t *sp = &species[e->kind];
+
+    spray_gore(e->x, e->y, 14);
+    audio_sfx(SFX_HIT);
+
+    /* A field kill pays less than a proper fight -- see OVERWORLD_XP_PCT.
+     * You took the quick way out, and the quick way pays worse. */
+    G.player.xp += sp->xp * OVERWORLD_XP_PCT / 100;
+
+    mark_dead(i);
+    /* NOT "any boss" -- there are two of them now, and only the goblin's
+     * death opens the road east of town. */
+    if (e->kind == SPECIES_GOBLIN)
+        G.flags |= FLAG_GOBLIN_DEAD;
+
+    e->type = ENT_NONE;
+}
+
+static void hit_entity(int i)
+{
+    entity_t *e = &G.ents[i];
+    const species_t *sp = &species[e->kind];
+    e->hp--;
+    e->hurt = 8;
+    spray_gore(e->x, e->y, 4);      /* a spatter, not a burst */
+
+    if (e->hp <= 0) {
+        kill_entity(i);
+        return;
+    }
+
+    /* staggered: it can't move and it can't grab you */
+    e->stun  = sp->boss ? BOSS_STUN_TICKS : ENEMY_STUN_TICKS;
+    e->aggro = 1;                   /* but it has definitely noticed you */
+    audio_sfx(SFX_HURT);
+
+    /* THE BULLETS DO NOTHING. The boss doesn't even rock back -- it takes
+     * the blast standing, and then it keeps walking at you. */
+    if (sp->boss)
+        return;
+
+    /* knocked back, if there's anywhere to go */
+    static const int step[4][2] = { {0,1}, {0,-1}, {-1,0}, {1,0} };
+    int kx = e->x + step[G.player.dir][0] * KNOCKBACK;
+    int ky = e->y + step[G.player.dir][1] * KNOCKBACK;
+    if (!blocked(kx, ky) && hits_entity(kx, ky, i) < 0) {
+        e->x = kx;
+        e->y = ky;
+    }
+}
+
+/* PA'S TNT, thrown. It lands TNT_THROW ahead of you and takes the field
+ * apart: everything inside TNT_RADIUS loses TNT_OW_HITS, which drops most
+ * things outright, and anything still standing reels for DOUBLE the usual
+ * stagger. That last part is the whole point -- it's the only way to buy
+ * distance from something that barely staggers at all. */
+static void throw_tnt(void)
+{
+    static const int step[4][2] = { {0,1}, {0,-1}, {-1,0}, {1,0} };
+    int bx = G.player.x + 8 + step[G.player.dir][0] * TNT_THROW;
+    int by = G.player.y + 8 + step[G.player.dir][1] * TNT_THROW;
+
+    G.player.items[ITEM_TNT]--;
+    G.boom_x = bx;
+    G.boom_y = by;
+    G.boom_t = TNT_BOOM_TICKS;
+    audio_sfx(SFX_STING);            /* the crash, falling into a low drone */
+    rumble(255);                     /* it is DYNAMITE */
+
+    for (int i = 0; i < MAX_ENTITIES; i++) {
+        entity_t *e = &G.ents[i];
+        if (e->type != ENT_ALIEN)
+            continue;
+        if (dist2(e->x + 8, e->y + 8, bx, by) > TNT_RADIUS * TNT_RADIUS)
+            continue;
+
+        e->hp -= TNT_OW_HITS;
+        if (e->hp <= 0) {
+            kill_entity(i);          /* pays the usual field XP */
+            continue;
+        }
+        /* it lived. It is not going anywhere for a while. */
+        e->hurt  = 10;
+        e->aggro = 1;
+        e->stun  = (species[e->kind].boss ? BOSS_STUN_TICKS : ENEMY_STUN_TICKS)
+                 * TNT_STUN_MULT;
+        spray_gore(e->x, e->y, 6);
+    }
+    spray_gore(bx - 8, by - 8, 10);  /* dirt and worse, straight up */
+}
+
+static void fire_shot(void)
+{
+    static const int step[4][2] = { {0,1}, {0,-1}, {-1,0}, {1,0} };
+    for (int i = 0; i < MAX_SHOTS; i++) {
+        if (G.shots[i].active)
+            continue;
+        shot_t *sh = &G.shots[i];
+        sh->active    = 1;
+        sh->x         = G.player.x + 4;
+        sh->y         = G.player.y + 4;
+        sh->dx        = step[G.player.dir][0] * SHOT_SPEED;
+        sh->dy        = step[G.player.dir][1] * SHOT_SPEED;
+        sh->travelled = 0;
+        break;
+    }
+    G.player.items[ITEM_SHELLS]--;
+    G.shoot_cd = SHOOT_COOLDOWN;
+    G.recoil   = 6;
+    audio_sfx(SFX_SHOTGUN);
+    rumble(150);              /* the gun kicks */
+}
+
+static void try_shoot(void)
+{
+    if (!G.player.items[ITEM_SHOTGUN] || G.shoot_cd > 0)
+        return;
+    if (G.player.items[ITEM_SHELLS] <= 0) {
+        audio_sfx(SFX_BLIP);        /* click. empty. */
+        G.shoot_cd = 12;
+        return;
+    }
+    fire_shot();
+}
+
+static void update_shots(void)
+{
+    for (int i = 0; i < MAX_SHOTS; i++) {
+        shot_t *sh = &G.shots[i];
+        if (!sh->active)
+            continue;
+
+        sh->x += sh->dx;
+        sh->y += sh->dy;
+        sh->travelled += SHOT_SPEED;
+
+        if (sh->travelled > SHOT_RANGE || blocked(sh->x - 4, sh->y - 4)) {
+            sh->active = 0;         /* spent, or buried in a fence */
+            continue;
+        }
+        /* did it find something? */
+        for (int e = 0; e < MAX_ENTITIES; e++) {
+            entity_t *en = &G.ents[e];
+            if (en->type != ENT_ALIEN)
+                continue;           /* you cannot shoot the livestock */
+            if (sh->x < en->x + 2 || sh->x > en->x + 14 ||
+                sh->y < en->y + 2 || sh->y > en->y + 14)
+                continue;
+            sh->active = 0;
+            hit_entity(e);
+            break;
+        }
+    }
+}
+
+static void update_gore(void)
+{
+    for (int i = 0; i < MAX_GORE; i++) {
+        gore_t *g = &G.gore[i];
+        if (!g->active)
+            continue;
+        g->x  += g->vx / 16;
+        g->y  += g->vy / 16;
+        g->vy += 4;                 /* it falls */
+        if (--g->life <= 0)
+            g->active = 0;
+    }
+}
+
 /* ---- update ----------------------------------------------------------------*/
 
 /* the player pushed into entity `i`: NPCs are simply solid, but pushing
  * into a visitor starts the fight (unless we just fled one) */
 static void bump_entity(int i)
 {
-    if (G.ents[i].type == ENT_ALIEN && !G.battle_grace)
+    /* Walk into a visitor and you get the FULL turn-based fight (and the
+     * full XP). But something you've already staggered can't grab you --
+     * finish it off with the gun. */
+    if (G.ents[i].type == ENT_ALIEN && !G.battle_grace && !G.ents[i].stun)
         battle_start(i);
 }
 
@@ -247,14 +608,32 @@ static void check_door_bump(void)
     if (map_tile(m, tx, ty) != TILE_DOOR)
         return;
 
-    for (int i = 0; i < m->nwarps; i++)
-        if (m->warps[i].tx == tx && m->warps[i].ty == ty) {
-            audio_sfx(SFX_CONFIRM);
-            overworld_enter_map(m->warps[i].dest_map,
-                                m->warps[i].dest_tx, m->warps[i].dest_ty);
+    for (int i = 0; i < m->nwarps; i++) {
+        if (m->warps[i].tx != tx || m->warps[i].ty != ty)
+            continue;
+
+        /* Some doors want the brass key. Without it they're just another
+         * locked door; with it, they open. */
+        if (m->warps[i].needs_flag && !(G.flags & m->warps[i].needs_flag)) {
+            if (locked_cd == 0 && m->warps[i].shut)
+                dialog_start(m->warps[i].shut);
+            locked_cd = 40;
             return;
         }
-    /* a door with no warp: locked */
+        if (m->warps[i].needs_key && !G.player.items[ITEM_KEY]) {
+            if (locked_cd == 0)
+                dialog_start("A HEAVY BRASS LOCK. THIS ONE ISN'T "
+                             "JUST STUCK -- SOMEBODY LOCKED IT.");
+            locked_cd = 30;
+            return;
+        }
+
+        audio_sfx(SFX_CONFIRM);
+        overworld_enter_map(m->warps[i].dest_map,
+                            m->warps[i].dest_tx, m->warps[i].dest_ty);
+        return;
+    }
+    /* a door with no warp at all: locked, and nobody's home */
     if (locked_cd == 0)
         dialog_start("LOCKED. NOBODY'S ANSWERING.");
     locked_cd = 30;   /* refreshed every tick you keep pushing */
@@ -322,12 +701,85 @@ static void check_warps(void)
     const map_t *m = cur_map();
     int tx = (G.player.x + TILE / 2) / TILE;   /* tile under player center */
     int ty = (G.player.y + FEET_Y1) / TILE;    /* ...at their feet */
-    for (int i = 0; i < m->nwarps; i++)
-        if (m->warps[i].tx == tx && m->warps[i].ty == ty) {
-            overworld_enter_map(m->warps[i].dest_map,
-                                m->warps[i].dest_tx, m->warps[i].dest_ty);
+    for (int i = 0; i < m->nwarps; i++) {
+        const warp_t *w = &m->warps[i];
+        if (w->tx != tx || w->ty != ty)
+            continue;
+
+        /* Some roads don't open until the story says so. */
+        if (w->needs_flag && !(G.flags & w->needs_flag)) {
+            if (locked_cd == 0 && w->shut)
+                dialog_start(w->shut);
+            locked_cd = 40;
             return;
         }
+        overworld_enter_map(w->dest_map, w->dest_tx, w->dest_ty);
+        return;
+    }
+}
+
+/* ---- WHAT COMES OUT OF THE HILL -------------------------------------------
+ * The ant hill pushes a new ant out onto a free tile beside it. The new ant
+ * takes an entity slot ABOVE the map's scripted spawn count -- those slots
+ * belong to nobody, so a creature born here has no spawn bit to leave behind
+ * when it dies (see mark_dead). Returns 0 if there was no room, in which
+ * case the hill just seethes and tries again later.
+ */
+static int hill_brood_count(int hill)
+{
+    const map_t *m = cur_map();
+    int n = 0;
+    for (int i = m->nspawns; i < MAX_ENTITIES; i++)
+        if (G.ents[i].type == ENT_ALIEN)
+            n++;
+    (void)hill;          /* the cap is per-map, which is what matters */
+    return n;
+}
+
+static int hill_spawn(int hill)
+{
+    const map_t *m = cur_map();
+    entity_t *h = &G.ents[hill];
+
+    int slot = -1;
+    for (int i = m->nspawns; i < MAX_ENTITIES; i++)
+        if (G.ents[i].type == ENT_NONE) { slot = i; break; }
+    if (slot < 0)
+        return 0;                              /* the map is full of ants */
+
+    /* somewhere clear, right next to the mound */
+    static const int around[8][2] = {
+        {-1,0},{1,0},{0,-1},{0,1},{-1,-1},{1,-1},{-1,1},{1,1}
+    };
+    int first = rng_range(0, 7);
+    for (int k = 0; k < 8; k++) {
+        const int *o = around[(first + k) % 8];
+        int nx = h->x + o[0] * TILE, ny = h->y + o[1] * TILE;
+        if (blocked(nx, ny) || hits_entity(nx, ny, -1) >= 0)
+            continue;
+        if (touching(nx, ny, G.player.x, G.player.y))
+            continue;                          /* not straight into your face */
+
+        entity_t *e = &G.ents[slot];
+        e->type   = ENT_ALIEN;
+        e->kind   = (rng_range(1, 100) <= ANTHILL_SOLDIER_PCT)
+                  ? SPECIES_SOLDIER : SPECIES_ANT;
+        e->x      = nx;
+        e->y      = ny;
+        e->dir    = DIR_DOWN;
+        e->timer  = rng_range(20, 60);
+        e->dialog = 0;
+        e->gift   = 0;
+        e->after  = 0;
+        e->stun   = e->hurt = 0;
+        e->aggro  = 0;                 /* it doesn't know where you are --
+                                          it crawls out and casts about like
+                                          anything else, and comes for you
+                                          when it gets close enough */
+        e->hp     = species[e->kind].ow_hits;
+        return 1;
+    }
+    return 0;                                  /* hemmed in -- try again later */
 }
 
 static void update_aliens(void)
@@ -339,16 +791,69 @@ static void update_aliens(void)
         entity_t *e = &G.ents[i];
         if (e->type != ENT_ALIEN)
             continue;
-        if (species[e->kind].boss)
-            continue;      /* a boss doesn't wander. it waits for you. */
 
-        /* wander: walk a while, then pick a new direction (or pause) */
-        if (--e->timer <= 0) {
-            e->dir   = rng_range(0, 3);
-            e->timer = rng_range(30, 120);
+        const species_t *sp = &species[e->kind];
+
+        if (e->hurt > 0) e->hurt--;
+        if (e->stun > 0) {          /* staggered: it isn't going anywhere */
+            e->stun--;
+            continue;
         }
-        int nx = e->x + step[e->dir][0] * ALIEN_WANDER_SPEED;
-        int ny = e->y + step[e->dir][1] * ALIEN_WANDER_SPEED;
+
+        /* THE ANT HILL. It is rooted -- it will never take a step in its
+         * life. All it does is open up and push another one out. Kill it and
+         * the spawning stops; what it already made is still out there. */
+        if (sp->rooted) {
+            if (sp->brood > 0 && --e->timer <= 0) {
+                e->timer = sp->brood;
+                if (hill_brood_count(i) < BROOD_MAX)
+                    hill_spawn(i);
+            }
+            continue;
+        }
+
+        int boss = sp->boss;
+
+        /* HAS IT SEEN YOU? Once it has, it comes. It does not lose interest.
+         *
+         * The boss is the exception: it never prowls and it never spots you
+         * on its own -- it just stands there, waiting, and if you walk into
+         * it you get the turn-based fight. But put a shell into it (hit_entity
+         * sets aggro) and it comes off that spot at a dead run. */
+        if (!e->aggro && !boss &&
+            dist2(e->x, e->y, G.player.x, G.player.y)
+                < AGGRO_RADIUS * AGGRO_RADIUS)
+            e->aggro = 1;
+
+        if (!e->aggro && boss)
+            continue;      /* it waits for you. */
+
+        int nx, ny;
+        if (e->aggro) {
+            /* charge: close whichever gap is bigger, so it comes at you
+             * in a straight-ish line instead of drifting diagonally.
+             *
+             * A species can override the speed of its class (the QUEEN does:
+             * she is faster than you can run). 0 = take the default. */
+            int speed = sp->ow_speed;
+            if (speed <= 0)
+                speed = boss ? BOSS_CHASE_SPEED : CHASE_SPEED;
+            int dx = G.player.x - e->x, dy = G.player.y - e->y;
+            if ((dx < 0 ? -dx : dx) > (dy < 0 ? -dy : dy))
+                e->dir = (dx > 0) ? DIR_RIGHT : DIR_LEFT;
+            else
+                e->dir = (dy > 0) ? DIR_DOWN : DIR_UP;
+            nx = e->x + step[e->dir][0] * speed;
+            ny = e->y + step[e->dir][1] * speed;
+        } else {
+            /* wander: walk a while, then pick a new direction (or pause) */
+            if (--e->timer <= 0) {
+                e->dir   = rng_range(0, 3);
+                e->timer = rng_range(30, 120);
+            }
+            nx = e->x + step[e->dir][0] * ALIEN_WANDER_SPEED;
+            ny = e->y + step[e->dir][1] * ALIEN_WANDER_SPEED;
+        }
 
         if (touching(nx, ny, G.player.x, G.player.y)) {
             /* it walked into YOU -- that's an ambush */
@@ -398,6 +903,30 @@ static void try_talk(void)
                 dialog_start(e->dialog);
                 return;
             }
+            /* This map's one generous soul (see roll_boon). They hand it
+             * over, they patch you up, and after that they're just another
+             * frightened neighbour with a line to say. */
+            if (i == G.boon_ent) {
+                int kind = G.boon_item;
+                G.player.items[kind] +=
+                    (kind == ITEM_SHELLS) ? SHELLS_PER_BOX : 1;
+                pack_discover(kind);
+                G.player.hp += BOON_HEAL;
+                if (G.player.hp > G.player.max_hp)
+                    G.player.hp = G.player.max_hp;
+                G.boons_done |= (uint16_t)(1u << G.map_id);
+                G.boon_ent = -1;
+                audio_sfx(SFX_PICKUP);
+                dialog_start(boon_line(kind));
+                return;
+            }
+
+            /* the van is not a person. Talk to it and you leave. */
+            if (e->kind == LOOK_VAN) {
+                audio_sfx(SFX_CONFIRM);
+                drive_start();
+                return;
+            }
             audio_sfx(SFX_CONFIRM);
             dialog_start((e->gift && e->after) ? e->after : e->dialog);
             return;
@@ -408,6 +937,8 @@ static void try_talk(void)
 void overworld_update(void)
 {
     G.daytime++;                   /* the sun only moves while you walk */
+    if (G.banner > 0)
+        G.banner--;
 
     if (G.daytime - G.last_restock >= (uint32_t)ITEM_RESPAWN_TICKS) {
         G.last_restock = G.daytime;
@@ -425,8 +956,23 @@ void overworld_update(void)
         return;
     update_aliens();
 
+    if (G.shoot_cd > 0) G.shoot_cd--;
+    if (G.recoil   > 0) G.recoil--;
+    if (G.boom_t   > 0) G.boom_t--;
+    update_shots();
+    update_gore();
+
     if (PRESSED(BTN_A))
         try_talk();
+
+    /* B = the family shotgun, right here in the field.
+     *
+     * This is the PRESS, not the hold: B also closes the pack and the
+     * dialog box, and if we read the hold we'd fire the instant those
+     * closed -- the same button-down that dismissed the menu was still
+     * down. One press, one shell. */
+    if (PRESSED(BTN_B))
+        try_shoot();
 
     /* START opens the pack. (On the C3 handheld there's no START button --
      * hold A+B together; the platform layer reports that as START.) */
@@ -468,16 +1014,24 @@ static void player_sprite(int *spr, int *flip)
 }
 
 /* ---- the HUD ---------------------------------------------------------------
- * One panel, top-left:
- *      NAME
- *      HP  [==========]
- *      LV 3 [====     ]      <- the XP bar, filling toward the next level
- * ...then a row of icons for the things you're carrying that matter at a
- * glance (the key, the flashlight -- lit when it's on).
+ * It sits straight on top of the world: NO panel, NO black box. Every
+ * glyph is drawn in the 3x5 small font with a 1px dark halo around it
+ * (gfx_text_small_outlined), which is what makes it readable over grass,
+ * dirt, or a pitch-black field at night without covering any of it up.
+ *
+ *      NAME            LV 3
+ *      [========--]           <- health
+ *      [====------]           <- the climb to the next level
+ *      (key) (lamp)           <- only what you're actually carrying
+ *
+ * All of it lives in the top-left corner and is about 60x22 -- a quarter
+ * of what the old boxed version ate.
  */
 static void bar(int x, int y, int w, int h, int val, int max,
                 uint16_t fill, uint16_t back)
 {
+    /* a 1px dark frame so the bar reads over grass, same trick as the text */
+    gfx_rect(x - 1, y - 1, w + 2, h + 2, RGB565(8, 8, 12));
     gfx_fill_rect(x, y, w, h, back);
     if (max > 0 && val > 0) {
         int fw = w * val / max;
@@ -489,59 +1043,55 @@ static void bar(int x, int y, int w, int h, int val, int max,
 
 static void draw_hud(void)
 {
-    const int PW = 100, PH = 42;
-    gfx_fill_rect(4, 4, PW, PH, RGB565(16, 16, 24));
-    gfx_rect     (4, 4, PW, PH, RGB565(90, 90, 98));
+    const int X = 5, Y = 4;
+    const int BW = 52;              /* bar width */
 
-    /* who you are */
-    gfx_text(8, 7, G.player.name[0] ? G.player.name : NAME_DEFAULT,
-             RGB565(255, 255, 255));
+    /* name */
+    gfx_text_small_outlined(X, Y, G.player.name[0] ? G.player.name
+                                                   : NAME_DEFAULT,
+                            RGB565(255, 255, 255));
 
-    /* health */
-    gfx_text(8, 18, "HP", RGB565(255, 255, 255));
-    bar(26, 19, 74, 6, G.player.hp, G.player.max_hp,
-        G.player.hp * 4 > G.player.max_hp ? RGB565(80, 200, 80)
-                                          : RGB565(220, 60, 50),
-        RGB565(50, 50, 58));
-
-    /* level + the climb to the next one */
+    /* level, tucked to the right of the name */
     char lv[8] = "LV ";
-    int  l = G.player.level;
-    int  p = 3;
+    int  l = G.player.level, p = 3;
     if (l > 9) lv[p++] = (char)('0' + (l / 10) % 10);
     lv[p++] = (char)('0' + l % 10);
     lv[p] = '\0';
-    gfx_text(8, 29, lv, RGB565(255, 236, 150));
-    /* you level at xp >= level * XP_PER_LEVEL -- so that's the bar's top */
-    bar(44, 30, 56, 5, G.player.xp, G.player.level * XP_PER_LEVEL,
-        RGB565(120, 190, 255), RGB565(40, 44, 60));
+    gfx_text_small_outlined(X + BW - gfx_text_small_width(lv) + 2, Y, lv,
+                            RGB565(255, 236, 150));
 
-    /* ---- the icon strip: what you're carrying that matters ---------------*/
-    int ix = 6;
+    /* health */
+    bar(X + 1, Y + 8, BW, 4, G.player.hp, G.player.max_hp,
+        G.player.hp * 4 > G.player.max_hp ? RGB565(80, 200, 80)
+                                          : RGB565(220, 60, 50),
+        RGB565(40, 40, 48));
+
+    /* the climb to the next level (you level at level * XP_PER_LEVEL) */
+    bar(X + 1, Y + 15, BW, 3, G.player.xp, G.player.level * XP_PER_LEVEL,
+        RGB565(120, 190, 255), RGB565(34, 38, 52));
+
+    /* ---- what you're carrying, only if you have it ----------------------*/
+    int ix = X, iy = Y + 21;
     if (G.player.items[ITEM_KEY]) {
-        gfx_blit(sprites[SPR_ITEM_KEY].px, TILE, TILE, ix, PH - 2);
-        ix += 15;
+        gfx_blit(sprites[SPR_ITEM_KEY].px, TILE, TILE, ix - 4, iy - 4);
+        ix += 12;
     }
     if (G.player.items[ITEM_FLASHLIGHT]) {
-        /* lit when it's switched on, dull when it isn't */
-        gfx_blit_ex(sprites[SPR_ITEM_FLASHLIGHT].px, TILE, TILE, ix, PH - 2,
+        gfx_blit_ex(sprites[SPR_ITEM_FLASHLIGHT].px, TILE, TILE, ix - 4, iy - 4,
                     1, G.player.lamp ? 256 : 110, 0);
-        if (G.player.lamp)      /* a little glow off the lens */
-            gfx_fill_rect(ix + 5, PH + 2, 6, 2, RGB565(255, 240, 170));
-        ix += 15;
+        if (G.player.lamp)                       /* a glow off the lens */
+            gfx_fill_rect(ix + 1, iy + 10, 6, 2, RGB565(255, 240, 170));
+        ix += 12;
     }
-
-    /* shells, top-right, once you carry the gun */
     if (G.player.items[ITEM_SHOTGUN]) {
-        char am[12] = "SHELLS ";
-        int n = G.player.items[ITEM_SHELLS], i = 7;
+        char am[8];
+        int n = G.player.items[ITEM_SHELLS], k = 0;
         if (n > 99) n = 99;
-        if (n >= 10) am[i++] = (char)('0' + n / 10);
-        am[i++] = (char)('0' + n % 10);
-        am[i] = '\0';
-        int w = gfx_text_width(am, 1) + 8;
-        gfx_fill_rect(SCREEN_W - w - 4, 4, w, 14, RGB565(16, 16, 24));
-        gfx_text(SCREEN_W - w, 7, am, RGB565(255, 220, 80));
+        if (n >= 10) am[k++] = (char)('0' + n / 10);
+        am[k++] = (char)('0' + n % 10);
+        am[k] = '\0';
+        gfx_blit(sprites[SPR_ITEM_SHELLS].px, TILE, TILE, ix - 4, iy - 4);
+        gfx_text_small_outlined(ix + 11, iy + 4, am, RGB565(255, 220, 80));
     }
 
     /* SAVED. / LOADED. / NO SAVE FOUND / THE FIELDS HAVE GROWN BACK */
@@ -585,43 +1135,167 @@ void overworld_render(void)
                         e->x - cx, e->y - cy, 1, glint ? 256 : 208, 0);
             continue;
         }
-        int spr, bright = 256, bob = 0;
+        int spr, bright = 256, bob = 0, flip = 0;
         if (e->type == ENT_ALIEN) {
             const species_t *sp = &species[e->kind];
-            spr    = ((G.frame / 20) % 2) ? sp->spr1 : sp->spr0;
             bright = sp->bright;
-            /* they don't walk. they float, slightly out of sync
-             * with each other (the i*7 offset). */
-            bob = (int)(((G.frame + (uint32_t)i * 7) / 16) % 2);
+            if (sp->dirs) {
+                /* an ANT: six frames, and it faces the way it's walking.
+                 * The legs alternate quickly -- they scuttle, they don't
+                 * float. */
+                int f = (int)((G.frame / 8 + (uint32_t)i) % 2);
+                switch (e->dir) {
+                case DIR_UP:    spr = sp->spr0 + 2 + f; break;
+                case DIR_LEFT:  spr = sp->spr0 + 4 + f; break;
+                case DIR_RIGHT: spr = sp->spr0 + 4 + f; flip = 1; break;
+                default:        spr = sp->spr0 + f;     break;  /* DOWN */
+                }
+            } else {
+                /* the goblin: it doesn't walk. it hovers, slightly out of
+                 * sync with everything else (the i*7 offset). */
+                spr = ((G.frame / 20) % 2) ? sp->spr1 : sp->spr0;
+                bob = (int)(((G.frame + (uint32_t)i * 7) / 16) % 2);
+            }
         } else {
             const npc_look_t *lk = &npc_looks[e->kind];
             spr = ((G.frame / 45) % 2) ? lk->spr1 : lk->spr0;
         }
-        gfx_blit_ex(sprites[spr].px, TILE, TILE,
-                    e->x - cx, e->y - cy - bob, 1, bright, 0);
+        /* a blast makes it flash, and a staggered thing shudders */
+        int ex = e->x - cx, ey = e->y - cy - bob;
+        if (e->stun > 0)
+            ex += ((G.frame / 2) % 2) ? 1 : -1;
+        if (e->hurt > 0)
+            gfx_blit_flash(sprites[spr].px, TILE, TILE, ex, ey,
+                           RGB565(255, 255, 255), flip);   /* BLAM */
+        else
+            gfx_blit_ex(sprites[spr].px, TILE, TILE, ex, ey, 1, bright, flip);
     }
 
     /* the player */
     int spr, flip;
     player_sprite(&spr, &flip);
-    gfx_blit_ex(sprites[spr].px, TILE, TILE,
-                G.player.x - cx, G.player.y - cy, 1, 256, flip);
+    int pxs = G.player.x - cx, pys = G.player.y - cy;
+    gfx_blit_ex(sprites[spr].px, TILE, TILE, pxs, pys, 1, 256, flip);
 
-    /* Night falls on the outdoors (indoors the lamps stay lit).
-     * If the flashlight is on, it carves a pool of daylight around you.
-     * Applied before the HUD so the HUD stays readable in the dark. */
+    /* THE FAMILY SHOTGUN, carried. Once he has it, you can see it -- and
+     * it kicks when he fires. */
+    if (G.player.items[ITEM_SHOTGUN]) {
+        int gspr = SPR_CARRY_SIDE, gflip = 0, gx = pxs, gy = pys;
+        switch (G.player.dir) {
+        case DIR_UP:    gspr = SPR_CARRY_UP;   gy -= (G.recoil ? 2 : 0); break;
+        case DIR_DOWN:  gspr = SPR_CARRY_DOWN; gy += (G.recoil ? 2 : 0); break;
+        case DIR_LEFT:  gspr = SPR_CARRY_SIDE; gx -= (G.recoil ? 2 : 0); break;
+        default:        gspr = SPR_CARRY_SIDE; gflip = 1;
+                        gx += (G.recoil ? 2 : 0); break;
+        }
+        gfx_blit_ex(sprites[gspr].px, TILE, TILE, gx, gy, 1, 256, gflip);
+        /* muzzle flash on the frame the gun goes off */
+        if (G.recoil > 3) {
+            static const int mz[4][2] = { {6,15}, {6,-3}, {-3,7}, {15,7} };
+            gfx_fill_rect(pxs + mz[G.player.dir][0] - 2,
+                          pys + mz[G.player.dir][1] - 2, 6, 6,
+                          RGB565(255, 240, 170));
+        }
+    }
+
+    /* the blasts in flight */
+    for (int i = 0; i < MAX_SHOTS; i++) {
+        if (!G.shots[i].active)
+            continue;
+        int sx = G.shots[i].x - cx, sy = G.shots[i].y - cy;
+        gfx_fill_rect(sx, sy, 3, 3, RGB565(255, 244, 190));
+        gfx_fill_rect(sx - G.shots[i].dx / 3, sy - G.shots[i].dy / 3,
+                      2, 2, RGB565(210, 170, 90));
+    }
+
+    /* ...and what's left over */
+    for (int i = 0; i < MAX_GORE; i++) {
+        gore_t *g = &G.gore[i];
+        if (!g->active)
+            continue;
+        int gsz = (g->life > 12) ? 2 : 1;
+        gfx_fill_rect(g->x - cx, g->y - cy, gsz, gsz, g->col);
+    }
+
+    /* PA'S TNT GOING OFF. It swells to full size in half its life, whites
+     * out at the core, and then eats itself away into smoke -- the dither
+     * gets holier as it dies, so it comes apart instead of just fading. */
+    int boom_r = 0;
+    if (G.boom_t > 0) {
+        int age = TNT_BOOM_TICKS - G.boom_t;
+        boom_r = TNT_RADIUS * (age + 4) / (TNT_BOOM_TICKS / 2 + 4);
+        if (boom_r > TNT_RADIUS)
+            boom_r = TNT_RADIUS;
+
+        int bx = G.boom_x - cx, by = G.boom_y - cy;
+        int holes = 8 - G.boom_t * 8 / TNT_BOOM_TICKS;   /* 0 -> 8 as it dies */
+        for (int y = -boom_r; y <= boom_r; y++)
+            for (int x = -boom_r; x <= boom_r; x++) {
+                int d2 = x * x + y * y;
+                if (d2 > boom_r * boom_r)
+                    continue;
+                if (((x * 7 + y * 13 + (int)G.frame) & 7) < holes)
+                    continue;                     /* burnt through */
+                int d = d2 * 256 / (boom_r * boom_r + 1);
+                uint16_t col = (d <  90) ? RGB565(255, 250, 220)   /* core  */
+                             : (d < 170) ? RGB565(255, 176,  48)   /* fire  */
+                                         : RGB565(190,  70,  24);  /* smoke */
+                gfx_pixel(bx + x, by + y, col);
+            }
+    }
+
+    /* NIGHT falls on the outdoors (indoors the lamps stay lit).
+     *
+     * We gather every light on screen first: your flashlight, and every
+     * street lamp you can see. Applied before the HUD, so the HUD stays
+     * readable in the dark. */
     if (m->outdoor) {
-        int lit = (G.player.items[ITEM_FLASHLIGHT] && G.player.lamp)
-                ? FLASHLIGHT_RADIUS : 0;
-        gfx_night(day_brightness(),
-                  G.player.x - cx + TILE / 2,
-                  G.player.y - cy + TILE / 2, lit);
+        light_t lights[MAX_LIGHTS];
+        int n = 0;
+
+        /* the TNT, for as long as it burns, lights the whole field */
+        if (boom_r > 0) {
+            lights[n].x = G.boom_x - cx;
+            lights[n].y = G.boom_y - cy;
+            lights[n].r = boom_r * 3;
+            lights[n].warm = 200;
+            n++;
+        }
+
+        /* the street lamps -- find the LAMP tiles the camera can see */
+        for (int ty = cy / TILE; ty <= (cy + SCREEN_H) / TILE
+                                  && n < MAX_LIGHTS; ty++)
+            for (int tx = cx / TILE; tx <= (cx + SCREEN_W) / TILE
+                                      && n < MAX_LIGHTS; tx++) {
+                if (map_tile(m, tx, ty) != TILE_LAMP)
+                    continue;
+                lights[n].x = tx * TILE - cx + TILE / 2;
+                lights[n].y = ty * TILE - cy + 2;   /* the head, not the post */
+                /* a sodium lamp buzzes and it is not steady. */
+                lights[n].r = LAMP_RADIUS
+                            - (int)(((G.frame + (uint32_t)(tx * 7 + ty)) / 5) % 3);
+                lights[n].warm = 210;
+                n++;
+            }
+
+        /* ...and your torch, which is white and much less friendly */
+        if (G.player.items[ITEM_FLASHLIGHT] && G.player.lamp
+            && n < MAX_LIGHTS) {
+            lights[n].x = G.player.x - cx + TILE / 2;
+            lights[n].y = G.player.y - cy + TILE / 2;
+            lights[n].r = FLASHLIGHT_RADIUS;
+            lights[n].warm = 0;
+            n++;
+        }
+
+        gfx_night(day_brightness(), lights, n);
     }
 
     draw_hud();
 
-    /* map name banner for the first ~1.5s after arriving */
-    if (G.t < 90) {
+    /* map name banner for the first ~1.5s after ARRIVING (not after every
+     * dialog: see G.banner) */
+    if (G.banner > 0) {
         const char *name = m->name;
         int w = gfx_text_width(name, 1) + 12;
         gfx_fill_rect((SCREEN_W - w) / 2, 24, w, 14, RGB565(16, 16, 24));
@@ -680,11 +1354,24 @@ static int dialog_page_layout(int from, char out[DIALOG_ROWS][DIALOG_COLS + 1],
     while (r < DIALOG_ROWS) {
         while (s[i] == ' ')            /* no line starts with a space */
             i++;
+        if (s[i] == '\n') {           /* a deliberate break: eat it */
+            i++;
+            continue;
+        }
         if (!s[i])
             break;
 
         int begin = i, last_space = -1, n = 0;
+        int hard = 0;                  /* did we stop on a '\n'? */
         while (s[i] && n < DIALOG_COLS) {
+            if (s[i] == '\n') {       /* HARD BREAK -- end the line here.
+                                          Without this the '\n' would ride
+                                          along inside the row and gfx_text
+                                          would drop a second line on top of
+                                          the one below it. */
+                hard = 1;
+                break;
+            }
             if (s[i] == ' ')
                 last_space = i;
             i++;
@@ -692,7 +1379,7 @@ static int dialog_page_layout(int from, char out[DIALOG_ROWS][DIALOG_COLS + 1],
         }
         /* if we stopped in the middle of a word, back up to the last space */
         int stop = i;
-        if (s[i] && s[i] != ' ' && last_space > begin)
+        if (!hard && s[i] && s[i] != ' ' && last_space > begin)
             stop = last_space;
 
         int k = 0;
@@ -701,12 +1388,14 @@ static int dialog_page_layout(int from, char out[DIALOG_ROWS][DIALOG_COLS + 1],
         out[r][k] = '\0';
 
         i = stop;
+        if (hard)
+            i++;                       /* step over the newline itself */
         r++;
     }
 
     *rows = r;
-    while (s[i] == ' ')                /* don't leave a space leading the
-                                          next page */
+    while (s[i] == ' ' || s[i] == '\n')   /* don't leave a space or a stray
+                                              break leading the next page */
         i++;
     return i;
 }
@@ -818,7 +1507,8 @@ void dialog_render(void)
 /* can you DO anything with this from the pack? */
 static int pack_usable(int kind)
 {
-    return kind == ITEM_HERB || kind == ITEM_MEDKIT || kind == ITEM_FLASHLIGHT;
+    return kind == ITEM_HERB || kind == ITEM_MEDKIT ||
+           kind == ITEM_FLASHLIGHT || kind == ITEM_TNT;
 }
 
 /* An item enters the pack the first time it touches your hands. Call this
@@ -853,8 +1543,9 @@ void pack_update(void)
     if (PRESSED(BTN_START) || PRESSED(BTN_B)) {
         audio_sfx(SFX_BLIP);
         G.state = ST_OVERWORLD;
-        G.t = 90;                  /* skip the map-name banner */
+        G.t = 0;
         G.battle_grace = 20;       /* no ambush the instant you close it */
+        G.shoot_cd = 10;           /* ...and no accidental shot, either */
         return;
     }
 
@@ -910,6 +1601,17 @@ void pack_update(void)
     case ITEM_FLASHLIGHT:          /* a switch, not a consumable */
         G.player.lamp = !G.player.lamp;
         audio_sfx(SFX_CONFIRM);
+        break;
+
+    case ITEM_TNT:
+        /* You light it and throw it -- so get out of the menu first. You
+         * are going to want to watch this, and to be facing the right way
+         * when it lands. */
+        G.state = ST_OVERWORLD;
+        G.t = 0;
+        G.battle_grace = 30;
+        G.shoot_cd = 10;           /* and no stray shell on the way out */
+        throw_tnt();
         break;
 
     case ITEM_HERB:
@@ -1035,9 +1737,10 @@ void sleep_update(void)
 
     if (G.sleep_t >= SLEEP_WAKE) {
         G.state = ST_OVERWORLD;
-        G.t = 90;                      /* no map-name banner */
+        G.t = 0;
+        G.banner = 0;                  /* you never left the room */
         G.battle_grace = 30;
-        audio_music(G.map_id == MAP_FARM ? MUSIC_FARM : MUSIC_NONE);
+        audio_music(map_music(G.map_id));
     }
 }
 
@@ -1055,7 +1758,7 @@ void sleep_render(void)
         dim = 256 * (G.sleep_t - (SLEEP_WAKE - SLEEP_FADE)) / SLEEP_FADE;
 
     if (dim < 256)
-        gfx_night(dim, 0, 0, 0);       /* no lantern: this is the whole room */
+        gfx_night(dim, 0, 0);          /* no lantern: this is the whole room */
 
     /* what the night was like */
     static const struct { int at; const char *line; } NIGHT[] = {
