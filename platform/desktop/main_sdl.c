@@ -109,7 +109,6 @@ static uint16_t read_pad(void)
         { SDL_CONTROLLER_BUTTON_DPAD_DOWN,  BTN_DOWN  },
         { SDL_CONTROLLER_BUTTON_DPAD_LEFT,  BTN_LEFT  },
         { SDL_CONTROLLER_BUTTON_DPAD_RIGHT, BTN_RIGHT },
-        { SDL_CONTROLLER_BUTTON_START,      BTN_START },
     };
     for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
         if (SDL_GameControllerGetButton(pad, map[i].btn))
@@ -127,8 +126,13 @@ static uint16_t read_pad(void)
 
     /* X shoots too -- the shotgun deserves its own button */
     if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_X)) b |= BTN_B;
-    /* either shoulder opens the pack */
-    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK) ||
+
+    /* EITHER SHOULDER OPENS THE PACK, and that is not a convenience -- it is
+     * the only way in on some hardware. The OUYA's controller has no START
+     * button at all (SDL's mapping for it lists no `start:` and no `back:`,
+     * just the shoulders, the stick clicks and the system button). Bind the
+     * pack to START alone and the OUYA can never open its own inventory. */
+    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START) ||
         SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
         SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
         b |= BTN_START;
@@ -142,6 +146,32 @@ static uint16_t read_pad(void)
     if (ly >  STICK_DEADZONE) b |= BTN_DOWN;
 
     return b;
+}
+
+/* PAUSE, FROM A PAD.
+ *
+ * ESC does this on a keyboard and the BACK gesture does it on a phone -- but a
+ * console has neither. And the OUYA's controller has no Back button either, so
+ * the pause screen (and therefore SAVE, and therefore QUIT) would be simply
+ * unreachable on it.
+ *
+ * So: BACK where it exists (Xbox "view", PlayStation "share"), and a click of
+ * the RIGHT STICK everywhere else -- which the OUYA does have, and which no 2D
+ * game like this one uses for anything else.
+ *
+ * On an EDGE, not while held: game_request_quit() opens the pause screen, and
+ * a held button would re-open it every frame. */
+static void service_pad_pause(void)
+{
+    static int was_down;
+
+    int down = pad && SDL_GameControllerGetAttached(pad) &&
+               (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK) ||
+                SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_RIGHTSTICK));
+
+    if (down && !was_down)
+        game_request_quit();
+    was_down = down;
 }
 
 /* the game asked for a shake (a gunshot, dynamite, a hit landing on you) */
@@ -606,6 +636,7 @@ static void frame_step(void)
         btn |= touch_buttons();
 #endif
         game_update(btn);
+        service_pad_pause();
         service_rumble();
 
         /* Did the player change DISPLAY in OPTIONS (or hit F11)? The core
@@ -652,6 +683,11 @@ static void frame_step(void)
         SDL_RenderCopy(ren, tex, NULL, NULL);
 
 #ifdef __ANDROID__
+        /* NO THUMB CONTROLS ON A CONSOLE. The OUYA is an Android device with
+         * no touchscreen and a gamepad in your hands -- painting a d-pad over
+         * the picture would be absurd. Same on a phone the moment you pair a
+         * pad to it. */
+        if (!pad || !SDL_GameControllerGetAttached(pad)) {
         /* The controls are drawn in REAL WINDOW PIXELS, not game pixels --
          * that's the only way to reach the letterbox bars beside the
          * picture, which is exactly where thumbs should be. Drop the logical
@@ -660,6 +696,7 @@ static void frame_step(void)
         touch_draw(ren);
         SDL_RenderSetLogicalSize(ren, SCREEN_W, SCREEN_H);
         SDL_RenderSetIntegerScale(ren, SDL_TRUE);
+        }
 #endif
 
         SDL_RenderPresent(ren);

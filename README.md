@@ -5,9 +5,10 @@
 > The dog has been barking at the sky all week and he is not sorry.
 
 A retro alien-abduction RPG in **portable C99** — the *same game code* runs on Windows,
-Linux, **Android**, **in a browser**, in your terminal, and on a $4 microcontroller. 👽
+Linux, **Android**, **the OUYA**, **in a browser**, in your terminal, and on a $4
+microcontroller. 👽
 
-One core. Six platforms. `src/game/` doesn't know what a computer is.
+One core. Seven platforms. `src/game/` doesn't know what a computer is.
 
 ---
 
@@ -44,6 +45,7 @@ USB pads go through the same SDL layer, so they should behave identically.
 | `make zip` | 🗜️ ...packed into one file you can drop into Discord |
 | `make apk` | 📱 **an Android APK** → `dist/iknowwhatisaw.apk` |
 | `make apk-install` | 📱 ...and push it straight to a plugged-in phone |
+| `make apk-ouya` | 🕹️ **an OUYA build** → `dist/iknowwhatisaw-ouya.apk` |
 | `make android-sdk` | ⚙️ one-time: the whole Android toolchain into `~/android-tools` |
 | `make web` | 🌐 **WebAssembly** → `dist/web/` — playable in any browser |
 | `make serve` | 🌐 ...and serve it at `http://localhost:8000` |
@@ -161,6 +163,41 @@ The Android **back gesture** is this platform's ESC — it opens the pause menu.
 > make cannot handle them. `make apk` works around this by mirroring the sources into a
 > space-free staging tree (`~/.cache/ikwis-apk`) and building there, so it doesn't matter
 > what your folder is called.
+
+---
+
+## 🕹️ The OUYA
+
+```sh
+make apk-ouya     # -> dist/iknowwhatisaw-ouya.apk   (723 KB)
+adb connect <ouya-ip> && adb install -r dist/iknowwhatisaw-ouya.apk
+```
+
+The 2013 microconsole. It's an Android device, so it shares everything — but three of its
+quirks are the kind that make a build *silently useless* rather than fail loudly:
+
+⛔ **Its firmware stopped at Android 4.1 (API 16), and NDK r26's floor is API 21.** With a
+modern NDK the OUYA build isn't merely unsupported — *it cannot be produced at all*. The
+project pins **NDK r21**, the last one that can target API 16. (r21 builds all four ABIs
+fine, so the phone flavour shares it.)
+
+🎮 **The OUYA controller has no START button and no BACK button.** SDL's own mapping for it
+lists neither — just the face buttons, the shoulders, the stick clicks and the system
+button. So a game that puts its inventory on START and its pause menu on BACK is a game
+where, on an OUYA, **both are simply unreachable.** Here the pack is on **L1/R1** and pause
+is a **click of the right stick**, and `OPTIONS → CONTROLS` prints those bindings on screen,
+because a binding nobody can discover is a binding that doesn't exist.
+
+📺 **It has no touchscreen.** The on-screen thumb controls are hidden whenever a gamepad is
+connected — which is right on a console, and right on a phone the moment you pair a pad.
+
+It ships **armeabi-v7a only** (Tegra 3), carries the `tv.ouya.intent.category.GAME` category
+the OUYA launcher requires to list it at all, and includes the 732×412 launcher tile.
+
+> The two Android builds are Gradle **product flavours** — `phone` (API 21, four ABIs) and
+> `ouya` (API 16, armv7). Note that adding a flavour *moves* gradle's output path from
+> `apk/debug/app-debug.apk` to `apk/<flavour>/debug/…`, so the build reports success while
+> the copy afterwards quietly fails. It caught me; it will catch you.
 
 ---
 

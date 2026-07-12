@@ -492,11 +492,31 @@ void controls_render(void)
         }
     }
 
+    /* WHAT THE PAD ACTUALLY DOES.
+     *
+     * This is not decoration. Some controllers have no START and no BACK
+     * button at all -- the OUYA's is one -- so on those machines the shoulder
+     * buttons are the ONLY way into the pack, and a click of the right stick
+     * is the ONLY way to the pause screen (and therefore to SAVE, and to
+     * OPTIONS). A binding nobody can discover is a binding that doesn't
+     * exist. */
+    if (G.pad_name[0]) {
+        static const char *bind[3] = {
+            "L1 / R1 / START . . . . . THE PACK",
+            "RIGHT-STICK CLICK / BACK . . PAUSE",
+            "X . . . . . . . . . . . . .  SHOOT",
+        };
+        for (int i = 0; i < 3; i++)
+            gfx_text_small_outlined(
+                (SCREEN_W - gfx_text_small_width(bind[i])) / 2,
+                122 + i * 8, bind[i], RGB565(120, 122, 132));
+    }
+
     const char *hint = G.pad_name[0]
         ? "LEFT/RIGHT CHANGE   B: BACK"
         : "PLUG IN A PAD - IT IS FOUND AUTOMATICALLY";
     gfx_text_small_outlined(
-        (SCREEN_W - gfx_text_small_width(hint)) / 2, 142, hint,
+        (SCREEN_W - gfx_text_small_width(hint)) / 2, 148, hint,
         RGB565(150, 150, 160));
 
     draw_static(10, 110);

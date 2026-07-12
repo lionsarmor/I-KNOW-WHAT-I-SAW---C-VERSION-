@@ -275,7 +275,14 @@ JAVA_HOME    ?= $(HOME)/android-tools/jdk
 # an rsync of a few hundred KB of game (plus SDL once), it's incremental, and
 # it means `make apk` works no matter what the project folder is called.
 APK_STAGE := $(HOME)/.cache/ikwis-apk
-APK_OUT   := $(APK_STAGE)/platform/android/app/build/outputs/apk/debug/app-debug.apk
+# NOTE the FLAVOUR in these paths. Adding product flavours (phone / ouya)
+# moves gradle's output from apk/debug/app-debug.apk to
+# apk/<flavour>/debug/app-<flavour>-debug.apk -- so the moment a flavour
+# exists these paths change, gradle still reports BUILD SUCCESSFUL, and the
+# copy afterwards quietly fails. Which is exactly what happened.
+APK_BUILD := $(APK_STAGE)/platform/android/app/build/outputs/apk
+APK_OUT   := $(APK_BUILD)/phone/debug/app-phone-debug.apk
+OUYA_OUT  := $(APK_BUILD)/ouya/debug/app-ouya-debug.apk
 
 # vendor-sdl-src is a prerequisite, not an error message: vendor/ is gitignored,
 # so a fresh clone has no SDL source. Fetch it rather than telling the user to.
@@ -296,13 +303,46 @@ apk: vendor-sdl-src $(CORE_SRC) $(HDRS) platform/android/touch.c
 	cd $(APK_STAGE)/platform/android && \
 	    JAVA_HOME="$(JAVA_HOME)" ANDROID_HOME="$(ANDROID_HOME)" \
 	    ANDROID_SDK_ROOT="$(ANDROID_HOME)" \
-	    PATH="$(JAVA_HOME)/bin:$$PATH" ./gradlew assembleDebug --no-daemon
+	    PATH="$(JAVA_HOME)/bin:$$PATH" ./gradlew assemblePhoneDebug --no-daemon
 	@cp $(APK_OUT) $(DIST)/iknowwhatisaw.apk
 	@ls -lh $(DIST)/iknowwhatisaw.apk | awk '{print "  apk -> " $$9 "  " $$5}'
 	@echo "  install:  adb install -r $(DIST)/iknowwhatisaw.apk"
 
 apk-install: apk
 	adb install -r $(DIST)/iknowwhatisaw.apk
+
+# ---- THE OUYA --------------------------------------------------------------
+# The 2013 microconsole. Android 4.1 (API 16) forever, a Tegra 3 (armeabi-v7a
+# and nothing else), no touchscreen, and a controller with NO START and NO BACK
+# button -- so the pack is on the shoulders and pause is a click of the right
+# stick (see service_pad_pause in main_sdl.c).
+#
+# It needs NDK r21: r26's floor is API 21, which is above the OUYA's ceiling.
+apk-ouya: vendor-sdl-src $(CORE_SRC) $(HDRS) platform/android/touch.c
+	@test -d "$(ANDROID_HOME)/ndk/21.4.7075529" || { \
+	    echo "ERROR: NDK r21 missing -- it is the last one that can target"; \
+	    echo "       API 16, which is where the OUYA's firmware stopped."; \
+	    echo "       run:  make android-sdk"; exit 1; }
+	@mkdir -p $(DIST) $(APK_STAGE)/platform/android $(APK_STAGE)/src/game \
+	         $(APK_STAGE)/platform/desktop $(APK_STAGE)/vendor/SDL2-src
+	@rsync -a --delete --exclude 'app/build' --exclude '.gradle' \
+	    --exclude 'local.properties' --exclude 'app/jni/SDL' \
+	    platform/android/ $(APK_STAGE)/platform/android/
+	@rsync -a --delete src/game/         $(APK_STAGE)/src/game/
+	@rsync -a --delete platform/desktop/ $(APK_STAGE)/platform/desktop/
+	@rsync -a vendor/SDL2-src/           $(APK_STAGE)/vendor/SDL2-src/
+	@ln -sfn ../../../../vendor/SDL2-src $(APK_STAGE)/platform/android/app/jni/SDL
+	@echo "sdk.dir=$(ANDROID_HOME)" > $(APK_STAGE)/platform/android/local.properties
+	cd $(APK_STAGE)/platform/android && \
+	    JAVA_HOME="$(JAVA_HOME)" ANDROID_HOME="$(ANDROID_HOME)" \
+	    ANDROID_SDK_ROOT="$(ANDROID_HOME)" \
+	    PATH="$(JAVA_HOME)/bin:$$PATH" ./gradlew assembleOuyaDebug --no-daemon
+	@cp $(OUYA_OUT) $(DIST)/iknowwhatisaw-ouya.apk
+	@ls -lh $(DIST)/iknowwhatisaw-ouya.apk | awk '{print "  ouya apk -> " $$9 "  " $$5}'
+	@echo "  install:  adb connect <ouya-ip>  &&  adb install -r $(DIST)/iknowwhatisaw-ouya.apk"
+
+apk-ouya-install: apk-ouya
+	adb install -r $(DIST)/iknowwhatisaw-ouya.apk
 
 # SDL2 SOURCE (Android compiles SDL itself; the Windows build uses a prebuilt)
 vendor-sdl-src:
@@ -326,5 +366,6 @@ clean:
 	rm -rf build *.o
 
 .PHONY: pc ascii esp32 flash run run-ascii check clean zip zip-windows zip-linux \
-        apk apk-install android-sdk vendor-sdl-src web serve emsdk \
+        apk apk-install apk-ouya apk-ouya-install android-sdk vendor-sdl-src \
+        web serve emsdk \
         dist dist-linux dist-windows vendor-sdl dist-clean
