@@ -217,12 +217,14 @@ zip-linux: dist-linux
 EMSDK ?= $(HOME)/emsdk
 WEB   := $(DIST)/web
 
+# If emcc is already on PATH (CI does this) use it as-is; otherwise source
+# the local emsdk. Same command either way.
 web: $(CORE_SRC) $(DESK_SRC) $(HDRS) platform/web/shell.html
-	@test -f "$(EMSDK)/emsdk_env.sh" || { \
-	    echo "ERROR: no Emscripten at $(EMSDK)"; \
+	@command -v emcc >/dev/null 2>&1 || test -f "$(EMSDK)/emsdk_env.sh" || { \
+	    echo "ERROR: no Emscripten (not on PATH, and none at $(EMSDK))"; \
 	    echo "       run once:  make emsdk"; exit 1; }
 	@mkdir -p $(WEB)
-	. "$(EMSDK)/emsdk_env.sh" > /dev/null 2>&1 && \
+	{ command -v emcc >/dev/null 2>&1 || . "$(EMSDK)/emsdk_env.sh" >/dev/null 2>&1; } && \
 	emcc $(CORE_SRC) $(DESK_SRC) \
 	    -Isrc/game -O2 -std=gnu99 -Wall -Wextra \
 	    -Wno-missing-field-initializers \
@@ -234,7 +236,8 @@ web: $(CORE_SRC) $(DESK_SRC) $(HDRS) platform/web/shell.html
 	    -sEXPORTED_FUNCTIONS=_main,_web_storage_ready \
 	    --shell-file platform/web/shell.html \
 	    -o $(WEB)/index.html
-	@ls -lh $(WEB)/* | awk '{print "  " $$9 "  " $$5}'
+	@touch $(WEB)/.nojekyll      # GitHub Pages: don't run Jekyll over this
+	@ls -lh $(WEB)/index.* | awk '{print "  " $$9 "  " $$5}'
 	@echo "  try it:  make serve"
 
 serve: web

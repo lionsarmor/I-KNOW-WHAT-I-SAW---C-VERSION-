@@ -1,0 +1,69 @@
+# =============================================================================
+# Build the WebAssembly version and publish it to GitHub Pages.
+#
+# Runs on every push to main, and can be fired by hand from the Actions tab.
+# Nothing built ever gets committed -- the artifact is made here and handed
+# straight to Pages, so `dist/` stays gitignored where it belongs.
+#
+# ONE-TIME SETUP (you have to click this, I can't):
+#   repo -> Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+#
+# Then the game lives at:
+#   https://lionsarmor.github.io/I-KNOW-WHAT-I-SAW---C-VERSION-/
+# =============================================================================
+name: web
+
+on:
+  push:
+    # NOTE: `Development` is where the game actually lives right now -- `main`
+    # still only has the early boilerplate. Both are listed so this keeps
+    # working after you merge Development into main; whichever you push last
+    # is what gets published.
+    branches: [main, Development]
+  workflow_dispatch:      # ...and a "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# If you push twice quickly, let the newer build win rather than queueing.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          # Pinned to the version the web build was actually TESTED on.
+          # Don't drift this to "latest" without re-testing in a browser:
+          # Emscripten's memory/TextDecoder behaviour has bitten us before
+          # (see the -sINITIAL_MEMORY note in the Makefile).
+          version: 6.0.2
+          actions-cache-folder: emsdk-cache
+
+      - name: Prove the core is still portable
+        run: make check          # the golden rule, enforced in CI
+
+      - name: Build the web version
+        run: make web            # emcc is on PATH here; the Makefile uses it
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
