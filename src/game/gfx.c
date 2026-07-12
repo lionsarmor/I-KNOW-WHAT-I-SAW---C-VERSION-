@@ -7,6 +7,49 @@
 
 uint16_t gfx_fb[SCREEN_W * SCREEN_H];
 
+/* the screen-shake displacement. See gfx_origin(). */
+static int org_x, org_y;
+
+void gfx_origin(int x, int y)
+{
+    org_x = x;
+    org_y = y;
+}
+
+void gfx_add_pixel(int x, int y, uint16_t color, int a)
+{
+    x += org_x;
+    y += org_y;
+    if (x < 0 || y < 0 || x >= SCREEN_W || y >= SCREEN_H || a <= 0)
+        return;
+    if (a > 256) a = 256;
+
+    uint16_t p = gfx_fb[y * SCREEN_W + x];
+    int r = ((p >> 11) & 0x1F) + ((((color >> 11) & 0x1F) * a) >> 8);
+    int g = ((p >>  5) & 0x3F) + ((((color >>  5) & 0x3F) * a) >> 8);
+    int b = ( p        & 0x1F) + ((( color        & 0x1F) * a) >> 8);
+    if (r > 31) r = 31;
+    if (g > 63) g = 63;
+    if (b > 31) b = 31;
+    gfx_fb[y * SCREEN_W + x] = (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+void gfx_blend_pixel(int x, int y, uint16_t color, int a)
+{
+    x += org_x;
+    y += org_y;
+    if (x < 0 || y < 0 || x >= SCREEN_W || y >= SCREEN_H || a <= 0)
+        return;
+    if (a > 256) a = 256;
+    int inv = 256 - a;
+
+    uint16_t p = gfx_fb[y * SCREEN_W + x];
+    int r = (((p >> 11) & 0x1F) * inv + ((color >> 11) & 0x1F) * a) >> 8;
+    int g = (((p >>  5) & 0x3F) * inv + ((color >>  5) & 0x3F) * a) >> 8;
+    int b = (( p        & 0x1F) * inv + ( color        & 0x1F) * a) >> 8;
+    gfx_fb[y * SCREEN_W + x] = (uint16_t)((r << 11) | (g << 5) | b);
+}
+
 void gfx_clear(uint16_t color)
 {
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++)
@@ -15,6 +58,8 @@ void gfx_clear(uint16_t color)
 
 void gfx_pixel(int x, int y, uint16_t color)
 {
+    x += org_x;
+    y += org_y;
     if (x < 0 || y < 0 || x >= SCREEN_W || y >= SCREEN_H)
         return;
     gfx_fb[y * SCREEN_W + x] = color;
@@ -22,6 +67,8 @@ void gfx_pixel(int x, int y, uint16_t color)
 
 void gfx_fill_rect(int x, int y, int w, int h, uint16_t color)
 {
+    x += org_x;
+    y += org_y;
     /* clip to screen */
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }

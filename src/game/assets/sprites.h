@@ -997,6 +997,83 @@ static const char *SPR_ART_ITEM_KEY[16] = {
     "................",
 };
 
+/* ---- THE VAN, FROM ABOVE ---------------------------------------------------
+ * This is the one that sits in the car park -- 48x64, drawn at 1:1 so its
+ * pixels are the same size as the world around it. Three tiles wide and four
+ * long: big enough that walking up to the side of it and getting in is a
+ * thing a man could plausibly do.
+ *
+ * The REAR view (van_big) is a different drawing and belongs to the highway
+ * cutscene, where you are looking at the back of it. Do not mix them up --
+ * I did, and put the arse-end of the van on the tarmac seen from the sky.
+ */
+static const char *SPR_ART_VANTOP[64] = {
+    "................................................",
+    "................................................",
+    "................................................",
+    "......000000000000000000000000000000000000......",
+    "......0dkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkd0......",
+    "......0dkyyyyykkkkkkkkkkkkkkkkkkkkyyyyykd0......",
+    "......0dkyyyyykkkkkkkkkkkkkkkkkkkkyyyyykd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDd0......",
+    "......0dDD0DDDDD0DDDDD0DDDDD0DDDDD0DDDDDd0......",
+    "......0dDD0DDDDD0DDDDD0DDDDD0DDDDD0DDDDDd0......",
+    "......0dDD0DDDDD0DDDDD0DDDDD0DDDDD0DDDDDd0......",
+    "...0000dDD0DDDDD0DDDDD0DDDDD0DDDDD0DDDDDd0000...",
+    "...0000dDD0DDDDD0DDDDD0DDDDD0DDDDD0DDDDDd0000...",
+    "...0000dDD0DDDDD0DDDDD0DDDDD0DDDDD0DDDDDd0000...",
+    "...0000dDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dd000000000000000000000000000000dd0000...",
+    "...0000dd0BbbbbbbbbbbbbBBBBBBBBBBBBBBB0dd0000...",
+    "...0000dd0BbbbbbbbbbbbbBBBBBBBBBBBBBBB0dd0000...",
+    "...0000dd0BbbbbbbbbbbbbBBBBBBBBBBBBBBB0dd0000...",
+    "...0000dd0BBBBBBBBBBBBBBBBBBBBBBBBBBBB0dd0000...",
+    "...0000dd0BBBBBBBBBBBBBBBBBBBBBBBBBBBB0dd0000...",
+    "......0dd0BBBBBBBBBBBBBBBBBBBBBBBBBBBB0dd0......",
+    "......0dd000000000000000000000000000000dd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDd0......",
+    "......0dDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dddddd0000000000000000000000dddddd0......",
+    "......0dddddd0DDDDDDDDDDDDDDDDDDDD0dddddd0......",
+    "......0dddddd0000000000000000000000dddddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0ddDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDdd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0d00000000000000000000000000000000d0......",
+    "......0drrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrd0......",
+    "......0d00000000000000000000000000000000d0......",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000ddDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDdd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000dddddddddddddddddddddddddddddddddd0000...",
+    "...0000ddd0000000000000000000000000000ddd0000...",
+    "......0ddd0BBBBBBBBBBBB00BBBBBBBBBBBB0ddd0......",
+    "......0ddd0BBBBBBBBBBBB00BBBBBBBBBBBB0ddd0......",
+    "......0ddd0000000000000000000000000000ddd0......",
+    "......0dddddddddddddddddddddddddddddddddd0......",
+    "......0dkrrrrkkkkkkkkkkkkkkkkkkkkkkrrrrkd0......",
+    "......0dkrrrrkkkkkkkkkkkkkkkkkkkkkkrrrrkd0......",
+    "......000000000000000000000000000000000000......",
+    "................................................",
+    "................................................",
+};
+
 /* ---- THE TALL ONE ---------------------------------------------------------
  * Witnesses never agree on the face. They agree on two things: the HEIGHT,
  * and the ARMS -- they hang past the knees, and they are always the last

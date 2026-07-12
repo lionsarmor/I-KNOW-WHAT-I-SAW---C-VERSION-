@@ -191,6 +191,24 @@ and it doesn't charge. It's just closer every time you look up.
 cuts a white hole in it; sodium street lamps cut warm orange ones and *flicker*, because
 the ones out there always do.
 
+**🌧️ The sky does its own thing.** Rain rolls in on its own clock — the daylight goes out
+of the world, streaks fall fast and sideways, and every so often **lightning** splits the
+whole screen white. And rarely, a **TORNADO** walks across the map: a dark funnel, narrow
+where it's chewing the ground and widening as it climbs out of frame, dragging debris and
+shaking the earth the entire time it's on the map. It's drawn in *world* coordinates — it's
+a thing standing in the field, not a decal on the screen, and it slides past as you walk.
+
+**🔦 Something is looking for her.** In the grocery-store car park, **searchlight beams**
+wander the tarmac — on for a stretch, then gone for longer. They don't sweep in a tidy
+back-and-forth; two different periods on each axis means the pool doubles back and lingers,
+so it reads as *hunting* rather than as a machine doing a pattern. At night they cut cold
+white holes in the dark. The girl went out at nine to bring the trolleys in.
+
+**💥 The screen jolts when you're hit.** Scaled by the damage, decaying to nothing over a
+few frames — a shake that stays at full strength for its whole life reads as a broken
+renderer, not a punch. Dynamite shakes it harder. In the overworld it moves the **camera**,
+not the renderer, so the world lurches while the HUD you're reading stays rock-steady.
+
 **🎒 Items** — herbs, medkits, shells, the family shotgun, a flashlight that matters, a
 brass key, and **PA'S TNT** (it was for stumps). The pack starts *empty* and only lists
 what you've actually found, so it never spoils an item you haven't met.
@@ -313,7 +331,10 @@ in a browser), **the window**, **gamepads**, **rumble**. Each is a tiny protocol
 | 🐜 Ant-hill spawn rate, TNT damage, boss chase speed | [config.h](src/game/config.h) |
 | 📖 How long battle text must stay up before A works | `MSG_MIN_TICKS` in [config.h](src/game/config.h) |
 | 💀 How long the death screen holds you | `GAMEOVER_READ_TICKS` in [config.h](src/game/config.h) |
-| 🚐 How big the van is in the overworld | `VAN_SCALE` in [assets.h](src/game/assets.h) |
+| 💥 Screen-shake strength / duration | `SHAKE_*` in [config.h](src/game/config.h) |
+| 🌧️ How often it rains, how rare a tornado is | `WX_*` in [config.h](src/game/config.h) |
+| 🔦 Searchlight size and how often they're on | `SEARCH_*` in [config.h](src/game/config.h) |
+| 🚐 The van (two of them: `van_top` from above, `van_big` from behind) | [sprites.h](src/game/assets/sprites.h) |
 | 👹 Add an enemy species / NPC look | recipe: "THE CAST" in [assets.h](src/game/assets.h) · tables in [assets.c](src/game/assets.c) |
 | 🎒 Add an item | recipe: "THE ITEMS" in [assets.h](src/game/assets.h) |
 | 🗣️ Add an NPC + dialog, place enemies, drop items | spawn lists in [assets/maps.h](src/game/assets/maps.h) |
@@ -357,6 +378,20 @@ Write a `~` anywhere in the line and it becomes the player's name.
 
 Every sprite, tile and map is an **ASCII drawing**, one character per pixel, decoded at
 boot. No tools, no binary blobs, no asset pipeline — open the header and draw.
+
+Most are 16×16, but they don't have to be: the **van seen from above** (`SPR_ART_VANTOP`)
+is 48×64 — three tiles wide, four long, drawn 1:1 so its pixels match the tarmac it's
+parked on. There is a *second*, different van (`SPR_ART_VAN_BIG_*`, 32×32) seen from
+**behind**, for the highway cutscene where you're staring at its back doors while a light
+comes down. **They are not interchangeable** and the game looks ridiculous if you swap
+them — I know, because I did it, and put the arse-end of the van on the tarmac as seen
+from the sky.
+
+> 💡 **For anything big, generate the art rather than typing it.** 64 rows of exactly 48
+> characters is a guaranteed off-by-one. Compose it from rectangles in a throwaway script,
+> render a PNG preview, *then* paste it into the header. `game_init()` validates every row
+> length and palette letter at boot and hands the platform an error count, so a mistake is
+> loud rather than silent — but it's faster not to make one.
 
 ```c
 static const char *SPR_ART_TALL_0[16] = {
@@ -423,13 +458,17 @@ you can ignore.
 
 | | |
 |---|---|
-| Code | **90 KB** |
-| Const data (art, maps, songs) | **20 KB** |
-| **RAM** | **133 KB** — 75 KB framebuffer + ~55 KB decoded art + 3.4 KB game state |
+| Code | **99 KB** |
+| Const data (art, maps, songs) | **21 KB** |
+| **RAM** | **140 KB** — 75 KB framebuffer + ~60 KB decoded art + game state |
 | Needs | no FPU, no malloc, no libc, no files |
 
+> Measure it yourself, don't trust this table: `make check && size -t build/check/*.o`.
+> The `bss` column is the RAM. It creeps up every time somebody draws a big sprite — the
+> 48×64 top-down van alone costs 6 KB of decoded pixels.
+
 That budget is what decides whether a machine is a **port** or a **rewrite**. Anything with
-~133 KB of RAM and a linear framebuffer is a port (a new `platform/` file, core untouched).
+~140 KB of RAM and a linear framebuffer is a port (a new `platform/` file, core untouched).
 Anything without a framebuffer — a C64, an NES — is a rewrite of `gfx.c`, not a port. Be
 honest about which one you're doing.
 

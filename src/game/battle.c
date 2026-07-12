@@ -146,7 +146,14 @@ static void hurt_player(int dmg)
     if (G.player.hp < 0)
         G.player.hp = 0;
     audio_sfx(SFX_HURT);
-    rumble(90 + dmg * 8);     /* the harder it hits, the harder it shakes */
+    rumble(90 + dmg * 8);     /* the harder it hits, the harder the pad shakes */
+
+    /* ...and so does the screen. Scaled by the damage, capped so a big move
+     * doesn't turn the fight into an earthquake. */
+    int mag = SHAKE_HIT_BASE + dmg / 6;
+    if (mag > SHAKE_HIT_MAX)
+        mag = SHAKE_HIT_MAX;
+    shake(mag, SHAKE_HIT_TICKS);
 }
 
 /* heal the thing you're fighting */
@@ -561,6 +568,11 @@ static void hp_bar(int x, int y, int hp, int max, const char *label)
 
 void battle_render(void)
 {
+    /* the whole fight jolts when something lands on you */
+    int sx, sy;
+    shake_offset(&sx, &sy);
+    gfx_origin(sx, sy);
+
     /* night field backdrop */
     gfx_clear(RGB565(10, 10, 28));
     gfx_fill_rect(0, 110, SCREEN_W, 50, RGB565(24, 44, 24)); /* dark grass */

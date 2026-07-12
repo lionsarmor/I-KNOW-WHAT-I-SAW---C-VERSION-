@@ -121,6 +121,13 @@ typedef struct {
      * TNT_BOOM_TICKS; the fireball is drawn while it's nonzero. */
     int      boom_t, boom_x, boom_y;
 
+    /* SCREEN SHAKE. shake_t counts down; the displacement decays with it. */
+    int      shake_t, shake_len, shake_mag;
+
+    /* THE WEATHER. wx is a WX_*; wx_t counts down to the next roll. wx_x is
+     * where the tornado is, in world pixels. */
+    int      wx, wx_t, wx_x, wx_flash;
+
     /* Ticks left on the "THE FARM" banner. Set ONLY by overworld_enter_map,
      * so it fires when you actually walk into a place -- not every time a
      * dialog or a menu closes and hands control back to the overworld. */
@@ -271,6 +278,8 @@ void pause_update(void);      void pause_render(void);
 void controls_update(void);   void controls_render(void);
 void options_start(int from);   /* ST_TITLE or ST_PAUSE */
 void rumble(int strength);    /* ask the platform to shake something */
+void shake(int mag, int ticks); /* ...and shake the SCREEN */
+void shake_offset(int *x, int *y);
 void audio_apply_volumes(void);
 void render_scene(int state);   /* draw a scene without advancing it */
 void sleep_update(void);      void sleep_render(void);

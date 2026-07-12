@@ -23,6 +23,28 @@ extern uint16_t gfx_fb[SCREEN_W * SCREEN_H];
 
 void gfx_clear(uint16_t color);
 void gfx_pixel(int x, int y, uint16_t color);
+
+/* ---- SCREEN SHAKE ---------------------------------------------------------
+ * Displace EVERYTHING drawn after this call by (x,y). It works at the very
+ * bottom of the renderer, so one call shakes the world, the sprites, the
+ * text -- whatever comes next -- without any of them knowing.
+ *
+ * Set it back to (0,0) before drawing a HUD, or the HUD shakes too and the
+ * whole thing reads as a bug rather than a punch.
+ *
+ * gfx_clear() and gfx_night() ignore it on purpose: they fill the screen, and
+ * a shifted full-screen fill would leave a bare strip down one edge. */
+void gfx_origin(int x, int y);
+
+/* ADD light to a pixel instead of replacing it. This is what a beam, a
+ * fireball or a searchlight needs: gfx_pixel() would paint an opaque hole
+ * where the thing it lights up should still be visible. */
+void gfx_add_pixel(int x, int y, uint16_t color, int a);   /* a: 0..256 */
+
+/* BLEND a pixel toward a colour (proper alpha, not additive). Use this for
+ * anything that should DARKEN what's behind it -- smoke, dust, a tornado.
+ * gfx_add_pixel would turn a dark funnel into a beam of light. */
+void gfx_blend_pixel(int x, int y, uint16_t color, int a);  /* a: 0..256 */
 void gfx_fill_rect(int x, int y, int w, int h, uint16_t color);
 void gfx_rect(int x, int y, int w, int h, uint16_t color); /* 1px outline */
 

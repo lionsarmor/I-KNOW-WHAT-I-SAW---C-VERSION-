@@ -202,8 +202,8 @@ void overworld_enter_map(int map, int tx, int ty)
         /* one tile each, except the van -- which is a VAN (see the render) */
         e->cw = e->ch = TILE;
         if (e->type == ENT_NPC && e->kind == LOOK_VAN) {
-            e->cw = VAN_W * VAN_SCALE;
-            e->ch = VAN_H * VAN_SCALE;
+            e->cw = VANTOP_W;      /* 48 -- three tiles wide */
+            e->ch = VANTOP_H;      /* 64 -- four tiles long  */
         }
 
         /* a hill is already working when you walk in on it */
@@ -331,6 +331,66 @@ static void restock_items(void)
  * with a short linear dusk/dawn ramp between. The lengths live in
  * config.h (set to 1 minute each right now, for testing).
  */
+/* ============================ THE WEATHER ==================================
+ * The sky does its own thing, on its own clock, whether or not you're
+ * looking. It only ever SHOWS outdoors -- indoors you just hear about it
+ * from the light going out of the windows.
+ *
+ * Rolled fresh each time the current spell runs out. Rain is common enough
+ * to matter; a tornado is rare, and when one comes it walks across the map
+ * from one side to the other and then it's gone.
+ * ==========================================================================*/
+static void weather_roll(void)
+{
+    int r = rng_range(1, 100);
+
+    if (r <= WX_TORNADO_PCT) {
+        G.wx   = WX_TORNADO;
+        G.wx_t = WX_TORNADO_LEN;
+        /* it enters from one side and walks to the other */
+        G.wx_x = rng_range(0, 1) ? -60 : cur_map()->w * TILE + 60;
+    } else if (r <= WX_TORNADO_PCT + WX_RAIN_PCT) {
+        G.wx   = WX_RAIN;
+        G.wx_t = rng_range(WX_RAIN_MIN, WX_RAIN_MAX);
+    } else {
+        G.wx   = WX_CLEAR;
+        G.wx_t = rng_range(WX_CLEAR_MIN, WX_CLEAR_MAX);
+    }
+    G.wx_flash = 0;
+}
+
+static void weather_update(void)
+{
+    if (--G.wx_t <= 0)
+        weather_roll();
+
+    if (G.wx_flash > 0)
+        G.wx_flash--;
+
+    if (G.wx == WX_RAIN) {
+        /* lightning: rare, and it comes with the sky splitting open */
+        if (rng_range(1, 260) == 1) {
+            G.wx_flash = 5;
+            audio_sfx(SFX_STING);
+            shake(2, 20);
+        }
+    } else if (G.wx == WX_TORNADO) {
+        /* it walks. it does not hurry. */
+        int target = cur_map()->w * TILE / 2;
+        G.wx_x += (G.wx_x < target) ? 1 : -1;
+        /* the ground shakes the whole time it's on the map */
+        shake(2, 4);
+    }
+}
+
+/* how much the weather is eating the daylight */
+static int weather_dim(void)
+{
+    if (G.wx == WX_RAIN)    return RAIN_DIM;
+    if (G.wx == WX_TORNADO) return RAIN_DIM - 40;
+    return 256;
+}
+
 static int day_brightness(void)
 {
     uint32_t cycle = DAY_LEN_TICKS + NIGHT_LEN_TICKS;
@@ -347,6 +407,12 @@ static int day_brightness(void)
                                    / DUSK_LEN_TICKS;      /* dawn      */
 }
 
+/* the light actually reaching the ground: the sun, minus the sky */
+static int world_brightness(void)
+{
+    return day_brightness() * weather_dim() / 256;
+}
+
 /* ============================ ZELDA MODE ====================================
  * Shooting things in the field. Press B with the shotgun and a shell in it:
  * a blast flies out the way you're facing. It staggers what it hits, and
@@ -355,6 +421,15 @@ static int day_brightness(void)
  * You still get a proper turn-based battle if you WALK INTO one instead --
  * both modes live side by side, and the battle pays better.
  * ==========================================================================*/
+
+/* a triangle wave in [-128, 127] with the given period. No floats, no rng:
+ * the searchlights must wander the same way on every machine. */
+static int tri_wave(uint32_t t, uint32_t period)
+{
+    uint32_t p = t % period;
+    int v = (int)(p * 256 / period);        /* 0..255 */
+    return (v < 128) ? (v * 2 - 128) : (383 - v * 2);
+}
 
 /* squared distance -- no sqrt anywhere in this file */
 static int dist2(int ax, int ay, int bx, int by)
@@ -472,6 +547,7 @@ static void throw_tnt(void)
     G.boom_t = TNT_BOOM_TICKS;
     audio_sfx(SFX_STING);            /* the crash, falling into a low drone */
     rumble(255);                     /* it is DYNAMITE */
+    shake(SHAKE_TNT_MAG, SHAKE_TNT_TICKS);
 
     for (int i = 0; i < MAX_ENTITIES; i++) {
         entity_t *e = &G.ents[i];
@@ -515,6 +591,7 @@ static void fire_shot(void)
     G.recoil   = 6;
     audio_sfx(SFX_SHOTGUN);
     rumble(150);              /* the gun kicks */
+    shake(SHAKE_SHOT_MAG, SHAKE_SHOT_TICKS);
 }
 
 static void try_shoot(void)
@@ -972,6 +1049,7 @@ static void try_talk(void)
 void overworld_update(void)
 {
     G.daytime++;                   /* the sun only moves while you walk */
+    weather_update();              /* ...and so does the sky */
     if (G.banner > 0)
         G.banner--;
 
@@ -1141,11 +1219,165 @@ static void draw_hud(void)
     }
 }
 
+/* RAIN. Streaks, not dots -- a dot is a snowflake. Each drop's position is
+ * derived from its index and the frame, so there is no per-drop state to
+ * store and it costs nothing on the little machine. The wind blows them
+ * sideways, and they fall FAST: rain you can follow with your eye is not
+ * rain, it's confetti. */
+static void draw_rain(int hard)
+{
+    int len   = hard ? 9 : 6;
+    int slant = hard ? 3 : 1;
+    int n     = hard ? RAIN_DROPS * 3 / 2 : RAIN_DROPS;
+    if (n > RAIN_DROPS * 2) n = RAIN_DROPS * 2;
+
+    for (int i = 0; i < n; i++) {
+        uint32_t h = (uint32_t)i * 2654435761u;
+        int speed = 11 + (int)((h >> 5) & 7);
+        int x = (int)(((h % SCREEN_W) + (uint32_t)(G.frame * (uint32_t)slant))
+                      % SCREEN_W);
+        int y = (int)((((h >> 9) % SCREEN_H)
+                      + (uint32_t)(G.frame * (uint32_t)speed)) % SCREEN_H);
+
+        for (int k = 0; k < len; k++)
+            gfx_add_pixel(x + k * slant / 3, y + k,
+                          RGB565(170, 190, 225), 70);
+    }
+}
+
+/* THE TORNADO.
+ *
+ * A funnel: narrow where it is chewing the ground, widening as it climbs off
+ * the top of the frame. It is DARK -- a tornado is a hole in the daylight
+ * with other people's roofs in it -- so it is blended, never added.
+ *
+ * The bands that make it look like it's SPINNING rise vertically (y minus
+ * time), not diagonally. Diagonal stripes read as hatching; rising ones read
+ * as rotation, and that is the entire difference between a tornado and a
+ * smudge.
+ *
+ * It lives in WORLD coordinates: it is a thing standing in the field, and it
+ * slides past as you walk.
+ */
+static void draw_tornado(int cx)
+{
+    int sx = G.wx_x - cx;                 /* where it is on screen */
+    if (sx < -120 || sx > SCREEN_W + 120)
+        return;
+
+    const int foot = SCREEN_H - 34;       /* where it touches the ground */
+
+    for (int y = 0; y < foot; y++) {
+        int up = foot - y;                        /* height above the ground */
+
+        /* narrow at the ground, wide at the sky */
+        int w = 5 + up * up / (foot * 2) + up / 5;
+
+        /* it leans and it sways -- more at the top, like a rope */
+        int wob = ((int)((G.frame * 2 + (uint32_t)y * 3) % 48) - 24) * up
+                  / (foot * 5);
+
+        int mid = sx + wob;
+        for (int x = mid - w; x <= mid + w; x++) {
+            int off  = (x > mid) ? x - mid : mid - x;
+            int edge = off * 256 / (w ? w : 1);    /* 0 core .. 256 rim */
+
+            /* solid in the middle, ragged at the rim */
+            int a = 225 - edge * 205 / 256;
+            if (a < 12)
+                continue;
+
+            /* THE SPIN. Keyed on the SIGNED offset from the centre, not on
+             * the distance from it: distance is symmetric, and symmetric
+             * bands come out as chevrons -- a zigzag ribbon, not a column.
+             * Signed, they slant one way across the whole funnel and read as
+             * a helix, which is what rotation looks like. */
+            int band = (((y * 5) - (int)G.frame * 7 + (x - mid) * 2) & 31) < 13;
+            uint16_t col = band ? RGB565(126, 118, 106)   /* dust in the light */
+                                : RGB565( 38,  36,  42);  /* the dark inside   */
+            gfx_blend_pixel(x, y, col, a);
+        }
+    }
+
+    /* the debris ring where it meets the ground -- dirt, fence, somebody's
+     * shed. This is what sells the scale. */
+    for (int i = 0; i < 60; i++) {
+        uint32_t h = (uint32_t)i * 2246822519u + G.frame * 977u;
+        int spread = 14 + (int)((h >> 3) % 34);
+        int ang    = (int)(h % 64);
+        int dx = (ang < 32 ? ang - 16 : 48 - ang) * spread / 16;
+        int dy = (int)((h >> 11) % 22);
+        gfx_blend_pixel(sx + dx, foot - dy, RGB565(122, 100, 74), 190);
+    }
+}
+
+/* THE SEARCHLIGHTS. Something up there is looking for her.
+ *
+ * They do NOT sweep in a tidy back-and-forth: two different periods on each
+ * axis means the pool wanders, doubles back, and lingers. It reads as
+ * hunting rather than as a machine doing a pattern. And they go out for long
+ * stretches, which is worse, because then you are just waiting. */
+static void draw_searchlights(int cx, int cy, light_t *lights, int *nlights)
+{
+    const map_t *m = cur_map();
+    int mw = m->w * TILE, mh = m->h * TILE;
+
+    for (int i = 0; i < SEARCH_LIGHTS; i++) {
+        uint32_t t = G.frame + (uint32_t)i * 900u;
+
+        /* on for a third of the cycle, off for the rest */
+        if ((t % SEARCH_CYCLE) > SEARCH_CYCLE / 3)
+            continue;
+
+        /* a slow wander, in world pixels */
+        int wx = mw / 2 + (int)tri_wave(t / 3 + i * 40, 210) * (mw / 2 - 40) / 128;
+        int wy = mh / 2 + (int)tri_wave(t / 5 + i * 90, 130) * (mh / 2 - 40) / 128;
+
+        int px = wx - cx, py = wy - cy;
+        if (px < -SEARCH_RADIUS * 2 || px > SCREEN_W + SEARCH_RADIUS * 2)
+            continue;
+
+        /* the pool it burns onto the tarmac: an ellipse, brightest in the
+         * middle, and it FLICKERS -- whatever is holding it isn't steady */
+        int r  = SEARCH_RADIUS - (int)((t / 7) % 4);
+        int ry = r * 2 / 3;
+        for (int y = -ry; y <= ry; y++)
+            for (int x = -r; x <= r; x++) {
+                int d = x * x * 100 / (r * r) + y * y * 100 / (ry * ry);
+                if (d > 100) continue;
+                int a = 165 - d * 150 / 100;
+                gfx_add_pixel(px + x, py + y, RGB565(210, 230, 255), a);
+            }
+
+        /* and it lights the dark, so hand it to the night pass too */
+        if (*nlights < MAX_LIGHTS) {
+            lights[*nlights].x = px;
+            lights[*nlights].y = py;
+            lights[*nlights].r = SEARCH_RADIUS + 10;
+            lights[*nlights].warm = 0;          /* cold. clinical. */
+            (*nlights)++;
+        }
+    }
+}
+
 void overworld_render(void)
 {
     int cx, cy;
     camera(&cx, &cy);
     const map_t *m = cur_map();
+
+    /* SCREEN SHAKE, applied to the CAMERA rather than to the renderer.
+     * Nudging the camera means the tile loop simply draws a different slice
+     * of the map, so the world still covers the screen -- shifting the
+     * renderer instead would leave a bare strip along one edge. It also
+     * leaves the HUD alone, which is what you want: the world lurches, the
+     * numbers you're reading do not. */
+    {
+        int sx, sy;
+        shake_offset(&sx, &sy);
+        cx += sx;
+        cy += sy;
+    }
 
     /* tiles (only the ones on screen) */
     for (int ty = cy / TILE; ty <= (cy + SCREEN_H) / TILE; ty++)
@@ -1192,12 +1424,16 @@ void overworld_render(void)
                 bob = (int)(((G.frame + (uint32_t)i * 7) / 16) % 2);
             }
         } else if (e->kind == LOOK_VAN) {
-            /* IT IS A VAN. Drawn from the 32x32 cutscene art at VAN_SCALE, so
-             * it's four tiles across and actually looks like something a man
-             * could drive to the city -- not a toy. Its collision box (cw/ch)
-             * matches this exactly, so it's solid all the way across. */
-            gfx_blit_ex(van_big[0], VAN_W, VAN_H,
-                        e->x - cx, e->y - cy, VAN_SCALE, 256, 0);
+            /* IT IS A VAN, SEEN FROM ABOVE -- van_top, not van_big. van_big is
+             * the REAR of the van and belongs to the highway cutscene; putting
+             * it on the tarmac meant looking down at the sky and seeing the
+             * back doors, which is not a thing that happens.
+             *
+             * Drawn 1:1, so its pixels are the same size as the tarmac it is
+             * parked on. Its collision box (cw/ch) is exactly this rectangle,
+             * so it is solid all the way across and you walk up to its side. */
+            gfx_blit_ex(van_top, VANTOP_W, VANTOP_H,
+                        e->x - cx, e->y - cy, 1, 256, 0);
             continue;
         } else {
             const npc_look_t *lk = &npc_looks[e->kind];
@@ -1296,6 +1532,13 @@ void overworld_render(void)
         light_t lights[MAX_LIGHTS];
         int n = 0;
 
+        /* SOMETHING IS LOOKING FOR HER. Only in the car park -- this is the
+         * lot where the girl went out at nine to bring the trolleys in.
+         * Drawn BEFORE the night pass, and handed to it, so the beams both
+         * glow on the tarmac and cut real holes in the dark. */
+        if (G.map_id == MAP_VANLOT)
+            draw_searchlights(cx, cy, lights, &n);
+
         /* the TNT, for as long as it burns, lights the whole field */
         if (boom_r > 0) {
             lights[n].x = G.boom_x - cx;
@@ -1331,7 +1574,25 @@ void overworld_render(void)
             n++;
         }
 
-        gfx_night(day_brightness(), lights, n);
+        gfx_night(world_brightness(), lights, n);
+
+        /* ---- THE SKY, over the top of everything -------------------------
+         * After the night pass, so rain is not dimmed into invisibility and
+         * lightning actually blinds you. */
+        if (G.wx == WX_TORNADO) {
+            draw_tornado(cx);
+            draw_rain(1);                       /* it is not gentle out */
+        } else if (G.wx == WX_RAIN) {
+            draw_rain(0);
+        }
+
+        /* LIGHTNING. The whole world, for four frames, in white. */
+        if (G.wx_flash > 0) {
+            int a = 40 * G.wx_flash;
+            for (int y = 0; y < SCREEN_H; y++)
+                for (int x = 0; x < SCREEN_W; x++)
+                    gfx_add_pixel(x, y, RGB565(200, 210, 255), a);
+        }
     }
 
     draw_hud();

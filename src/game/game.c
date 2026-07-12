@@ -96,9 +96,13 @@ void game_update(uint16_t buttons_held)
     case ST_CONTROLS:  controls_update();  break;
     }
 
+    if (G.shake_t > 0)
+        G.shake_t--;
+
     /* Draw whatever scene we are in NOW -- an update may have switched it,
      * and a brand-new scene should never show one frame of the old one. */
     render_scene(G.state);
+    gfx_origin(0, 0);        /* never leak a shake into the next frame */
 
     G.frame++;
     G.t++;      /* scenes reset this to 0 when they change G.state */
@@ -410,6 +414,36 @@ int  game_swap_ab(void)                { return G.swap_ab; }
 void game_set_swap_ab(int on)          { G.swap_ab = on ? 1 : 0; }
 int  game_rumble_enabled(void)         { return G.rumble_on; }
 void game_set_rumble(int on)           { G.rumble_on = on ? 1 : 0; }
+
+/* The game asks for a shake; the platform collects it once per frame and
+ * the request is cleared. A stronger request in the same frame wins. */
+/* THE SCREEN JOLTS. Magnitude decays to zero over the duration, so a hit
+ * lands hard and settles. A stronger shake arriving mid-shake wins. */
+void shake(int mag, int ticks)
+{
+    if (mag <= G.shake_mag && G.shake_t > 0)
+        return;
+    G.shake_mag = mag;
+    G.shake_t   = ticks;
+    G.shake_len = ticks;
+}
+
+/* Where the screen is, this frame. Alternating each tick is what makes it
+ * read as a JOLT rather than a drift -- and it uses the frame counter, not
+ * the game rng, so a battle still replays identically. */
+void shake_offset(int *x, int *y)
+{
+    if (G.shake_t <= 0 || G.shake_len <= 0) {
+        *x = *y = 0;
+        return;
+    }
+    int m = G.shake_mag * G.shake_t / G.shake_len;   /* it decays */
+    if (m < 1) m = 1;
+
+    uint32_t n = G.frame * 2654435761u;
+    *x = ((G.frame & 1) ? m : -m) * (1 + (int)((n >> 13) & 1)) / 2;
+    *y = ((G.frame & 2) ? m : -m) * (1 + (int)((n >> 19) & 1)) / 3;
+}
 
 /* The game asks for a shake; the platform collects it once per frame and
  * the request is cleared. A stronger request in the same frame wins. */

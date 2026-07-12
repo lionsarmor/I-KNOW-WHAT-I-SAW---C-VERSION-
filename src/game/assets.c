@@ -126,6 +126,7 @@ sprite16_t sprites[NUM_SPRITES];
 sprite16_t tiles[NUM_TILES];
 uint16_t   face_big[FACE_W * FACE_H];
 uint16_t   van_big[2][VAN_W * VAN_H];
+uint16_t   van_top[VANTOP_W * VANTOP_H];
 
 /* returns 1 if the art was malformed: a row of the wrong length, OR a
  * character that isn't in the palette (which would silently decode to
@@ -259,6 +260,7 @@ int assets_init(void)
     errors += decode(SPR_ART_FACE_BIG, FACE_W, FACE_H, face_big);
     errors += decode(SPR_ART_VAN_BIG_0, VAN_W, VAN_H, van_big[0]);
     errors += decode(SPR_ART_VAN_BIG_1, VAN_W, VAN_H, van_big[1]);
+    errors += decode(SPR_ART_VANTOP,  VANTOP_W, VANTOP_H, van_top);
 
     /* sanity-check the maps: every row must be exactly w chars */
     for (int m = 0; m < NUM_MAPS; m++)

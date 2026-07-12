@@ -219,6 +219,46 @@
  * learning what it cost you. */
 #define GAMEOVER_READ_TICKS 250
 
+/* ---- SCREEN SHAKE ---------------------------------------------------------
+ * A hit lands and the world jolts. Magnitude is in pixels and DECAYS to zero
+ * over the duration, so it lands hard and settles -- a shake that stays at
+ * full strength for its whole life reads as a broken renderer, not a punch. */
+#define SHAKE_HIT_TICKS   14   /* taking damage in a fight             */
+#define SHAKE_HIT_BASE     2   /* + 1px per 6 damage, see hurt_player  */
+#define SHAKE_HIT_MAX      6
+#define SHAKE_TNT_TICKS   26   /* dynamite. it should hurt to look at. */
+#define SHAKE_TNT_MAG      7
+#define SHAKE_SHOT_TICKS   5   /* the gun kicks. barely. */
+#define SHAKE_SHOT_MAG     2
+
+/* ---- WEATHER ---------------------------------------------------------------
+ * The sky is doing its own thing. Outdoors only.
+ *
+ *   CLEAR    most of the time
+ *   RAIN     often enough to matter -- darker, and lightning
+ *   TORNADO  rare, and when it comes it walks across the map
+ *
+ * The roll happens whenever the current spell runs out (see weather_update).
+ */
+#define WX_RAIN_PCT      26    /* chance the next spell is rain        */
+#define WX_TORNADO_PCT    5    /* ...and that it's a tornado. seldom.  */
+#define WX_CLEAR_MIN   (35 * TICKS_PER_SEC)
+#define WX_CLEAR_MAX   (90 * TICKS_PER_SEC)
+#define WX_RAIN_MIN    (25 * TICKS_PER_SEC)
+#define WX_RAIN_MAX    (50 * TICKS_PER_SEC)
+#define WX_TORNADO_LEN (22 * TICKS_PER_SEC)
+#define RAIN_DROPS       110
+#define RAIN_DIM         190   /* daylight is dimmed to this while it rains */
+
+/* ---- THE SEARCHLIGHTS -------------------------------------------------------
+ * In the parking lot, something up there is looking for her. Two beams wander
+ * the tarmac, on for a while and then gone, and they do not sweep in a tidy
+ * pattern -- they hunt. See draw_searchlights() in overworld.c.
+ */
+#define SEARCH_LIGHTS      2
+#define SEARCH_RADIUS     34
+#define SEARCH_CYCLE   (46 * TICKS_PER_SEC)   /* on for a third of this */
+
 /* ---- Buttons --------------------------------------------------------------
  * The abstract gamepad. The CORE only ever sees these bits; each platform
  * decides what physical key / GPIO pin produces them.

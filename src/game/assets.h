@@ -183,6 +183,9 @@ typedef struct { int spr0, spr1; } npc_look_t;   /* two idle frames */
 
 extern const npc_look_t npc_looks[NUM_LOOKS];
 
+/* the sky. see WX_* in config.h and weather_update() in overworld.c */
+enum { WX_CLEAR, WX_RAIN, WX_TORNADO };
+
 /* ============================ THE ITEMS ====================================
  * TO ADD AN ITEM: add an id here, draw its sprite in sprites.h, add a
  * row to item_info[] in assets.c, then drop it on any map:
@@ -221,9 +224,19 @@ extern uint16_t face_big[FACE_W * FACE_H];
 
 /* The van, 32x32, seen from behind -- the whole driving cutscene is the
  * back of it, so it gets four times the pixels. [0] cruising, [1] braking. */
-/* The van is drawn from this 32x32 art. VAN_SCALE is how big it is OUT IN
- * THE WORLD -- 2 makes it 64x64, four tiles across, which is a van. */
-#define VAN_SCALE 2
+/* THE VAN, TWICE.
+ *
+ *   van_big  32x32, seen from BEHIND. The highway cutscene, where you are
+ *            staring at its back doors while a light comes down.
+ *   van_top  48x64, seen from ABOVE. The one parked in the car park, drawn
+ *            1:1 so its pixels match the world's.
+ *
+ * They are not interchangeable and the game looks ridiculous if you swap
+ * them. Ask me how I know. */
+#define VANTOP_W 48
+#define VANTOP_H 64
+extern uint16_t van_top[VANTOP_W * VANTOP_H];
+
 #define VAN_W 32
 #define VAN_H 32
 extern uint16_t van_big[2][VAN_W * VAN_H];
