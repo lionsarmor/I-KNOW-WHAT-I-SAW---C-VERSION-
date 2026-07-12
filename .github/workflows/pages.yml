@@ -58,8 +58,17 @@ jobs:
         with:
           path: dist/web
 
+  # PUBLISH ONLY FROM main.
+  #
+  # GitHub's `github-pages` environment refuses deployments from anything but
+  # the default branch unless you go and add an exception -- so a push to
+  # Development would build fine and then fail here, for a reason that has
+  # nothing to do with your code. Instead: every push to either branch gets
+  # BUILT (so `make check` and the WASM compile still guard Development), and
+  # only main gets published. To put a new version live, merge into main.
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
