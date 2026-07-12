@@ -14,6 +14,9 @@ One core. Seven platforms. `src/game/` doesn't know what a computer is.
 
 ## 🎮 Play it
 
+**▶️ Right now, in your browser — no install:**
+**<https://lionsarmor.github.io/I-KNOW-WHAT-I-SAW---C-VERSION-/>**
+
 ```sh
 sudo apt install build-essential libsdl2-dev     # or: brew install sdl2
 make run
@@ -97,6 +100,9 @@ Change the `SAVE_ORG` / `SAVE_APP` strings in
 ---
 
 ## 🌐 The web (WebAssembly)
+
+**Live demo:** <https://lionsarmor.github.io/I-KNOW-WHAT-I-SAW---C-VERSION-/> —
+built and deployed by [pages.yml](.github/workflows/pages.yml) on every push to `main`.
 
 ```sh
 make emsdk     # once: Emscripten into ~/emsdk
