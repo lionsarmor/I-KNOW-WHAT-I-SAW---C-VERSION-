@@ -42,6 +42,7 @@ int game_init(void)
      * the top -- and correct forever on a platform that has none. */
     G.music_vol = VOL_DEFAULT;
     G.sfx_vol   = VOL_DEFAULT;
+    G.can_quit  = 1;          /* a platform that can't exit says so */
     audio_apply_volumes();
 
     audio_music(MUSIC_INTRO);   /* the heartbeat starts immediately */
@@ -304,10 +305,16 @@ void game_save_done(int ok)
      * anyway would throw away the very thing they asked us to protect. */
     if (G.quit_after_save) {
         G.quit_after_save = 0;
-        if (ok)
+        if (!ok) {
+            G.pause_msg = G.can_quit ? "COULD NOT SAVE. NOT LEAVING."
+                                     : "COULD NOT SAVE.";
+        } else if (G.can_quit) {
             G.quit_pending = 1;
-        else
-            G.pause_msg = "COULD NOT SAVE. NOT LEAVING.";
+        } else {
+            /* nowhere to go -- this is a browser tab. Saved; carry on. */
+            G.state = (state_t)G.pause_from;
+            G.t = 0;
+        }
     }
 }
 
@@ -398,6 +405,7 @@ void game_set_sfx_volume(int v)   { G.sfx_vol = clamp_vol(v);
 
 void game_enable_controls_menu(int on) { G.controls_menu = on ? 1 : 0; }
 void game_enable_display_menu(int on)  { G.display_menu  = on ? 1 : 0; }
+void game_enable_quit(int on)          { G.can_quit      = on ? 1 : 0; }
 int  game_swap_ab(void)                { return G.swap_ab; }
 void game_set_swap_ab(int on)          { G.swap_ab = on ? 1 : 0; }
 int  game_rumble_enabled(void)         { return G.rumble_on; }

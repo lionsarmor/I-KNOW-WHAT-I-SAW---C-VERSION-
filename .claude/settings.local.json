@@ -12,12 +12,25 @@
       "Bash(mkdir /tmp/dl)",
       "Read(//tmp/**)",
       "Bash(unzip -q \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /dist/iknowwhatisaw-0.1.0-windows.zip\")",
-      "Read(//home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /iknowwhatisaw-0.1.0/**)"
+      "Read(//home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /iknowwhatisaw-0.1.0/**)",
+      "Bash(mkdir -p ~/android-tools)",
+      "Read(//home/legion/**)",
+      "Bash(timeout 300 curl -sSL -o jdk.tar.gz \"https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.13%2B11/OpenJDK17U-jdk_x64_linux_hotspot_17.0.13_11.tar.gz\")",
+      "Bash(timeout 240 curl -sSL -o /tmp/sdl-src.tar.gz \"https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-2.30.11.tar.gz\")",
+      "Bash(cd \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION \" && sed -n '/## 📋 Known gaps/,$p' README.md)",
+      "Bash(python3 -)",
+      "Bash(make pc *)",
+      "Bash(make check *)",
+      "Bash(make web *)"
     ],
     "additionalDirectories": [
       "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game",
       "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION ",
-      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /iknowwhatisaw-0.1.0"
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /iknowwhatisaw-0.1.0",
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /vendor",
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/android",
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/web",
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /dist/web"
     ]
   }
 }

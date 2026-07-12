@@ -19,6 +19,23 @@
 #include <string.h>
 #include "game.h"
 
+/* ANDROID uses this same file. The platform's job is identical -- a 60Hz
+ * loop, buttons, a framebuffer, audio -- and SDL papers over the rest. The
+ * only real differences are (a) a phone has no buttons, so we draw some, and
+ * (b) it has no window to resize and no ESC key. Both are handled below. */
+#ifdef __ANDROID__
+#include "touch.h"
+#endif
+
+/* THE WEB. A browser will not let you own the main loop -- it owns it, and it
+ * calls YOU once per animation frame. So the body of the loop becomes a
+ * function (frame_step) and everything the loop used to keep on its stack
+ * becomes an `app` struct. On every other platform the while() below calls
+ * exactly the same function, so there is one game loop, not two. */
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #define WINDOW_SCALE 4   /* 240x160 -> 960x640 window */
 
 static uint16_t read_buttons(const Uint8 *k)
@@ -166,8 +183,61 @@ static char save_path[1024];
 /* Both the save and the settings live in that same per-user directory. */
 static char settings_path[1024];
 
+static int save_read(uint8_t *buf, int len);
+
+/* ---- THE WEB'S FILESYSTEM IS A LIE ----------------------------------------
+ * Emscripten gives you a filesystem, and it is entirely in RAM. Write a save
+ * to it and it is gone the instant the tab reloads -- silently, with fopen()
+ * happily returning success the whole time. So on the web we mount IDBFS (the
+ * browser's IndexedDB, which actually persists) at /save, pull it in at boot,
+ * and push it back after every write.
+ *
+ * The syncs are asynchronous and we deliberately do not wait for them: the
+ * game must not stall for a browser API. A save landing a few milliseconds
+ * late is fine; a frame hitch is not. */
+#ifdef __EMSCRIPTEN__
+static void web_storage_init(void)
+{
+    EM_ASM({
+        FS.mkdir('/save');
+        FS.mount(IDBFS, {}, '/save');
+        /* true = load what's already in IndexedDB into the in-memory FS */
+        FS.syncfs(true, function (err) {
+            if (err) console.warn('save load failed:', err);
+            ccall('web_storage_ready', null, [], []);
+        });
+    });
+}
+
+static void web_storage_flush(void)
+{
+    EM_ASM({
+        FS.syncfs(false, function (err) {
+            if (err) console.warn('save write failed:', err);
+        });
+    });
+}
+
+/* IndexedDB arrives a beat after boot, so the title screen can't offer
+ * CONTINUE until it does. This is called back from the JS above. */
+EMSCRIPTEN_KEEPALIVE
+void web_storage_ready(void)
+{
+    uint8_t blob[GAME_SAVE_SIZE];
+    if (save_read(blob, GAME_SAVE_SIZE) &&
+        game_save_load(blob, GAME_SAVE_SIZE))
+        SDL_Log("save loaded from IndexedDB");
+}
+#endif
+
 static void save_path_init(void)
 {
+#ifdef __EMSCRIPTEN__
+    /* SDL_GetPrefPath on the web hands back a RAM directory. Ignore it. */
+    SDL_strlcpy(save_path,     "/save/iknowwhatisaw.sav", sizeof save_path);
+    SDL_strlcpy(settings_path, "/save/settings.cfg",      sizeof settings_path);
+    return;
+#else
     char *pref = SDL_GetPrefPath(SAVE_ORG, SAVE_APP);
     save_path[0] = settings_path[0] = '\0';
     if (!pref) {
@@ -180,6 +250,7 @@ static void save_path_init(void)
                  SETTINGS_FILE);
     SDL_free(pref);
     SDL_Log("saves: %s", save_path);
+#endif
 }
 
 static int save_read(uint8_t *buf, int len)
@@ -203,6 +274,9 @@ static int save_write(const uint8_t *buf, int len)
         return 0;
     size_t n = fwrite(buf, 1, (size_t)len, f);
     fclose(f);
+#ifdef __EMSCRIPTEN__
+    web_storage_flush();     /* ...and actually make it survive a reload */
+#endif
     return n == (size_t)len;
 }
 
@@ -251,6 +325,9 @@ static void settings_write(settings_t s)
     fprintf(f, "music=%d\n",      s.music);
     fprintf(f, "sfx=%d\n",        s.sfx);
     fclose(f);
+#ifdef __EMSCRIPTEN__
+    web_storage_flush();
+#endif
 }
 
 /* FULLSCREEN_DESKTOP, not FULLSCREEN: it borrows the desktop's current
@@ -274,6 +351,24 @@ static void audio_callback(void *userdata, Uint8 *stream, int len)
     game_audio_fill((int16_t *)stream, len / 2);
 }
 
+/* Everything the loop used to hold on its stack. It has to outlive main()
+ * on the web, because on the web main() RETURNS and the browser keeps
+ * calling frame_step() afterwards. */
+static struct {
+    SDL_Window       *win;
+    SDL_Renderer     *ren;
+    SDL_Texture      *tex;
+    SDL_AudioDeviceID adev;
+    settings_t        cfg;
+    int               fullscreen;
+    int               running;
+    long              frame, max_frames, shot_frame;
+    const char       *shot_path;
+    double            next_ms;     /* web only: the 60Hz gate. See frame_step. */
+} app;
+
+static void frame_step(void);
+
 int main(int argc, char **argv)
 {
     long max_frames = -1, shot_frame = -1;
@@ -294,15 +389,25 @@ int main(int argc, char **argv)
     }
 
     save_path_init();   /* somewhere the player can actually write */
+#ifdef __EMSCRIPTEN__
+    web_storage_init(); /* ...which on the web means IndexedDB, not RAM */
+#endif
 
     /* Nearest-neighbour = crisp fat pixels. This hint is read when the
      * texture and the renderer are created, so it has to be set FIRST. */
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 
+#ifdef __ANDROID__
+    /* a phone is already "fullscreen"; ask for the whole panel and let SDL
+     * pick the resolution the device actually has */
+    SDL_Window *win = SDL_CreateWindow("I KNOW WHAT I SAW", 0, 0, 0, 0,
+        SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALLOW_HIGHDPI);
+#else
     SDL_Window *win = SDL_CreateWindow("I KNOW WHAT I SAW",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         SCREEN_W * WINDOW_SCALE, SCREEN_H * WINDOW_SCALE,
         SDL_WINDOW_RESIZABLE);
+#endif
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1,
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
@@ -351,8 +456,23 @@ int main(int argc, char **argv)
     game_set_rumble(cfg.rumble);
     game_set_music_volume(cfg.music);
     game_set_sfx_volume(cfg.sfx);
-    game_enable_controls_menu(1);   /* this machine has pads and a window: */
-    game_enable_display_menu(1);    /* show CONTROLS and DISPLAY.          */
+    game_enable_controls_menu(1);   /* pads work here (bluetooth, on a phone) */
+#ifdef __EMSCRIPTEN__
+    /* You cannot close a browser tab from inside it. Say so, and the pause
+     * screen drops QUIT and offers SAVE GAME instead of SAVE AND QUIT. */
+    game_enable_quit(0);
+#endif
+#ifdef __ANDROID__
+    /* No window to resize -- a DISPLAY row that does nothing is a lie. */
+    game_enable_display_menu(0);
+    {
+        int ww, wh;
+        SDL_GetWindowSize(win, &ww, &wh);
+        touch_layout(ren, ww, wh);
+    }
+#else
+    game_enable_display_menu(1);
+#endif
     pad_open_first();               /* one may already be plugged in */
 
     if (adev) SDL_PauseAudioDevice(adev, 0);
@@ -366,12 +486,76 @@ int main(int argc, char **argv)
             printf("save loaded\n");
     }
 
-    long frame = 0;
-    int running = 1;
+    app.win = win; app.ren = ren; app.tex = tex; app.adev = adev;
+    app.fullscreen = fullscreen;
+    app.cfg = cfg;
+    app.max_frames = max_frames;
+    app.shot_frame = shot_frame;
+    app.shot_path  = shot_path;
+    app.frame = 0;
+    app.running = 1;
+
+#ifdef __EMSCRIPTEN__
+    /* the browser drives. 0 = use requestAnimationFrame's own rate. */
+    emscripten_set_main_loop(frame_step, 0, 1);
+    return 0;
+#else
     Uint64 next_tick = SDL_GetPerformanceCounter();
     const Uint64 tick_len = SDL_GetPerformanceFrequency() / TICKS_PER_SEC;
 
-    while (running) {
+    while (app.running) {
+        frame_step();
+
+        /* fixed 60 Hz pacing (vsync usually handles it; this is backup) */
+        next_tick += tick_len;
+        Uint64 now = SDL_GetPerformanceCounter();
+        if (now < next_tick)
+            SDL_Delay((Uint32)((next_tick - now) * 1000
+                               / SDL_GetPerformanceFrequency()));
+        else
+            next_tick = now;   /* running behind: don't spiral */
+    }
+
+    if (app.adev) SDL_CloseAudioDevice(app.adev);
+    SDL_DestroyTexture(app.tex);
+    SDL_DestroyRenderer(app.ren);
+    SDL_DestroyWindow(app.win);
+    SDL_Quit();
+    return 0;
+#endif
+}
+
+/* ONE FRAME. Called by the while() above on desktop/android, and by the
+ * browser's animation callback on the web. Identical either way. */
+static void frame_step(void)
+{
+    SDL_Window   *win  = app.win;
+    SDL_Renderer *ren  = app.ren;
+    SDL_Texture  *tex  = app.tex;
+
+#ifdef __EMSCRIPTEN__
+    /* THE BROWSER CALLS US AT THE MONITOR'S REFRESH RATE, NOT AT 60Hz.
+     *
+     * requestAnimationFrame fires once per display frame -- which on a 144Hz
+     * screen is 144 times a second. This game is a FIXED-TIMESTEP machine:
+     * one game_update() IS one 60th of a second, everywhere, and every
+     * duration in the code (day length, stun ticks, the whole intro) is
+     * counted in those. Let the browser drive it directly and the game runs
+     * at 2.4x speed on exactly the monitors gamers own.
+     *
+     * So: the browser can call us as often as it likes; we only do work when
+     * a 60th of a second has actually elapsed. */
+    double now = emscripten_get_now();
+    if (app.next_ms == 0.0)
+        app.next_ms = now;
+    if (now < app.next_ms)
+        return;                                  /* too soon. do nothing. */
+    app.next_ms += 1000.0 / TICKS_PER_SEC;
+    if (app.next_ms < now - 250.0)
+        app.next_ms = now;      /* tab was backgrounded: don't try to catch up
+                                   on a thousand frames at once */
+#endif
+    {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             /* The window's X button is an unambiguous "close it" from the
@@ -379,11 +563,25 @@ int main(int argc, char **argv)
              * which raises the pause screen and lets the player choose.
              * An hour of play should not die to a misplaced thumb. */
             if (ev.type == SDL_QUIT)
-                running = 0;
+                app.running = 0;
 
             if (ev.type == SDL_KEYDOWN && !ev.key.repeat &&
                 ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
                 game_request_quit();
+
+#ifdef __ANDROID__
+            /* the phone's BACK gesture is this platform's ESC */
+            if (ev.type == SDL_KEYDOWN && !ev.key.repeat &&
+                ev.key.keysym.scancode == SDL_SCANCODE_AC_BACK)
+                game_request_quit();
+
+            touch_event(&ev);
+
+            if (ev.type == SDL_WINDOWEVENT &&
+                (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+                 ev.window.event == SDL_WINDOWEVENT_RESIZED))
+                touch_layout(ren, ev.window.data1, ev.window.data2);
+#endif
 
             /* pads come and go while the game is running */
             if (ev.type == SDL_CONTROLLERDEVICEADDED)
@@ -401,28 +599,33 @@ int main(int argc, char **argv)
                 game_set_fullscreen(!game_want_fullscreen());
         }
 
-        /* keyboard OR pad -- both, always, no mode to pick */
-        game_update(read_buttons(SDL_GetKeyboardState(NULL)) | read_pad());
+        /* keyboard OR pad OR fingers -- all of them, always, no mode to pick.
+         * A touch is just another controller as far as the core knows. */
+        uint16_t btn = read_buttons(SDL_GetKeyboardState(NULL)) | read_pad();
+#ifdef __ANDROID__
+        btn |= touch_buttons();
+#endif
+        game_update(btn);
         service_rumble();
 
         /* Did the player change DISPLAY in OPTIONS (or hit F11)? The core
          * only ever records the wish -- making it so is our job. */
-        if (game_want_fullscreen() != fullscreen) {
-            fullscreen = game_want_fullscreen();
-            apply_fullscreen(win, fullscreen);
+        if (game_want_fullscreen() != app.fullscreen) {
+            app.fullscreen = game_want_fullscreen();
+            apply_fullscreen(win, app.fullscreen);
         }
         /* ...and remember anything the player changed in OPTIONS */
-        if (fullscreen            != cfg.fullscreen ||
-            game_swap_ab()        != cfg.swap_ab    ||
-            game_rumble_enabled() != cfg.rumble     ||
-            game_music_volume()   != cfg.music      ||
-            game_sfx_volume()     != cfg.sfx) {
-            cfg.fullscreen = fullscreen;
-            cfg.swap_ab    = game_swap_ab();
-            cfg.rumble     = game_rumble_enabled();
-            cfg.music      = game_music_volume();
-            cfg.sfx        = game_sfx_volume();
-            settings_write(cfg);
+        if (app.fullscreen        != app.cfg.fullscreen ||
+            game_swap_ab()        != app.cfg.swap_ab    ||
+            game_rumble_enabled() != app.cfg.rumble     ||
+            game_music_volume()   != app.cfg.music      ||
+            game_sfx_volume()     != app.cfg.sfx) {
+            app.cfg.fullscreen = app.fullscreen;
+            app.cfg.swap_ab    = game_swap_ab();
+            app.cfg.rumble     = game_rumble_enabled();
+            app.cfg.music      = game_music_volume();
+            app.cfg.sfx        = game_sfx_volume();
+            settings_write(app.cfg);
         }
 
         /* did the player just pick SAVE or LOAD in the pack? */
@@ -441,40 +644,36 @@ int main(int argc, char **argv)
         /* SAVE AND QUIT / QUIT on the pause screen. Checked AFTER the save
          * above, so a save-and-quit's bytes are on disk before we go. */
         if (game_quit_pending())
-            running = 0;
+            app.running = 0;
 
         SDL_UpdateTexture(tex, NULL, game_framebuffer(),
                           SCREEN_W * (int)sizeof(uint16_t));
         SDL_RenderClear(ren);
         SDL_RenderCopy(ren, tex, NULL, NULL);
+
+#ifdef __ANDROID__
+        /* The controls are drawn in REAL WINDOW PIXELS, not game pixels --
+         * that's the only way to reach the letterbox bars beside the
+         * picture, which is exactly where thumbs should be. Drop the logical
+         * size for the overlay, and put it back for next frame's blit. */
+        SDL_RenderSetLogicalSize(ren, 0, 0);
+        touch_draw(ren);
+        SDL_RenderSetLogicalSize(ren, SCREEN_W, SCREEN_H);
+        SDL_RenderSetIntegerScale(ren, SDL_TRUE);
+#endif
+
         SDL_RenderPresent(ren);
 
-        if (frame == shot_frame && shot_path) {
+        if (app.frame == app.shot_frame && app.shot_path) {
             SDL_Surface *s = SDL_CreateRGBSurfaceWithFormatFrom(
                 (void *)game_framebuffer(), SCREEN_W, SCREEN_H, 16,
                 SCREEN_W * 2, SDL_PIXELFORMAT_RGB565);
-            SDL_SaveBMP(s, shot_path);
+            SDL_SaveBMP(s, app.shot_path);
             SDL_FreeSurface(s);
-            printf("saved %s\n", shot_path);
+            printf("saved %s\n", app.shot_path);
         }
-        frame++;
-        if (max_frames >= 0 && frame >= max_frames)
-            running = 0;
-
-        /* fixed 60 Hz pacing (vsync usually handles it; this is backup) */
-        next_tick += tick_len;
-        Uint64 now = SDL_GetPerformanceCounter();
-        if (now < next_tick)
-            SDL_Delay((Uint32)((next_tick - now) * 1000
-                               / SDL_GetPerformanceFrequency()));
-        else
-            next_tick = now;   /* running behind: don't spiral */
+        app.frame++;
+        if (app.max_frames >= 0 && app.frame >= app.max_frames)
+            app.running = 0;
     }
-
-    if (adev) SDL_CloseAudioDevice(adev);
-    SDL_DestroyTexture(tex);
-    SDL_DestroyRenderer(ren);
-    SDL_DestroyWindow(win);
-    SDL_Quit();
-    return 0;
 }

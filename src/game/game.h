@@ -138,6 +138,13 @@ void game_set_fullscreen(int on);  /* push the real state back into the core */
 void game_request_quit(void);
 int  game_quit_pending(void);
 
+/* CAN this platform even exit? A browser tab cannot close itself, so the web
+ * build passes 0 -- and the pause screen then offers SAVE GAME (which saves
+ * and returns you to the game) instead of SAVE AND QUIT, and drops QUIT
+ * entirely. A menu row that does nothing when you press it is a lie.
+ * Everything else defaults to 1. */
+void game_enable_quit(int on);
+
 /* ---- GAMEPADS --------------------------------------------------------------
  * Same split as the display: the PLATFORM owns the hardware, the CORE owns
  * the menu. The desktop uses SDL's GameController layer, which already

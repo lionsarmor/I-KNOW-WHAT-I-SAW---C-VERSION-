@@ -4,8 +4,10 @@
 > Your crops are flat in circles. The cows won't go near the pond.
 > The dog has been barking at the sky all week and he is not sorry.
 
-A retro alien-abduction RPG in **portable C99** — the *same game code* runs on
-a PC, in your terminal, and on a $4 microcontroller. 👽
+A retro alien-abduction RPG in **portable C99** — the *same game code* runs on Windows,
+Linux, **Android**, **in a browser**, in your terminal, and on a $4 microcontroller. 👽
+
+One core. Six platforms. `src/game/` doesn't know what a computer is.
 
 ---
 
@@ -15,6 +17,8 @@ a PC, in your terminal, and on a $4 microcontroller. 👽
 sudo apt install build-essential libsdl2-dev     # or: brew install sdl2
 make run
 ```
+
+…or `make serve` and play it **in a browser** at `http://localhost:8000`.
 
 **Controls** — arrows/WASD move · `Z`/space = **A** · `X` = **B** · `Enter` = **START**
 `Esc` = pause menu · `F11` / `Alt+Enter` = fullscreen
@@ -37,6 +41,13 @@ USB pads go through the same SDL layer, so they should behave identically.
 | `make flash` | 🔌 esp32 + flash + serial monitor |
 | `make check` | ✅ **the tripwire** — proves the core still compiles freestanding |
 | `make dist` | 📦 **shippable Linux + Windows builds** (see below) |
+| `make zip` | 🗜️ ...packed into one file you can drop into Discord |
+| `make apk` | 📱 **an Android APK** → `dist/iknowwhatisaw.apk` |
+| `make apk-install` | 📱 ...and push it straight to a plugged-in phone |
+| `make android-sdk` | ⚙️ one-time: the whole Android toolchain into `~/android-tools` |
+| `make web` | 🌐 **WebAssembly** → `dist/web/` — playable in any browser |
+| `make serve` | 🌐 ...and serve it at `http://localhost:8000` |
+| `make emsdk` | ⚙️ one-time: Emscripten into `~/emsdk` |
 | `make clean` | 🧹 |
 
 `make ascii` needs **no SDL at all** — it renders every frame as coloured ASCII in
@@ -80,6 +91,76 @@ Runtime expects.
 
 Change the `SAVE_ORG` / `SAVE_APP` strings in
 [main_sdl.c](platform/desktop/main_sdl.c) to whatever you register on Steam.
+
+---
+
+## 🌐 The web (WebAssembly)
+
+```sh
+make emsdk     # once: Emscripten into ~/emsdk
+make serve     # build + http://localhost:8000
+```
+
+Drop `dist/web/` on any static host — GitHub Pages, itch.io, Netlify — and the game is a
+**link**, not a download. ~940 KB total (750 KB of it the WebAssembly itself).
+
+Same `src/game`, same `main_sdl.c`. Emscripten ships SDL2, so `-sUSE_SDL=2` is most of
+the "port". Saves persist in **IndexedDB**, keyboard and gamepad both work.
+
+Three things had to be got right, and each of them is a trap:
+
+⏱️ **The browser calls you at the MONITOR's refresh rate, not at 60Hz.**
+`requestAnimationFrame` fires once per display frame — 144 times a second on a 144Hz
+screen. This game is a
+fixed-timestep machine where one `game_update()` *is* one 60th of a second, so letting the
+browser drive it directly made it run at **2.4× speed** on exactly the monitors gamers own.
+`frame_step()` now only does work when a 60th of a second has really elapsed.
+
+💾 **The web's filesystem is a lie.** Emscripten's FS is in RAM: `fopen`/`fwrite` succeed,
+and the save evaporates on reload. The web build mounts **IDBFS** (IndexedDB) at `/save`
+and syncs after every write. Verified by saving, reloading the page, and getting the save
+back.
+
+🚪 **A browser tab cannot close itself.** So the core learned a new capability
+(`game_enable_quit(0)`) and the pause menu drops `QUIT` and offers `SAVE GAME` instead of
+`SAVE AND QUIT`. A menu row that does nothing when you press it is a lie.
+
+> Memory is **fixed, not growable**, deliberately: `ALLOW_MEMORY_GROWTH` makes Emscripten
+> hand JS a *resizable* `ArrayBuffer`, which current Chrome's `TextDecoder` flatly refuses
+> to decode — the runtime throws on its first string and the canvas stays black. This game's
+> footprint is fixed and known, so it just asks for what it needs up front.
+
+---
+
+## 📱 Android
+
+```sh
+make android-sdk     # once: JDK + SDK + NDK into ~/android-tools (~2.6GB, no sudo)
+make apk             # -> dist/iknowwhatisaw.apk
+make apk-install     # ...and push it to a plugged-in phone via adb
+```
+
+Ships all four ABIs (arm64, armv7, x86, x86_64), so it runs on phones, tablets and
+Android handhelds alike.
+
+**`src/game/` did not change by one line to run on a phone.** The core still compiles
+freestanding. On-screen controls live entirely in
+[platform/android/touch.c](platform/android/touch.c) — the platform turns fingers into
+the same `BTN_*` bits a keyboard makes, and the core never learns what a finger is.
+
+👍 **The controls sit in the letterbox bars, not on the game.** The picture is 3:2 and a
+phone is much wider, so once it's scaled to fit there's empty space down each side —
+that's where your thumbs go. Nothing covers the picture. The d-pad's *touch* radius is
+much bigger than the circle it draws, because a d-pad you have to hit exactly is a d-pad
+that feels broken.
+
+🎮 A Bluetooth gamepad works on Android too, through the same SDL layer as the desktop.
+The Android **back gesture** is this platform's ESC — it opens the pause menu.
+
+> ⚠️ **The project path must not contain spaces** — `ndk-build` *is* GNU make, and GNU
+> make cannot handle them. `make apk` works around this by mirroring the sources into a
+> space-free staging tree (`~/.cache/ikwis-apk`) and building there, so it doesn't matter
+> what your folder is called.
 
 ---
 
@@ -148,7 +229,7 @@ of the prologue. The whole score is in **A minor** and leans on the flat second 
 tritone — the two most uncomfortable intervals in western music. They never resolve.
 That's deliberate.
 
-| | Desktop | ESP32 |
+| | Desktop / Web / Android | ESP32 |
 |---|---|---|
 | Sample rate | 44.1 kHz | 22.05 kHz |
 | Voices | 8 | 4 |
@@ -165,16 +246,36 @@ sweetening**. The little chip keeps the tune and the drums and loses the pad.
 src/game/     THE GAME. Portable C99. No OS, no malloc, no files, no floats.
               This code does not know what a computer is.
 
-platform/     One small file per machine. Its whole job:
-  desktop/      call game_update(buttons) 60× a second,
-  esp32/        put game_framebuffer() on a screen,
-  terminal/     feed game_audio_fill() to a speaker.
+platform/     One small layer per machine. Its whole job, forever:
+                1. call game_update(buttons) 60× a second
+                2. put game_framebuffer() on a screen
+                3. feed game_audio_fill() to a speaker
+
+  desktop/    SDL2 — Windows, Linux, macOS
+  android/    SDL2 + touch.c   (an APK)
+  web/        SDL2 via Emscripten   (WebAssembly)
+  esp32/      bare metal — SPI display, I2S amp, NVS saves
+  terminal/   stdout. Coloured ASCII. No graphics library at all.
 ```
 
+Desktop, Android and the **web all share `main_sdl.c`** — SDL papers over the rest. Android
+adds `touch.c` (a phone has no buttons, so we draw some); the web adds a 60Hz gate and
+IndexedDB saves. Everything else is `#ifdef`. The terminal build proves the point from the
+other end: a "screen" can be stdout printing coloured ASCII.
+
+Platforms also **declare what they can do**, and the menus follow — the ESP32 has no
+resizable window, the web has no way to quit. `game_enable_display_menu()`,
+`game_enable_controls_menu()`, `game_enable_quit()`. A menu row that does nothing when you
+press it is a lie.
+
 The contract between the two halves is **four functions** in
-[game.h](src/game/game.h). A platform layer is ~200 lines. That's why this can run on
-an ESP32, a bare-metal Pi, a RISC-V board, or Steam — *port the thin layer, never the
-game.*
+[game.h](src/game/game.h). The leanest platform layer —
+[main_term.c](platform/terminal/main_term.c), which draws the game as ASCII in a
+terminal — is **~290 lines**. That's the real cost of a new machine. (`main_sdl.c` is
+679, but it serves *three* platforms and does gamepads, touch, settings and saves on top
+of the four duties.)
+
+*Port the thin layer, never the game.*
 
 > ⛔ **The golden rule:** never include an OS header (or SDL, or ESP-IDF) inside
 > `src/game/`.
@@ -183,11 +284,9 @@ game.*
 > -fno-builtin` — no OS, no libc. Run it often. It is the tripwire that keeps this
 > game portable to bare metal.
 
-The platform also owns anything the core can't: **saving** (a file here, NVS there),
-**the window**, **gamepads**, **rumble**. Each is a tiny protocol in `game.h` — the core
-records what the player *wants* and the platform makes it so. That's why `OPTIONS` shows
-a `DISPLAY` row on the PC and not on the handheld: a menu row that does nothing when you
-press it is a lie.
+The platform also owns anything the core can't: **saving** (a file here, NVS there, IndexedDB
+in a browser), **the window**, **gamepads**, **rumble**. Each is a tiny protocol in
+`game.h` — the core records what the player *wants*, and the platform makes it so.
 
 ---
 
@@ -212,6 +311,7 @@ press it is a lie.
 | 🚐 The driving cutscene, END OF PROLOGUE | [cutscene.c](src/game/cutscene.c) |
 | ➕ A whole new scene (shop? map screen?) | recipe at top of [game_internal.h](src/game/game_internal.h) |
 | ⌨️ Keyboard & gamepad mapping | [main_sdl.c](platform/desktop/main_sdl.c) |
+| 📱 On-screen touch controls | [touch.c](platform/android/touch.c) |
 | 🔌 ESP32 pins / wiring | [esp32_main.c](platform/esp32/main/esp32_main.c) |
 
 Every one of those files opens with a comment explaining its recipe.
@@ -300,11 +400,26 @@ Currently **~68% of the app partition free**. Audio drops to 4 voices at 22 kHz
 
 Copy [main_sdl.c](platform/desktop/main_sdl.c) as your template and implement its four
 duties: a 60 Hz loop, button reads, a framebuffer blit, an audio sink (optional — silence
-is fine). Everything else — saving, the window, pads — is an *optional* protocol you can
-ignore.
+is fine). Everything else — saving, the window, pads, rumble — is an *optional* protocol
+you can ignore.
 
-The core needs **~92 KB of RAM** (77 KB framebuffer + decoded art + game state) and
-**no FPU**.
+### 📏 The budget
+
+| | |
+|---|---|
+| Code | **90 KB** |
+| Const data (art, maps, songs) | **20 KB** |
+| **RAM** | **133 KB** — 75 KB framebuffer + ~55 KB decoded art + 3.4 KB game state |
+| Needs | no FPU, no malloc, no libc, no files |
+
+That budget is what decides whether a machine is a **port** or a **rewrite**. Anything with
+~133 KB of RAM and a linear framebuffer is a port (a new `platform/` file, core untouched).
+Anything without a framebuffer — a C64, an NES — is a rewrite of `gfx.c`, not a port. Be
+honest about which one you're doing.
+
+Fun fact: **240×160 is the Game Boy Advance's screen**, and GBA mode 3 is a 240×160×16bpp
+linear framebuffer — *exactly* `gfx_fb`, and it fits in the GBA's 96 KB of VRAM with the
+rest landing in its 256 KB EWRAM. That target has been sitting there since day one.
 
 ---
 
@@ -312,6 +427,11 @@ The core needs **~92 KB of RAM** (77 KB framebuffer + decoded art + game state) 
 
 - 🪟 The Windows `.exe` cross-compiles and links cleanly, but **has not been run on an
   actual Windows machine** yet.
+- 📱 The APK builds and verifies (all four ABIs, correct launch activity, debug-signed),
+  but **has not been installed on a real phone**. The on-screen controls in particular
+  will want tuning by thumb — that's the sort of thing you cannot get right on a desk.
+- 🌐 The web build is **tested and working** (Chromium, real GPU: intro, title, input,
+  audio, save → reload → save restored). Not yet tried in Firefox or Safari.
 - 🔌 The ESP32 build has **never been flashed to real hardware**.
 - 🔊 The handheld doesn't persist its volume settings yet (its NVS store is right there).
 - 📖 Part 1 doesn't exist. `CONTINUE` at END OF PROLOGUE starts you over.

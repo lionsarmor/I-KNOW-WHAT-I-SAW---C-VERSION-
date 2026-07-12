@@ -186,6 +186,7 @@ typedef struct {
     int  ctl_sel;
     int  controls_menu;   /* does this platform even have pads?   */
     int  display_menu;    /* ...and a window it can resize?        */
+    int  can_quit;        /* ...and can it be closed at all? (not a tab) */
     int  swap_ab;         /* the player prefers the other button order */
     int  rumble_on;
     int  rumble_req;      /* 0..255, set by the game, taken by the platform */

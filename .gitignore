@@ -1,3 +1,7 @@
 vendor/
 dist/
 build/
+platform/android/local.properties
+platform/android/.gradle/
+platform/android/app/build/
+platform/android/app/jni/SDL

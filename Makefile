@@ -195,6 +195,127 @@ zip-linux: dist-linux
 	@rm -rf $(DIST)/pack
 	@echo "linux tarball -> $(DIST)/$(ZIPNAME)-linux.tar.gz"
 
+# ---- THE WEB (WASM) --------------------------------------------------------
+# `make web`  ->  dist/web/{index.html,iknowwhatisaw.js,iknowwhatisaw.wasm}
+# `make serve` -> ...and serves it at http://localhost:8000
+#
+# Same src/game, same main_sdl.c. Emscripten ships SDL2, so -sUSE_SDL=2 is the
+# whole of the "port".
+#
+# ONE-TIME:  make emsdk        (installs Emscripten into ~/emsdk)
+#
+# -sASYNCIFY is NOT used and must not be: the loop was restructured into
+# frame_step() so the browser can drive it (see main_sdl.c). Asyncify would
+# have been the lazy way and it doubles the binary and halves the speed.
+#
+# MEMORY IS FIXED, NOT GROWABLE, and that is deliberate. ALLOW_MEMORY_GROWTH
+# makes Emscripten hand JS a *resizable* ArrayBuffer, and current Chrome's
+# TextDecoder flatly refuses to decode one -- the runtime throws on its first
+# string and the canvas stays black. We don't need growth anyway: this game's
+# footprint is fixed and known (~133KB of RAM), so we just say how much we
+# want up front and never ask for more.
+EMSDK ?= $(HOME)/emsdk
+WEB   := $(DIST)/web
+
+web: $(CORE_SRC) $(DESK_SRC) $(HDRS) platform/web/shell.html
+	@test -f "$(EMSDK)/emsdk_env.sh" || { \
+	    echo "ERROR: no Emscripten at $(EMSDK)"; \
+	    echo "       run once:  make emsdk"; exit 1; }
+	@mkdir -p $(WEB)
+	. "$(EMSDK)/emsdk_env.sh" > /dev/null 2>&1 && \
+	emcc $(CORE_SRC) $(DESK_SRC) \
+	    -Isrc/game -O2 -std=gnu99 -Wall -Wextra \
+	    -Wno-missing-field-initializers \
+	    -sUSE_SDL=2 \
+	    -sINITIAL_MEMORY=64MB \
+	    -sFORCE_FILESYSTEM=1 \
+	    -lidbfs.js \
+	    -sEXPORTED_RUNTIME_METHODS=ccall,FS \
+	    -sEXPORTED_FUNCTIONS=_main,_web_storage_ready \
+	    --shell-file platform/web/shell.html \
+	    -o $(WEB)/index.html
+	@ls -lh $(WEB)/* | awk '{print "  " $$9 "  " $$5}'
+	@echo "  try it:  make serve"
+
+serve: web
+	@echo "  http://localhost:8000   (ctrl-c to stop)"
+	@cd $(WEB) && python3 -m http.server 8000
+
+emsdk:
+	@test -d $(EMSDK) || git clone --depth 1 \
+	    https://github.com/emscripten-core/emsdk.git $(EMSDK)
+	@cd $(EMSDK) && ./emsdk install latest && ./emsdk activate latest
+	@echo "done. now:  make web"
+
+# ---- ANDROID ---------------------------------------------------------------
+# `make apk`  ->  dist/iknowwhatisaw.apk   (debug-signed: installable, not
+#                                           publishable. See `make apk-release`)
+#
+# Builds the SAME src/game sources every other platform uses -- look at
+# platform/android/app/jni/src/Android.mk: it reaches straight up into
+# src/game/. There is no copy of the game in here.
+#
+# On-screen controls live in platform/android/touch.c. The core does not know
+# what a finger is.
+#
+# ONE-TIME SETUP (all of it lands in ~/android-tools, no sudo, ~2.6GB):
+#     make android-sdk
+ANDROID_HOME ?= $(HOME)/android-tools/sdk
+JAVA_HOME    ?= $(HOME)/android-tools/jdk
+
+# THE SPACE PROBLEM. ndk-build IS GNU make, and GNU make cannot handle spaces
+# in a path -- and this project lives in a folder with spaces in its name.
+# Gradle also canonicalises symlinks, so pointing a space-free symlink at the
+# project does NOT get you out of it.
+#
+# So: mirror the sources into a space-free staging tree and build there. It's
+# an rsync of a few hundred KB of game (plus SDL once), it's incremental, and
+# it means `make apk` works no matter what the project folder is called.
+APK_STAGE := $(HOME)/.cache/ikwis-apk
+APK_OUT   := $(APK_STAGE)/platform/android/app/build/outputs/apk/debug/app-debug.apk
+
+apk: $(CORE_SRC) $(HDRS) platform/android/touch.c
+	@test -d "$(ANDROID_HOME)" || { \
+	    echo "ERROR: no Android SDK at $(ANDROID_HOME)"; \
+	    echo "       run once:  make android-sdk"; exit 1; }
+	@test -d vendor/SDL2-src || { \
+	    echo "ERROR: SDL2 source missing. run:  make vendor-sdl-src"; exit 1; }
+	@mkdir -p $(DIST) $(APK_STAGE)/platform/android $(APK_STAGE)/src/game \
+	         $(APK_STAGE)/platform/desktop $(APK_STAGE)/vendor/SDL2-src
+	@rsync -a --delete --exclude 'app/build' --exclude '.gradle' \
+	    --exclude 'local.properties' --exclude 'app/jni/SDL' \
+	    platform/android/ $(APK_STAGE)/platform/android/
+	@rsync -a --delete src/game/      $(APK_STAGE)/src/game/
+	@rsync -a --delete platform/desktop/ $(APK_STAGE)/platform/desktop/
+	@rsync -a vendor/SDL2-src/        $(APK_STAGE)/vendor/SDL2-src/
+	@ln -sfn ../../../../vendor/SDL2-src $(APK_STAGE)/platform/android/app/jni/SDL
+	@echo "sdk.dir=$(ANDROID_HOME)" > $(APK_STAGE)/platform/android/local.properties
+	cd $(APK_STAGE)/platform/android && \
+	    JAVA_HOME="$(JAVA_HOME)" ANDROID_HOME="$(ANDROID_HOME)" \
+	    ANDROID_SDK_ROOT="$(ANDROID_HOME)" \
+	    PATH="$(JAVA_HOME)/bin:$$PATH" ./gradlew assembleDebug --no-daemon
+	@cp $(APK_OUT) $(DIST)/iknowwhatisaw.apk
+	@ls -lh $(DIST)/iknowwhatisaw.apk | awk '{print "  apk -> " $$9 "  " $$5}'
+	@echo "  install:  adb install -r $(DIST)/iknowwhatisaw.apk"
+
+apk-install: apk
+	adb install -r $(DIST)/iknowwhatisaw.apk
+
+# SDL2 SOURCE (Android compiles SDL itself; the Windows build uses a prebuilt)
+vendor-sdl-src:
+	@test -d vendor/SDL2-src && echo "already have vendor/SDL2-src" || { \
+	    mkdir -p vendor; \
+	    curl -sSL https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-2.30.11.tar.gz \
+	        -o /tmp/sdl2-src.tar.gz && \
+	    tar xzf /tmp/sdl2-src.tar.gz -C vendor && \
+	    mv vendor/SDL2-2.30.11 vendor/SDL2-src && \
+	    ln -sfn ../../../../vendor/SDL2-src platform/android/app/jni/SDL && \
+	    echo "-> vendor/SDL2-src"; }
+
+# The whole Android toolchain, into $(HOME)/android-tools. No sudo, ~2.6GB.
+android-sdk:
+	@bash tools/install-android-sdk.sh
+
 dist-clean:
 	rm -rf $(DIST)
 
@@ -202,4 +323,5 @@ clean:
 	rm -rf build *.o
 
 .PHONY: pc ascii esp32 flash run run-ascii check clean zip zip-windows zip-linux \
+        apk apk-install android-sdk vendor-sdl-src web serve emsdk \
         dist dist-linux dist-windows vendor-sdl dist-clean

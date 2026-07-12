@@ -555,6 +555,20 @@ void options_render(void)
  */
 enum { PZ_SAVEQUIT, PZ_OPTIONS, PZ_QUIT, PZ_CANCEL, NUM_PZ };
 
+/* QUIT only exists on a machine you can actually leave. In a browser tab you
+ * cannot close the page from inside it, so that row is dropped and SAVE AND
+ * QUIT becomes plain SAVE GAME (it saves and hands you back to the game). */
+static int pause_rows(int *out)
+{
+    int n = 0;
+    out[n++] = PZ_SAVEQUIT;
+    out[n++] = PZ_OPTIONS;
+    if (G.can_quit)
+        out[n++] = PZ_QUIT;
+    out[n++] = PZ_CANCEL;
+    return n;
+}
+
 /* Is there a game worth saving right now? The save blob records the world
  * and the player, not a menu or a battle turn -- so these are the moments
  * where writing it and reloading it would put you back where you were. */
@@ -578,12 +592,17 @@ void pause_update(void)
     if (G.quit_after_save || G.quit_pending)
         return;
 
+    int rows[NUM_PZ];
+    int n = pause_rows(rows);
+    if (G.pause_sel >= n)
+        G.pause_sel = 0;
+
     if (PRESSED(BTN_UP)) {
-        G.pause_sel = (G.pause_sel + NUM_PZ - 1) % NUM_PZ;
+        G.pause_sel = (G.pause_sel + n - 1) % n;
         audio_sfx(SFX_BLIP);
     }
     if (PRESSED(BTN_DOWN)) {
-        G.pause_sel = (G.pause_sel + 1) % NUM_PZ;
+        G.pause_sel = (G.pause_sel + 1) % n;
         audio_sfx(SFX_BLIP);
     }
 
@@ -599,7 +618,7 @@ void pause_update(void)
     if (!PRESSED(BTN_A))
         return;
 
-    switch (G.pause_sel) {
+    switch (rows[G.pause_sel]) {
     case PZ_OPTIONS:
         /* ...and it comes BACK here when you're done, not to the title. */
         audio_sfx(SFX_CONFIRM);
@@ -687,33 +706,40 @@ void pause_render(void)
     gfx_fill_rect(px + 14, py + 22, pw - 28, 1, RGB565(70, 18, 16));
 
     /* ---- the rows -------------------------------------------------------- */
-    static const char *row[NUM_PZ] = {
-        "SAVE AND QUIT", "OPTIONS", "QUIT", "CANCEL"
-    };
+    int rows[NUM_PZ];
+    int n = pause_rows(rows);
     int savable = pause_can_save();
     int busy    = G.quit_after_save || G.quit_pending;
 
-    for (int i = 0; i < NUM_PZ; i++) {
+    for (int i = 0; i < n; i++) {
+        int r = rows[i];
+        const char *label =
+            (r == PZ_SAVEQUIT) ? (G.can_quit ? "SAVE AND QUIT" : "SAVE GAME")
+          : (r == PZ_OPTIONS)  ? "OPTIONS"
+          : (r == PZ_QUIT)     ? "QUIT"
+                               : "CANCEL";
+
         int y = py + 32 + i * 14;
-        int dead = (i == PZ_SAVEQUIT && !savable) || busy;
-        uint16_t col = dead                 ? RGB565(80, 76, 84)
-                     : (i == G.pause_sel)   ? RGB565(255, 255, 255)
-                                            : RGB565(140, 138, 146);
+        int dead = (r == PZ_SAVEQUIT && !savable) || busy;
+        uint16_t col = dead               ? RGB565(80, 76, 84)
+                     : (i == G.pause_sel) ? RGB565(255, 255, 255)
+                                          : RGB565(140, 138, 146);
         /* QUIT is the one that costs you something. It reads hot. */
-        if (!dead && i == PZ_QUIT && i == G.pause_sel)
+        if (!dead && r == PZ_QUIT && i == G.pause_sel)
             col = RGB565(255, 120, 90);
 
-        gfx_text(px + 30, y, row[i], col);
+        gfx_text(px + 30, y, label, col);
         if (i == G.pause_sel && !busy)
             gfx_cursor(px + 18, y, G.frame);
     }
 
     /* ---- the footer: a warning, or whatever just went wrong -------------- */
+    int sel_row = rows[G.pause_sel < n ? G.pause_sel : 0];
     const char *foot = G.pause_msg;
     if (!foot)
-        foot = (G.pause_sel == PZ_QUIT && !busy)
+        foot = (sel_row == PZ_QUIT && !busy)
              ? "UNSAVED PROGRESS WILL BE LOST"
-             : (!savable && G.pause_sel == PZ_SAVEQUIT)
+             : (!savable && sel_row == PZ_SAVEQUIT)
              ? "NOTHING TO SAVE YET"
              : "";
     if (foot[0])
