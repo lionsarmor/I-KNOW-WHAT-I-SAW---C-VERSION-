@@ -70,6 +70,23 @@ enum {
     SPR_ANTHILL_0, SPR_ANTHILL_1,         /* the mound, seething          */
     SPR_QUEEN_0,   SPR_QUEEN_1,           /* the MUTANT QUEEN             */
     SPR_VAN, SPR_VAN_1,                   /* the 1980s van               */
+
+    /* ---- PART 1: THE CITY -----------------------------------------------
+     * THE LAWYER -- the man you play once the farm is behind you. Same
+     * three-frame walk cycle as the farmer, same ordering rules. */
+    SPR_LAWYER_DOWN_0, SPR_LAWYER_DOWN_1, SPR_LAWYER_DOWN_2,
+    SPR_LAWYER_UP_0,   SPR_LAWYER_UP_1,   SPR_LAWYER_UP_2,
+    SPR_LAWYER_SIDE_0, SPR_LAWYER_SIDE_1, SPR_LAWYER_SIDE_2, /* faces LEFT */
+    SPR_PRIEST,    SPR_PRIEST_1,          /* the sermon, mid-sentence     */
+    SPR_COP,       SPR_COP_1,             /* holding a line nobody drew   */
+    SPR_CITYWOMAN, SPR_CITYWOMAN_1,       /* she was on her way somewhere */
+    SPR_CRUCIFIX,                         /* the Part 1 name-screen cursor */
+    SPR_ITEM_HANDGUN,                     /* somebody's desk-drawer pistol */
+    SPR_ITEM_BULLETS,                     /* ...and the box that feeds it  */
+    SPR_ITEM_HOLYWATER,                   /* one of three. THREE.          */
+    SPR_ITEM_ROSARY,                      /* Mrs. Abernathy's beads        */
+    SPR_DEACON,    SPR_DEACON_1,          /* Deacon Charlie (well, almost) */
+    SPR_DEADLADY,  SPR_DEADLADY_1,        /* the librarian, by the pond    */
     NUM_SPRITES
 };
 
@@ -117,6 +134,7 @@ enum {
     SPECIES_ANTHILL,      /* a mound. it does not move. it makes more ants. */
     SPECIES_QUEEN,        /* the MUTANT QUEEN -- big, fast, winged, wrong   */
     SPECIES_TALL,         /* THE TALL ONE -- grey, red-eyed, arms too long  */
+    SPECIES_CHUPA_BOSS,   /* LE CHUPACABRA -- the thing in the city park    */
     NUM_SPECIES
 };
 
@@ -176,6 +194,14 @@ enum {
      * they "talk" when you face them and press A. */
     LOOK_COW, LOOK_GOAT, LOOK_DOG, LOOK_CAT,
     LOOK_VAN,            /* not a person. talk to it and you drive away. */
+    /* PART 1: the city. (Kept after the animals on purpose -- roll_boon()
+     * treats everything past LOOK_STOREKEEP as ineligible, and the city
+     * hands out its kindnesses through scripted people instead.) */
+    LOOK_PRIEST, LOOK_COP, LOOK_CITYWOMAN,
+    LOOK_COPCAR,         /* not a person either. 48x32, drawn specially. */
+    LOOK_DEACON,         /* Deacon Charlie, keeper of the last holy water */
+    LOOK_DEADLADY,       /* what's left of the librarian. She still has
+                            her rosary, and you still say a prayer.      */
     NUM_LOOKS
 };
 
@@ -203,6 +229,16 @@ enum {
     ITEM_KEY,
     ITEM_TNT,      /* pa's dynamite: enormous damage, and out in the field
                       the blast leaves things reeling twice as long */
+    ITEM_HANDGUN,  /* PART 1: the pistol from the office. It shoots like the
+                      shotgun but hits softer (HANDGUN_BASE_DMG) -- and it
+                      eats BULLETS, not shells. Shells are for shotguns. */
+    ITEM_BULLETS,  /* pistol rounds. The two guns share NOTHING: a box of
+                      shells does the revolver no good at all. */
+    ITEM_HOLYWATER,/* one vial ENDS one creature -- thrown, in battle or in
+                      the field. THREE exist in the whole game and they
+                      never restock (see restock_items). Hold onto it.   */
+    ITEM_ROSARY,   /* equip from the pack: attacks miss you often, and you
+                      fight ROSARY_LEVELS above yourself. See config.h.  */
     NUM_ITEMS
 };
 
@@ -241,6 +277,12 @@ extern uint16_t van_top[VANTOP_W * VANTOP_H];
 #define VAN_H 32
 extern uint16_t van_big[2][VAN_W * VAN_H];
 
+/* THE COP CAR, from above, parked along the kerb. 48x32 -- three tiles wide,
+ * two tall -- and solid across all of it, same trick as the van. */
+#define COPCAR_W 48
+#define COPCAR_H 32
+extern uint16_t copcar[COPCAR_W * COPCAR_H];
+
 /* ---- Tiles (16x16 map squares) --------------------------------------------
  * To add a tile: draw it in assets/tiles.h, add an id here, decode it in
  * assets.c, give it a map character in char_to_tile(), and mark whether
@@ -253,6 +295,19 @@ enum {
     TILE_FLOOR, TILE_MAT,    TILE_BED,  TILE_TABLE, TILE_VOID, /* interiors */
     TILE_WATER2,   /* animation frame only -- maps never use it directly */
     TILE_ASPHALT, TILE_LINE, TILE_LAMP,     /* the parking lot */
+    TILE_SIDEWALK, TILE_LINE_H,             /* the city: pavement, and the
+                                               centre line of a street that
+                                               runs ACROSS the screen */
+    /* THE CITY'S ARCHITECTURE. A city is not a farm with more people:
+     * these replace log walls, shingle roofs and border trees downtown. */
+    TILE_SKY_WALL,      /* skyscraper facade: concrete + a grid of windows */
+    TILE_SKY_TOP,       /* a shorter building's parapet -- its roof line   */
+    TILE_SKY_FAR,       /* the map border: smaller towers, blocks away     */
+    TILE_CHURCH_WALL,   /* dressed stone                                   */
+    TILE_CHURCH_WIN,    /* a stained-glass arch in that stone              */
+    TILE_CHURCH_CROSS,  /* the gilded cross set into the gable             */
+    TILE_CHURCH_DOOR,   /* the arched double door (a DOOR: bump to enter)  */
+    TILE_DOOR_GLASS,    /* an office lobby's glass doors (also a DOOR)     */
     NUM_TILES
 };
 
@@ -264,6 +319,9 @@ enum {
     MAP_FARM, MAP_TOWN, MAP_HOME, MAP_HOUSE, MAP_STORE, MAP_RIDGE,
     MAP_WRECK,          /* the locked house. the key opens it. */
     MAP_VANLOT,         /* east of town. your van. opens after the goblin. */
+    /* ---- PART 1 ---- */
+    MAP_CITY,           /* main street. everyone out here is scared.      */
+    MAP_OFFICE,         /* the dark office tower. the lights are OFF.     */
     NUM_MAPS
 };
 
@@ -292,6 +350,23 @@ typedef struct {          /* something living (or lying) on a map */
  * until the thing standing in the north road has been dealt with.
  */
 #define FLAG_GOBLIN_DEAD (1u << 0)
+/* ---- PART 1 ----------------------------------------------------------------
+ * FLAG_PART1 is the big one: it means the prologue is over and you are the
+ * LAWYER now -- different sprite, different maps, different voice in your
+ * head. Set the moment the END OF PROLOGUE menu lets go of you, and SAVED,
+ * so a Part 1 save resumes as Part 1.
+ *
+ * The FLAG_M_* bits are one-shot INTERNAL MONOLOGUES (see monologue_start):
+ * each fires once, then stays fired forever, save included. */
+#define FLAG_PART1       (1u << 1)
+#define FLAG_M_CITY      (1u << 2)   /* stepping out onto Main Street       */
+#define FLAG_M_OFFICE    (1u << 3)   /* stepping into the dark office       */
+#define FLAG_M_ARMED     (1u << 4)   /* light in one hand, gun in the other */
+#define FLAG_CHUPA_DEAD  (1u << 5)   /* the thing in the park is down       */
+/* A flag NOBODY ever sets. A warp that requires it is a door that never
+ * opens -- which is how a door gets a CUSTOM "locked" line instead of the
+ * generic one (see check_door_bump). */
+#define FLAG_NEVER       (1u << 31)
 
 /* Warps fire two ways (both handled automatically):
  *   - on a WALKABLE tile (an exit mat): step on it, you teleport
@@ -313,6 +388,10 @@ typedef struct {
     const spawn_t *spawns; int nspawns;
     const warp_t  *warps;  int nwarps;
     int outdoor;                /* 1 = night darkens this map  */
+    int dark;                   /* 1 = the power is OUT: an interior that is
+                                   ALWAYS dark, day or night, and only the
+                                   flashlight cuts it (see DARK_BRIGHT).
+                                   Older map rows simply zero-fill this. */
 } map_t;
 
 extern const map_t maps[NUM_MAPS];

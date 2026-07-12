@@ -80,6 +80,12 @@ const uint8_t tile_solid[NUM_TILES] = {
     [TILE_FLOOR]  = 0, [TILE_MAT]    = 0, [TILE_BED]    = 1,
     [TILE_TABLE]  = 1, [TILE_VOID]   = 1,
     [TILE_ASPHALT]= 0, [TILE_LINE]   = 0, [TILE_LAMP] = 1,
+    [TILE_SIDEWALK] = 0, [TILE_LINE_H] = 0,
+    /* the city's architecture is all solid -- the two DOOR kinds included:
+     * bumping a door is what opens it, same rule as TILE_DOOR */
+    [TILE_SKY_WALL] = 1, [TILE_SKY_TOP] = 1, [TILE_SKY_FAR] = 1,
+    [TILE_CHURCH_WALL] = 1, [TILE_CHURCH_WIN] = 1, [TILE_CHURCH_CROSS] = 1,
+    [TILE_CHURCH_DOOR] = 1, [TILE_DOOR_GLASS] = 1,
 };
 /* NOTE: TILE_DOOR stays SOLID -- walking INTO a door is what triggers
  * its warp (see check_door_bump in overworld.c). The doormat is the
@@ -108,6 +114,16 @@ static int char_to_tile(char c)
     case 'a': return TILE_ASPHALT;
     case '-': return TILE_LINE;
     case 'L': return TILE_LAMP;
+    case 'p': return TILE_SIDEWALK;
+    case '=': return TILE_LINE_H;
+    case 'S': return TILE_SKY_WALL;
+    case 'Z': return TILE_SKY_TOP;
+    case 'z': return TILE_SKY_FAR;
+    case 'C': return TILE_CHURCH_WALL;
+    case 'W': return TILE_CHURCH_WIN;
+    case '+': return TILE_CHURCH_CROSS;
+    case 'U': return TILE_CHURCH_DOOR;
+    case 'G': return TILE_DOOR_GLASS;
     default:  return TILE_GRASS;   /* unknown char = grass, harmless */
     }
 }
@@ -127,6 +143,7 @@ sprite16_t tiles[NUM_TILES];
 uint16_t   face_big[FACE_W * FACE_H];
 uint16_t   van_big[2][VAN_W * VAN_H];
 uint16_t   van_top[VANTOP_W * VANTOP_H];
+uint16_t   copcar[COPCAR_W * COPCAR_H];
 
 /* returns 1 if the art was malformed: a row of the wrong length, OR a
  * character that isn't in the palette (which would silently decode to
@@ -234,6 +251,32 @@ int assets_init(void)
         { SPR_DOGMAN_1,      SPR_ART_DOGMAN_1      },
         { SPR_VAN,           SPR_ART_VAN           },
         { SPR_VAN_1,         SPR_ART_VAN_1         },
+        /* ---- PART 1 ---- */
+        { SPR_LAWYER_DOWN_0, SPR_ART_LAWYER_DOWN_0 },
+        { SPR_LAWYER_DOWN_1, SPR_ART_LAWYER_DOWN_1 },
+        { SPR_LAWYER_DOWN_2, SPR_ART_LAWYER_DOWN_2 },
+        { SPR_LAWYER_UP_0,   SPR_ART_LAWYER_UP_0   },
+        { SPR_LAWYER_UP_1,   SPR_ART_LAWYER_UP_1   },
+        { SPR_LAWYER_UP_2,   SPR_ART_LAWYER_UP_2   },
+        { SPR_LAWYER_SIDE_0, SPR_ART_LAWYER_SIDE_0 },
+        { SPR_LAWYER_SIDE_1, SPR_ART_LAWYER_SIDE_1 },
+        { SPR_LAWYER_SIDE_2, SPR_ART_LAWYER_SIDE_2 },
+        { SPR_PRIEST,        SPR_ART_PRIEST        },
+        { SPR_PRIEST_1,      SPR_ART_PRIEST_1      },
+        { SPR_COP,           SPR_ART_COP           },
+        { SPR_COP_1,         SPR_ART_COP_1         },
+        { SPR_CITYWOMAN,     SPR_ART_CITYWOMAN     },
+        { SPR_CITYWOMAN_1,   SPR_ART_CITYWOMAN_1   },
+        { SPR_CRUCIFIX,      SPR_ART_CRUCIFIX      },
+        { SPR_ITEM_HANDGUN,  SPR_ART_ITEM_HANDGUN  },
+        { SPR_ITEM_BULLETS,  SPR_ART_ITEM_BULLETS  },
+        { SPR_ITEM_HOLYWATER, SPR_ART_ITEM_HOLYWATER },
+        { SPR_ITEM_ROSARY,   SPR_ART_ITEM_ROSARY   },
+        { SPR_DEACON,        SPR_ART_DEACON        },
+        { SPR_DEACON_1,      SPR_ART_DEACON_1      },
+        /* the dead don't animate: both frames decode the same art */
+        { SPR_DEADLADY,      SPR_ART_DEADLADY      },
+        { SPR_DEADLADY_1,    SPR_ART_DEADLADY      },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -252,6 +295,16 @@ int assets_init(void)
         { TILE_ASPHALT, TILE_ART_ASPHALT },
         { TILE_LINE,   TILE_ART_LINE   },
         { TILE_LAMP,   TILE_ART_LAMP   },
+        { TILE_SIDEWALK, TILE_ART_SIDEWALK },
+        { TILE_LINE_H, TILE_ART_LINE_H },
+        { TILE_SKY_WALL,     TILE_ART_SKY_WALL     },
+        { TILE_SKY_TOP,      TILE_ART_SKY_TOP      },
+        { TILE_SKY_FAR,      TILE_ART_SKY_FAR      },
+        { TILE_CHURCH_WALL,  TILE_ART_CHURCH_WALL  },
+        { TILE_CHURCH_WIN,   TILE_ART_CHURCH_WIN   },
+        { TILE_CHURCH_CROSS, TILE_ART_CHURCH_CROSS },
+        { TILE_CHURCH_DOOR,  TILE_ART_CHURCH_DOOR  },
+        { TILE_DOOR_GLASS,   TILE_ART_DOOR_GLASS   },
     };
     for (unsigned i = 0; i < sizeof tile_art / sizeof tile_art[0]; i++)
         errors += decode(tile_art[i].art, TILE, TILE,
@@ -261,6 +314,7 @@ int assets_init(void)
     errors += decode(SPR_ART_VAN_BIG_0, VAN_W, VAN_H, van_big[0]);
     errors += decode(SPR_ART_VAN_BIG_1, VAN_W, VAN_H, van_big[1]);
     errors += decode(SPR_ART_VANTOP,  VANTOP_W, VANTOP_H, van_top);
+    errors += decode(SPR_ART_COPCAR,  COPCAR_W, COPCAR_H, copcar);
 
     /* sanity-check the maps: every row must be exactly w chars */
     for (int m = 0; m < NUM_MAPS; m++)
@@ -422,6 +476,17 @@ const species_t species[NUM_SPECIES] = {
         { { "BIRTH A SOLDIER", MV_MULTI, 5, 30 },
           { "FESTERING BITE", MV_DRAIN, 11, 30 } },
         3, 0, 0 },
+
+    /* --- LE CHUPACABRA. The one from the park -- bigger, older, and it has
+     * been eating well since the lights came. A BOSS: it stands square on
+     * the path home and waits, it keeps pace when it charges (ow_speed 2),
+     * and once it's down it stays down. Drawn a shade darker than the
+     * ridge-country chupacabra: this one hunts under street lights. */
+    [SPECIES_CHUPA_BOSS] = { "LE CHUPACABRA", 66, 8, 85,
+        SPR_CHUPA_0, SPR_CHUPA_1, 200, 1, 0, 8,
+        { { "EXSANGUINATE", MV_DRAIN, 12, 35 },
+          { "THE SHRIEK", MV_STUN, 0, 22 } },
+        2, 0, 0 },
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
@@ -436,6 +501,15 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_DOG]       = { SPR_DOG,        SPR_DOG_1        },
     [LOOK_CAT]       = { SPR_CAT,        SPR_CAT_1        },
     [LOOK_VAN]       = { SPR_VAN,        SPR_VAN_1        },
+    /* ---- PART 1 ---- */
+    [LOOK_PRIEST]    = { SPR_PRIEST,     SPR_PRIEST_1     },
+    [LOOK_COP]       = { SPR_COP,        SPR_COP_1        },
+    [LOOK_CITYWOMAN] = { SPR_CITYWOMAN,  SPR_CITYWOMAN_1  },
+    /* the cruiser never uses these two frames -- the renderer special-cases
+     * it (see overworld_render) -- but the row has to exist. */
+    [LOOK_COPCAR]    = { SPR_VAN,        SPR_VAN_1        },
+    [LOOK_DEACON]    = { SPR_DEACON,     SPR_DEACON_1     },
+    [LOOK_DEADLADY]  = { SPR_DEADLADY,   SPR_DEADLADY_1   },
 };
 
 /* ============================ THE ITEMS ====================================
@@ -463,4 +537,19 @@ const item_info_t item_info[NUM_ITEMS] = {
         "PA'S TNT, FROM WHEN HE WAS CLEARING STUMPS. THE FUSE IS SHORT.\n"
         "HE ALWAYS SAID DON'T RUN WITH IT. HE ALSO SAID THERE'S NOTHING "
         "OUT THERE." },
+    /* The pickup line here is the fallback; in Part 1 the lawyer picks it
+     * up in his own words -- see the monologue override in pick_up(). */
+    [ITEM_HANDGUN] = { "PISTOL", SPR_ITEM_HANDGUN,
+        "A REVOLVER FROM SOMEBODY'S DESK DRAWER. LOADED." },
+    [ITEM_BULLETS] = { "BULLETS", SPR_ITEM_BULLETS,
+        "A CARTON OF PISTOL ROUNDS. THEY ROLL AROUND IN THE BOX LIKE "
+        "LOOSE TEETH." },
+    [ITEM_HOLYWATER] = { "H.WATER", SPR_ITEM_HOLYWATER,
+        "A STOPPERED VIAL OF HOLY WATER. IT IS COLD IN YOUR POCKET AND IT "
+        "DOES NOT WARM UP.\n"
+        "THERE IS ALMOST NONE OF THIS LEFT IN THE WORLD. ONE THROW ENDS "
+        "ONE OF THOSE THINGS -- ANY OF THEM. CHOOSE THE THROW." },
+    [ITEM_ROSARY] = { "ROSARY", SPR_ITEM_ROSARY,
+        "MRS. ABERNATHY'S ROSARY. EQUIP IT FROM THE PACK: THE BEADS TURN "
+        "ASIDE WHAT HUNTS YOU, AND LEND YOU A STRENGTH THAT ISN'T YOURS." },
 };

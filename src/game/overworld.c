@@ -166,7 +166,10 @@ int map_music(int map)
     case MAP_TOWN:   return MUSIC_TOWN;    /* people. a pulse. still wrong */
     case MAP_VANLOT: return MUSIC_TOWN;
     case MAP_RIDGE:  return MUSIC_BOSS;    /* you should not be up here    */
-    default:         return MUSIC_NONE;    /* indoors: just the room       */
+    case MAP_CITY:   return MUSIC_TOWN;    /* more people, same pulse      */
+    default:         return MUSIC_NONE;    /* indoors: just the room --
+                                              and the OFFICE stays silent
+                                              on purpose. listen.          */
     }
 }
 
@@ -205,6 +208,10 @@ void overworld_enter_map(int map, int tx, int ty)
             e->cw = VANTOP_W;      /* 48 -- three tiles wide */
             e->ch = VANTOP_H;      /* 64 -- four tiles long  */
         }
+        if (e->type == ENT_NPC && e->kind == LOOK_COPCAR) {
+            e->cw = COPCAR_W;      /* 48 -- parked along the kerb */
+            e->ch = COPCAR_H;      /* 32 -- and solid, like a car */
+        }
 
         /* a hill is already working when you walk in on it */
         if (e->type == ENT_ALIEN && species[e->kind].brood > 0)
@@ -212,8 +219,39 @@ void overworld_enter_map(int map, int tx, int ty)
     }
     for (int i = 0; i < MAX_SHOTS; i++) G.shots[i].active = 0;
     for (int i = 0; i < MAX_GORE;  i++) G.gore[i].active  = 0;
-    G.shoot_cd = 0;
-    G.boom_t   = 0;
+    G.shoot_cd   = 0;
+    G.boom_t     = 0;
+    G.mist_t     = 0;       /* effects don't follow you through a door */
+    G.lob_active = 0;       /* ...and neither does a thing mid-air     */
+
+    /* SOMEBODY DROPPED THEIR NERVE. Outdoors, sometimes, a stick of TNT is
+     * just lying in the open -- dropped by whoever ran through here before
+     * you. Rolled fresh on every visit, placed in a runtime slot above the
+     * scripted spawns (same slots the ant hill uses), so it owes nothing
+     * to spawns_gone and nothing to the restock clock. */
+    if (m->outdoor && rng_range(1, 100) <= 12) {
+        int slot = -1;
+        for (int i = m->nspawns; i < MAX_ENTITIES; i++)
+            if (G.ents[i].type == ENT_NONE) { slot = i; break; }
+        for (int tries = 0; slot >= 0 && tries < 24; tries++) {
+            int rx = rng_range(1, m->w - 2), ry = rng_range(1, m->h - 2);
+            int px = rx * TILE, py = ry * TILE;
+            if (tile_solid[map_tile(m, rx, ry)])
+                continue;
+            if (hits_entity(px, py, -1) >= 0)
+                continue;
+            if (touching(px, py, G.player.x, G.player.y))
+                continue;                 /* not straight into your pocket */
+            entity_t *e = &G.ents[slot];
+            e->type = ENT_ITEM;
+            e->kind = ITEM_TNT;
+            e->x = px;  e->y = py;
+            e->cw = e->ch = TILE;
+            e->dialog = 0; e->gift = 0; e->after = 0;
+            e->stun = e->hurt = e->aggro = e->hp = 0;
+            break;
+        }
+    }
 
     roll_boon(map);         /* who here is holding something for you? */
 
@@ -233,7 +271,8 @@ void overworld_start_game(void)
     G.player.dir    = DIR_DOWN;
     for (int i = 0; i < NUM_ITEMS; i++)
         G.player.items[i] = 0;             /* empty pockets */
-    G.player.lamp = 0;
+    G.player.lamp   = 0;
+    G.player.rosary = 0;                   /* beads back in the pocket */
     G.items_seen  = 0;                     /* an empty pack, nothing spoiled */
     G.pack_sel = G.pack_top = 0;
     for (int m = 0; m < NUM_MAPS; m++)
@@ -280,7 +319,10 @@ static void restock_items(void)
     for (int m = 0; m < NUM_MAPS; m++)
         for (int i = 0; i < maps[m].nspawns && i < MAX_ENTITIES; i++) {
             const spawn_t *s = &maps[m].spawns[i];
-            int back = (s->type == ENT_ITEM) ||
+            /* HOLY WATER NEVER COMES BACK. Three vials exist in the whole
+             * game; a herb-style respawn would quietly turn "three" into
+             * "three per day" -- a different item entirely. */
+            int back = (s->type == ENT_ITEM && s->kind != ITEM_HOLYWATER) ||
                        (s->type == ENT_ALIEN && !species[s->kind].boss);
             if (back)
                 G.spawns_gone[m] &= ~(1u << i);
@@ -343,6 +385,12 @@ static void restock_items(void)
 static void weather_roll(void)
 {
     int r = rng_range(1, 100);
+
+    /* NO TORNADOES DOWNTOWN. The city gets rain and searchlights; a funnel
+     * walking between the towers would be a different game. A tornado roll
+     * here just falls through and becomes rain. */
+    if (r <= WX_TORNADO_PCT && G.map_id == MAP_CITY)
+        r = WX_TORNADO_PCT + 1;
 
     if (r <= WX_TORNADO_PCT) {
         G.wx   = WX_TORNADO;
@@ -489,10 +537,12 @@ static void kill_entity(int i)
     G.player.xp += sp->xp * OVERWORLD_XP_PCT / 100;
 
     mark_dead(i);
-    /* NOT "any boss" -- there are two of them now, and only the goblin's
-     * death opens the road east of town. */
+    /* Each boss's death sets ITS flag -- a field kill has to count for
+     * exactly as much as a battle win (win_battle sets the same ones). */
     if (e->kind == SPECIES_GOBLIN)
         G.flags |= FLAG_GOBLIN_DEAD;
+    if (e->kind == SPECIES_CHUPA_BOSS)
+        G.flags |= FLAG_CHUPA_DEAD;
 
     e->type = ENT_NONE;
 }
@@ -530,18 +580,13 @@ static void hit_entity(int i)
     }
 }
 
-/* PA'S TNT, thrown. It lands TNT_THROW ahead of you and takes the field
- * apart: everything inside TNT_RADIUS loses TNT_OW_HITS, which drops most
- * things outright, and anything still standing reels for DOUBLE the usual
- * stagger. That last part is the whole point -- it's the only way to buy
- * distance from something that barely staggers at all. */
-static void throw_tnt(void)
+/* PA'S TNT going off at (bx,by): everything inside TNT_RADIUS loses
+ * TNT_OW_HITS, which drops most things outright, and anything still
+ * standing reels for DOUBLE the usual stagger. That last part is the whole
+ * point -- it's the only way to buy distance from something that barely
+ * staggers at all. */
+static void tnt_boom(int bx, int by)
 {
-    static const int step[4][2] = { {0,1}, {0,-1}, {-1,0}, {1,0} };
-    int bx = G.player.x + 8 + step[G.player.dir][0] * TNT_THROW;
-    int by = G.player.y + 8 + step[G.player.dir][1] * TNT_THROW;
-
-    G.player.items[ITEM_TNT]--;
     G.boom_x = bx;
     G.boom_y = by;
     G.boom_t = TNT_BOOM_TICKS;
@@ -571,6 +616,63 @@ static void throw_tnt(void)
     spray_gore(bx - 8, by - 8, 10);  /* dirt and worse, straight up */
 }
 
+/* HOLY WATER landing at (bx,by): the mist rises, and everything the mist
+ * touches simply ENDS -- ants, dogmen, the bosses, all of it. That is what
+ * three-in-the-whole-game buys. */
+static void holy_mist(int bx, int by)
+{
+    G.mist_x = bx;
+    G.mist_y = by;
+    G.mist_t = MIST_TICKS;
+    audio_sfx(SFX_HEAL);             /* it sounds like relief */
+    shake(1, 12);
+
+    for (int i = 0; i < MAX_ENTITIES; i++) {
+        entity_t *e = &G.ents[i];
+        if (e->type != ENT_ALIEN)
+            continue;
+        if (dist2(e->x + 8, e->y + 8, bx, by) > HOLY_RADIUS * HOLY_RADIUS)
+            continue;
+        kill_entity(i);              /* no roll. no survivors. */
+    }
+}
+
+/* ---- THE LOB ---------------------------------------------------------------
+ * TNT and holy water are THROWN, and the throw is visible: the item leaves
+ * your hand, arcs LOB_ARC pixels into the air over LOB_TICKS, and only when
+ * it lands does anything explode or sizzle (see the renderer for the arc).
+ */
+static void start_lob(int kind)
+{
+    static const int step[4][2] = { {0,1}, {0,-1}, {-1,0}, {1,0} };
+    if (G.lob_active)
+        return;                      /* one thing in the air at a time */
+
+    G.player.items[kind]--;
+    G.lob_active = 1;
+    G.lob_kind   = kind;
+    G.lob_t      = 0;
+    G.lob_x0     = G.player.x + 8;
+    G.lob_y0     = G.player.y + 4;
+    G.lob_x1     = G.player.x + 8 + step[G.player.dir][0] * TNT_THROW;
+    G.lob_y1     = G.player.y + 8 + step[G.player.dir][1] * TNT_THROW;
+    audio_sfx(SFX_BLIP);             /* the grunt of the throw */
+}
+
+static void update_lob(void)
+{
+    if (!G.lob_active)
+        return;
+    if (++G.lob_t < LOB_TICKS)
+        return;
+
+    G.lob_active = 0;
+    if (G.lob_kind == ITEM_TNT)
+        tnt_boom(G.lob_x1, G.lob_y1);
+    else
+        holy_mist(G.lob_x1, G.lob_y1);
+}
+
 static void fire_shot(void)
 {
     static const int step[4][2] = { {0,1}, {0,-1}, {-1,0}, {1,0} };
@@ -586,7 +688,7 @@ static void fire_shot(void)
         sh->travelled = 0;
         break;
     }
-    G.player.items[ITEM_SHELLS]--;
+    G.player.items[GUN_AMMO()]--;   /* shells or bullets, whichever gun */
     G.shoot_cd = SHOOT_COOLDOWN;
     G.recoil   = 6;
     audio_sfx(SFX_SHOTGUN);
@@ -596,9 +698,9 @@ static void fire_shot(void)
 
 static void try_shoot(void)
 {
-    if (!G.player.items[ITEM_SHOTGUN] || G.shoot_cd > 0)
+    if (!PLAYER_HAS_GUN() || G.shoot_cd > 0)
         return;
-    if (G.player.items[ITEM_SHELLS] <= 0) {
+    if (G.player.items[GUN_AMMO()] <= 0) {
         audio_sfx(SFX_BLIP);        /* click. empty. */
         G.shoot_cd = 12;
         return;
@@ -663,20 +765,54 @@ static void bump_entity(int i)
         battle_start(i);
 }
 
+/* how many of a thing one pickup is worth: ammo comes by the box */
+static int item_count(int kind)
+{
+    if (kind == ITEM_SHELLS)  return SHELLS_PER_BOX;
+    if (kind == ITEM_BULLETS) return BULLETS_PER_BOX;
+    return 1;
+}
+
 /* walking into an item pockets it: chime, message, and it stays gone
  * for the rest of this run (spawns_gone remembers across map changes) */
 static void pick_up(int i)
 {
     int kind = G.ents[i].kind;
-    G.player.items[kind] += (kind == ITEM_SHELLS) ? SHELLS_PER_BOX : 1;
+    G.player.items[kind] += item_count(kind);
     pack_discover(kind);
     if (kind == ITEM_SHOTGUN) {
         G.player.items[ITEM_SHELLS] += 2;   /* pa kept it loaded */
         pack_discover(ITEM_SHELLS);
     }
+    if (kind == ITEM_HANDGUN) {
+        G.player.items[ITEM_BULLETS] += 6;  /* Kowalski kept it loaded too --
+                                               with BULLETS. Shells are for
+                                               shotguns. */
+        pack_discover(ITEM_BULLETS);
+    }
     G.ents[i].type = ENT_NONE;
-    G.spawns_gone[G.map_id] |= (uint16_t)(1u << i);
+    /* NOT cast to uint16_t: spawns_gone is 32 bits wide and the city has
+     * more than 16 spawns -- truncating here quietly resurrects anything
+     * in a high slot the next time the map is entered. */
+    G.spawns_gone[G.map_id] |= (1u << i);
     audio_sfx(SFX_PICKUP);
+
+    /* In Part 1 the two items the whole level is about arrive in the
+     * lawyer's own head, not on a museum card. */
+    if ((G.flags & FLAG_PART1) && kind == ITEM_FLASHLIGHT) {
+        monologue_start("A FLASHLIGHT. MAINTENANCE LEAVES IT ON THE HOOK "
+                        "BY THE DOOR AND I HAVE WALKED PAST IT FOR NINE "
+                        "YEARS WITHOUT SEEING IT.\nI SEE IT NOW. TURN IT "
+                        "ON FROM THE PACK. KEEP MOVING.");
+        return;
+    }
+    if ((G.flags & FLAG_PART1) && kind == ITEM_HANDGUN) {
+        monologue_start("KOWALSKI'S REVOLVER. HE SHOWED IT TO ME AT THE "
+                        "CHRISTMAS PARTY LIKE IT WAS A JOKE.\nIT IS NOT A "
+                        "JOKE NOW. IT IS THE WHOLE PLAN. LIGHT, GUN, "
+                        "HOME.");
+        return;
+    }
     dialog_start(item_info[kind].pickup_msg);
 }
 
@@ -704,6 +840,13 @@ static int try_step(int nx, int ny)
  * message machine-gunning while you keep pushing). */
 static int locked_cd;   /* ticks left before "LOCKED" can show again */
 
+/* every tile that behaves as a door: the farm's plank door, the church's
+ * arch, the tower's glass lobby */
+static int is_door_tile(int t)
+{
+    return t == TILE_DOOR || t == TILE_CHURCH_DOOR || t == TILE_DOOR_GLASS;
+}
+
 static void check_door_bump(void)
 {
     /* the tile just beyond the player's feet, in the facing direction */
@@ -716,7 +859,7 @@ static void check_door_bump(void)
     }
     const map_t *m = cur_map();
     int tx = px / TILE, ty = py / TILE;
-    if (map_tile(m, tx, ty) != TILE_DOOR)
+    if (!is_door_tile(map_tile(m, tx, ty)))
         return;
 
     for (int i = 0; i < m->nwarps; i++) {
@@ -1007,12 +1150,17 @@ static void try_talk(void)
              * so the handover survives leaving and re-entering the map. */
             if (e->gift && !(G.spawns_gone[G.map_id] & (1u << i))) {
                 int kind = e->gift - 1;
-                G.player.items[kind] +=
-                    (kind == ITEM_SHELLS) ? SHELLS_PER_BOX : 1;
+                G.player.items[kind] += item_count(kind);
                 pack_discover(kind);
-                G.spawns_gone[G.map_id] |= (uint16_t)(1u << i);
+                G.spawns_gone[G.map_id] |= (1u << i);  /* 32-bit: no cast */
                 audio_sfx(SFX_PICKUP);
-                dialog_start(e->dialog);
+                /* the dead don't speak. Taking the rosary from the
+                 * librarian happens entirely inside his own head -- the
+                 * red box, the half-remembered prayer. */
+                if (e->kind == LOOK_DEADLADY)
+                    monologue_start(e->dialog);
+                else
+                    dialog_start(e->dialog);
                 return;
             }
             /* This map's one generous soul (see roll_boon). They hand it
@@ -1020,8 +1168,11 @@ static void try_talk(void)
              * frightened neighbour with a line to say. */
             if (i == G.boon_ent) {
                 int kind = G.boon_item;
-                G.player.items[kind] +=
-                    (kind == ITEM_SHELLS) ? SHELLS_PER_BOX : 1;
+                /* the boon pool is farm-stocked; downtown, a stranger with
+                 * ammunition to spare has PISTOL ammunition */
+                if ((G.flags & FLAG_PART1) && kind == ITEM_SHELLS)
+                    kind = ITEM_BULLETS;
+                G.player.items[kind] += item_count(kind);
                 pack_discover(kind);
                 G.player.hp += BOON_HEAL;
                 if (G.player.hp > G.player.max_hp)
@@ -1040,7 +1191,14 @@ static void try_talk(void)
                 return;
             }
             audio_sfx(SFX_CONFIRM);
-            dialog_start((e->gift && e->after) ? e->after : e->dialog);
+            {
+                const char *line = (e->gift && e->after) ? e->after
+                                                         : e->dialog;
+                if (e->kind == LOOK_DEADLADY)
+                    monologue_start(line);   /* still inside his head */
+                else
+                    dialog_start(line);
+            }
             return;
         }
     }
@@ -1052,6 +1210,44 @@ void overworld_update(void)
     weather_update();              /* ...and so does the sky */
     if (G.banner > 0)
         G.banner--;
+
+    /* ---- PART 1'S VOICE IN HIS HEAD ------------------------------------
+     * One-shot internal monologues (red box, his own words -- see
+     * monologue_start). Each is keyed to a story flag, so it fires once
+     * per RUN, not once per visit, and never again after a reload. */
+    if (G.flags & FLAG_PART1) {
+        if (G.map_id == MAP_CITY && !(G.flags & FLAG_M_CITY) && G.t > 40) {
+            G.flags |= FLAG_M_CITY;
+            monologue_start(
+                "CREATURES. THAT'S WHAT EVERY TV IN THE SHOP WINDOW SAID, "
+                "AND THEN THE CHANNELS STOPPED SAYING ANYTHING.\n"
+                "MARIE IS HOME. THE KIDS ARE HOME. HOME IS TWENTY BLOCKS "
+                "SOUTH AND I'M STANDING HERE IN A SUIT.\n"
+                "THINK, COUNSELOR. DARK IS COMING. THE FIRM KEEPS A "
+                "FLASHLIGHT IN MAINTENANCE. START THERE.");
+            return;
+        }
+        if (G.map_id == MAP_OFFICE && !(G.flags & FLAG_M_OFFICE) && G.t > 20) {
+            G.flags |= FLAG_M_OFFICE;
+            monologue_start(
+                "THE POWER'S OUT. OF COURSE THE POWER'S OUT.\n"
+                "NINE YEARS IN THIS BUILDING AND I HAVE NEVER ONCE HEARD "
+                "IT THIS QUIET.\n"
+                "...SOMETHING UPSTAIRS JUST STOPPED WALKING.");
+            return;
+        }
+        if (G.map_id == MAP_CITY && !(G.flags & FLAG_M_ARMED) &&
+            G.player.items[ITEM_FLASHLIGHT] && G.player.items[ITEM_HANDGUN]) {
+            G.flags |= FLAG_M_ARMED;
+            monologue_start(
+                "OKAY. LIGHT. GUN. TWENTY BLOCKS.\n"
+                "SOUTH IS THROUGH THE PARK. THE PARK WITH THE THING IN IT "
+                "THAT TOOK A MAN WHO HAD A SHOTGUN.\n"
+                "...MARIE, I'M COMING. LEAVE THE DOOR LOCKED UNTIL YOU "
+                "HEAR MY VOICE.");
+            return;
+        }
+    }
 
     if (G.daytime - G.last_restock >= (uint32_t)ITEM_RESPAWN_TICKS) {
         G.last_restock = G.daytime;
@@ -1072,6 +1268,8 @@ void overworld_update(void)
     if (G.shoot_cd > 0) G.shoot_cd--;
     if (G.recoil   > 0) G.recoil--;
     if (G.boom_t   > 0) G.boom_t--;
+    if (G.mist_t   > 0) G.mist_t--;
+    update_lob();                  /* anything mid-air comes down */
     update_shots();
     update_gore();
 
@@ -1117,12 +1315,15 @@ static void player_sprite(int *spr, int *flip)
 {
     static const int cycle[4] = { 0, 1, 0, 2 };
     int frame = G.player.walking ? cycle[(G.player.anim / 5) % 4] : 0;
+    /* Part 1 swaps the man, not the machinery: the lawyer's nine frames
+     * sit in the same order as the farmer's, so one base id does it. */
+    int base = (G.flags & FLAG_PART1) ? SPR_LAWYER_DOWN_0 : SPR_FARMER_DOWN_0;
     *flip = 0;
     switch (G.player.dir) {
-    case DIR_DOWN:  *spr = SPR_FARMER_DOWN_0 + frame; break;
-    case DIR_UP:    *spr = SPR_FARMER_UP_0   + frame; break;
-    case DIR_LEFT:  *spr = SPR_FARMER_SIDE_0 + frame; break;
-    default:        *spr = SPR_FARMER_SIDE_0 + frame; *flip = 1; break;
+    case DIR_DOWN:  *spr = base + frame;     break;
+    case DIR_UP:    *spr = base + 3 + frame; break;
+    case DIR_LEFT:  *spr = base + 6 + frame; break;
+    default:        *spr = base + 6 + frame; *flip = 1; break;
     }
 }
 
@@ -1164,9 +1365,11 @@ static void draw_hud(void)
                                                    : NAME_DEFAULT,
                             RGB565(255, 255, 255));
 
-    /* level, tucked to the right of the name */
+    /* level, tucked to the right of the name. Worn beads show you the
+     * BORROWED level, in a colder color -- strength that isn't yours. */
+    int boosted = G.player.items[ITEM_ROSARY] && G.player.rosary;
     char lv[8] = "LV ";
-    int  l = G.player.level, p = 3;
+    int  l = G.player.level + (boosted ? ROSARY_LEVELS : 0), p = 3;
     if (l > 9) lv[p++] = (char)('0' + (l / 10) % 10);
     lv[p++] = (char)('0' + l % 10);
     lv[p] = '\0';
@@ -1196,14 +1399,25 @@ static void draw_hud(void)
             gfx_fill_rect(ix + 1, iy + 10, 6, 2, RGB565(255, 240, 170));
         ix += 12;
     }
-    if (G.player.items[ITEM_SHOTGUN]) {
+    if (G.player.items[ITEM_ROSARY]) {
+        /* worn = bright, pocketed = dim -- same code the flashlight speaks */
+        gfx_blit_ex(sprites[SPR_ITEM_ROSARY].px, TILE, TILE, ix - 4, iy - 4,
+                    1, G.player.rosary ? 256 : 110, 0);
+        ix += 12;
+    }
+    if (PLAYER_HAS_GUN()) {
+        /* the AMMO THAT FITS THE GUN: shells beside the shotgun, the
+         * bullet carton beside the pistol */
+        int ammo = GUN_AMMO();
         char am[8];
-        int n = G.player.items[ITEM_SHELLS], k = 0;
+        int n = G.player.items[ammo], k = 0;
         if (n > 99) n = 99;
         if (n >= 10) am[k++] = (char)('0' + n / 10);
         am[k++] = (char)('0' + n % 10);
         am[k] = '\0';
-        gfx_blit(sprites[SPR_ITEM_SHELLS].px, TILE, TILE, ix - 4, iy - 4);
+        gfx_blit(sprites[ammo == ITEM_SHELLS ? SPR_ITEM_SHELLS
+                                             : SPR_ITEM_BULLETS].px,
+                 TILE, TILE, ix - 4, iy - 4);
         gfx_text_small_outlined(ix + 11, iy + 4, am, RGB565(255, 220, 80));
     }
 
@@ -1423,6 +1637,23 @@ void overworld_render(void)
                 spr = ((G.frame / 20) % 2) ? sp->spr1 : sp->spr0;
                 bob = (int)(((G.frame + (uint32_t)i * 7) / 16) % 2);
             }
+        } else if (e->kind == LOOK_COPCAR) {
+            /* the cruiser, 1:1 like the van -- and the light bar still
+             * TURNS: nobody switched it off. A soft red/blue pulse washes
+             * over the roof, trading sides. */
+            int ex2 = e->x - cx, ey2 = e->y - cy;
+            gfx_blit_ex(copcar, COPCAR_W, COPCAR_H, ex2, ey2, 1, 256, 0);
+            {
+                int red_on = (int)((G.frame / 16) % 2);
+                uint16_t c = red_on ? RGB565(255, 60, 50)
+                                    : RGB565(80, 120, 255);
+                int bx = ex2 + 21, by = ey2 + (red_on ? 11 : 16);
+                for (int gy2 = -3; gy2 <= 8; gy2++)
+                    for (int gx2 = -3; gx2 <= 9; gx2++)
+                        gfx_add_pixel(bx + gx2, by + gy2, c,
+                                      70 - (gx2 * gx2 + gy2 * gy2) * 2);
+            }
+            continue;
         } else if (e->kind == LOOK_VAN) {
             /* IT IS A VAN, SEEN FROM ABOVE -- van_top, not van_big. van_big is
              * the REAR of the van and belongs to the highway cutscene; putting
@@ -1496,6 +1727,64 @@ void overworld_render(void)
         gfx_fill_rect(g->x - cx, g->y - cy, gsz, gsz, g->col);
     }
 
+    /* SOMETHING THROWN, STILL IN THE AIR. The item's own sprite rides a
+     * parabola from your hand to where it will land, spinning as it goes --
+     * this is the attack ANIMATION, and the boom or the mist below is its
+     * punchline. */
+    if (G.lob_active) {
+        int t  = G.lob_t;
+        int lx = G.lob_x0 + (G.lob_x1 - G.lob_x0) * t / LOB_TICKS;
+        int ly = G.lob_y0 + (G.lob_y1 - G.lob_y0) * t / LOB_TICKS;
+        /* the arc: 4h*t(T-t)/T^2 peaks at LOB_ARC mid-flight */
+        int arc = 4 * LOB_ARC * t * (LOB_TICKS - t) / (LOB_TICKS * LOB_TICKS);
+        int spr = (G.lob_kind == ITEM_TNT) ? SPR_ITEM_TNT : SPR_ITEM_HOLYWATER;
+        gfx_blit_ex(sprites[spr].px, TILE, TILE,
+                    lx - 8 - cx, ly - 8 - arc - cy, 1, 256,
+                    (t / 4) % 2);                 /* it tumbles */
+        /* a small shadow racing along the ground under it */
+        gfx_blend_pixel(lx - cx, ly - cy + 6, RGB565(0, 0, 0), 120);
+        gfx_blend_pixel(lx - cx + 1, ly - cy + 6, RGB565(0, 0, 0), 120);
+    }
+
+    /* THE SIZZLING MIST. Holy water doesn't explode -- it RISES: a pale
+     * blue-white cloud that eats what it touches and hisses while it does.
+     * Blended (a fog), then salted with bright sizzle sparks that drift
+     * upward like steam off a griddle. */
+    if (G.mist_t > 0) {
+        int age  = MIST_TICKS - G.mist_t;
+        int r    = HOLY_RADIUS * (age + 6) / (MIST_TICKS / 2 + 6);
+        if (r > HOLY_RADIUS) r = HOLY_RADIUS;
+        int fade = G.mist_t * 256 / MIST_TICKS;
+        int mx = G.mist_x - cx, my = G.mist_y - cy;
+
+        for (int y = -r; y <= r; y++)
+            for (int x = -r; x <= r; x++) {
+                int d2 = x * x + y * y;
+                if (d2 > r * r)
+                    continue;
+                /* holey (ha) dither so it reads as vapour, not paint */
+                if (((x * 5 + y * 9 + (int)(G.frame * 3)) & 7) < 3)
+                    continue;
+                int edge = 256 - d2 * 256 / (r * r + 1);
+                int a = 120 * edge / 256 * fade / 256;
+                if (a < 8)
+                    continue;
+                gfx_blend_pixel(x + mx, y + my - age / 4,   /* it rises */
+                                RGB565(205, 232, 255), a);
+            }
+
+        /* the SIZZLE: bright sparks popping off inside the cloud */
+        for (int i = 0; i < 14; i++) {
+            uint32_t h = (uint32_t)i * 2654435761u + G.frame * 131u;
+            int sxp = (int)(h % (uint32_t)(r * 2 + 1)) - r;
+            int syp = (int)((h >> 9) % (uint32_t)(r * 2 + 1)) - r;
+            if (sxp * sxp + syp * syp > r * r)
+                continue;
+            gfx_add_pixel(mx + sxp, my + syp - age / 3,
+                          RGB565(255, 255, 255), 150 * fade / 256);
+        }
+    }
+
     /* PA'S TNT GOING OFF. It swells to full size in half its life, whites
      * out at the core, and then eats itself away into smoke -- the dither
      * gets holier as it dies, so it comes apart instead of just fading. */
@@ -1535,8 +1824,12 @@ void overworld_render(void)
         /* SOMETHING IS LOOKING FOR HER. Only in the car park -- this is the
          * lot where the girl went out at nine to bring the trolleys in.
          * Drawn BEFORE the night pass, and handed to it, so the beams both
-         * glow on the tarmac and cut real holes in the dark. */
-        if (G.map_id == MAP_VANLOT)
+         * glow on the tarmac and cut real holes in the dark.
+         *
+         * The CITY gets them too. Downtown, you get to decide whether
+         * they're a police helicopter. The cops on the street haven't
+         * mentioned a helicopter. */
+        if (G.map_id == MAP_VANLOT || G.map_id == MAP_CITY)
             draw_searchlights(cx, cy, lights, &n);
 
         /* the TNT, for as long as it burns, lights the whole field */
@@ -1545,6 +1838,15 @@ void overworld_render(void)
             lights[n].y = G.boom_y - cy;
             lights[n].r = boom_r * 3;
             lights[n].warm = 200;
+            n++;
+        }
+
+        /* ...and the mist glows COLD in the dark, for as long as it hangs */
+        if (G.mist_t > 0 && n < MAX_LIGHTS) {
+            lights[n].x = G.mist_x - cx;
+            lights[n].y = G.mist_y - cy;
+            lights[n].r = HOLY_RADIUS + 10;
+            lights[n].warm = 0;
             n++;
         }
 
@@ -1593,6 +1895,20 @@ void overworld_render(void)
                 for (int x = 0; x < SCREEN_W; x++)
                     gfx_add_pixel(x, y, RGB565(200, 210, 255), a);
         }
+    } else if (m->dark) {
+        /* THE POWER IS OUT. An interior with no sun, no lamps, no weather:
+         * flat DARK_BRIGHT black, and the only light in the building is
+         * the one in your hand. This is what the flashlight is FOR. */
+        light_t lights[1];
+        int n = 0;
+        if (G.player.items[ITEM_FLASHLIGHT] && G.player.lamp) {
+            lights[0].x = G.player.x - cx + TILE / 2;
+            lights[0].y = G.player.y - cy + TILE / 2;
+            lights[0].r = FLASHLIGHT_RADIUS;
+            lights[0].warm = 0;
+            n = 1;
+        }
+        gfx_night(DARK_BRIGHT, lights, n);
     }
 
     draw_hud();
@@ -1636,8 +1952,18 @@ void dialog_start(const char *text)
     G.dialog_text  = G.dialog_buf;
     G.dialog_page  = 0;
     G.dialog_shown = 0;
+    G.dialog_style = 0;            /* spoken, unless monologue_start says so */
     G.state = ST_DIALOG;
     G.t = 0;
+}
+
+/* THE INTERNAL MONOLOGUE. Same textbox machinery, different voice: black
+ * plate, red border, red italic letters -- nobody on the street can hear
+ * this one. Part 1's lawyer thinks at you; the farmer never did. */
+void monologue_start(const char *text)
+{
+    dialog_start(text);
+    G.dialog_style = 1;
 }
 
 /* ---- ONE page of the textbox ----------------------------------------------
@@ -1754,9 +2080,23 @@ void dialog_render(void)
 {
     overworld_render();   /* the world stays visible behind the box */
 
+    /* Two voices, two boxes:
+     *   spoken     dark blue plate, white border, white upright text
+     *   MONOLOGUE  black plate, red border (it breathes), red ITALIC text
+     * The border pulse is the tell that this one is inside his head. */
+    int mono = (G.dialog_style == 1);
+    uint16_t plate  = mono ? RGB565(0, 0, 0)       : RGB565(16, 16, 24);
+    uint16_t border = mono
+        ? ((G.frame % 90 < 6) ? RGB565(120, 20, 16) : RGB565(210, 40, 32))
+        : RGB565(255, 255, 255);
+    uint16_t ink    = mono ? RGB565(225, 65, 55)   : RGB565(255, 255, 255);
+
     int bh = 46;
-    gfx_fill_rect(4, SCREEN_H - bh - 4, SCREEN_W - 8, bh, RGB565(16, 16, 24));
-    gfx_rect     (4, SCREEN_H - bh - 4, SCREEN_W - 8, bh, RGB565(255, 255, 255));
+    gfx_fill_rect(4, SCREEN_H - bh - 4, SCREEN_W - 8, bh, plate);
+    gfx_rect     (4, SCREEN_H - bh - 4, SCREEN_W - 8, bh, border);
+    if (mono)   /* a second, inner line -- the box is thinking hard */
+        gfx_rect(6, SCREEN_H - bh - 2, SCREEN_W - 12, bh - 4,
+                 RGB565(70, 12, 10));
 
     char lines[DIALOG_ROWS][DIALOG_COLS + 1];
     int  rows;
@@ -1773,7 +2113,10 @@ void dialog_render(void)
         for (; lines[r][k] && k < left; k++)
             clipped[k] = lines[r][k];
         clipped[k] = '\0';
-        gfx_text(12, y0 + r * 11, clipped, RGB565(255, 255, 255));
+        if (mono)
+            gfx_text_italic(12, y0 + r * 11, clipped, ink);
+        else
+            gfx_text(12, y0 + r * 11, clipped, ink);
         left -= k;
     }
 
@@ -1820,7 +2163,8 @@ void dialog_render(void)
 static int pack_usable(int kind)
 {
     return kind == ITEM_HERB || kind == ITEM_MEDKIT ||
-           kind == ITEM_FLASHLIGHT || kind == ITEM_TNT;
+           kind == ITEM_FLASHLIGHT || kind == ITEM_TNT ||
+           kind == ITEM_HOLYWATER || kind == ITEM_ROSARY;
 }
 
 /* An item enters the pack the first time it touches your hands. Call this
@@ -1849,7 +2193,8 @@ static int pack_rows(int *out)
 
 void pack_update(void)
 {
-    int rows[NUM_ITEMS + 1];
+    int rows[NUM_ITEMS + 2];  /* every item + SAVE + LOAD -- it was
+                                 one short before BULLETS arrived */
     int n = pack_rows(rows);
 
     if (PRESSED(BTN_START) || PRESSED(BTN_B)) {
@@ -1915,15 +2260,21 @@ void pack_update(void)
         audio_sfx(SFX_CONFIRM);
         break;
 
+    case ITEM_ROSARY:              /* also a switch: WEAR it, or pocket it */
+        G.player.rosary = !G.player.rosary;
+        audio_sfx(SFX_CONFIRM);
+        break;
+
     case ITEM_TNT:
-        /* You light it and throw it -- so get out of the menu first. You
-         * are going to want to watch this, and to be facing the right way
-         * when it lands. */
+    case ITEM_HOLYWATER:
+        /* You throw it -- so get out of the menu first. You are going to
+         * want to watch this, and to be facing the right way when it
+         * lands (the arc itself is drawn by the renderer). */
         G.state = ST_OVERWORLD;
         G.t = 0;
         G.battle_grace = 30;
         G.shoot_cd = 10;           /* and no stray shell on the way out */
-        throw_tnt();
+        start_lob(kind);
         break;
 
     case ITEM_HERB:
@@ -1947,7 +2298,8 @@ void pack_render(void)
 {
     overworld_render();            /* the world stays visible behind it */
 
-    int rows[NUM_ITEMS + 1];
+    int rows[NUM_ITEMS + 2];  /* every item + SAVE + LOAD -- it was
+                                 one short before BULLETS arrived */
     int n = pack_rows(rows);
     int shown = (n < PACK_ROWS) ? n : PACK_ROWS;
 
@@ -1994,11 +2346,14 @@ void pack_render(void)
                                            : RGB565(170, 170, 178); /* carried*/
         gfx_text(x + 20, ry, row, col);
 
-        /* the flashlight shows its switch position */
-        if (kind == ITEM_FLASHLIGHT && n_held)
-            gfx_text(x + w - 40, ry, G.player.lamp ? "ON" : "OFF",
-                     G.player.lamp ? RGB565(255, 236, 150)
-                                   : RGB565(100, 100, 108));
+        /* the switches show their position: the flashlight, and now the
+         * rosary (equipped = worn, not just carried) */
+        if ((kind == ITEM_FLASHLIGHT || kind == ITEM_ROSARY) && n_held) {
+            int on = (kind == ITEM_FLASHLIGHT) ? G.player.lamp
+                                               : G.player.rosary;
+            gfx_text(x + w - 40, ry, on ? "ON" : "OFF",
+                     on ? RGB565(255, 236, 150) : RGB565(100, 100, 108));
+        }
     }
 
     /* "there's more" arrows -- little triangles, since the font has no

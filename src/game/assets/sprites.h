@@ -1724,4 +1724,503 @@ static const char *SPR_ART_VAN_BIG_1[32] = {
     "...00000000...........00000000..",
 };
 
+/* ============================ PART 1: THE CITY =============================
+ * THE LAWYER. The farmer's silhouette in a charcoal suit: same walk cycle,
+ * same frame order, so player_sprite() only has to swap the base id.
+ * Dark hair instead of the cap, white shirt, red tie, city shoes.
+ */
+static const char *SPR_ART_LAWYER_DOWN_0[16] = {
+    "................",
+    ".....00000......",
+    "...00hhhhh00....",
+    "..0hhHhhHhhh0...",
+    "..0h000000hh0...",
+    "..0hsssssshh0...",
+    "..0hs0ss0sh0....",
+    "...0sssSsss0....",
+    "....0ssss0......",
+    "...0K11r11K0....",
+    "..0sK01r10Ks0...",
+    "...0KKrKKK0.....",
+    "...0KKKKKK0.....",
+    "...0K0..0K0.....",
+    "..0DD0..0DD0....",
+    "...00....00.....",
+};
+
+static const char *SPR_ART_LAWYER_DOWN_1[16] = {
+    "................",
+    ".....00000......",
+    "...00hhhhh00....",
+    "..0hhHhhHhhh0...",
+    "..0h000000hh0...",
+    "..0hsssssshh0...",
+    "..0hs0ss0sh0....",
+    "...0sssSsss0....",
+    "....0ssss0......",
+    "...0K11r11K0....",
+    "..0sK01r10Ks0...",
+    "...0KKrKKK0.....",
+    "...0KKKKKK0.....",
+    "....0K0.0K0.....",
+    "...0DD0.0K0.....",
+    ".........0DD0...",
+};
+
+static const char *SPR_ART_LAWYER_DOWN_2[16] = {
+    "................",
+    ".....00000......",
+    "...00hhhhh00....",
+    "..0hhHhhHhhh0...",
+    "..0h000000hh0...",
+    "..0hsssssshh0...",
+    "..0hs0ss0sh0....",
+    "...0sssSsss0....",
+    "....0ssss0......",
+    "...0K11r11K0....",
+    "..0sK01r10Ks0...",
+    "...0KKrKKK0.....",
+    "...0KKKKKK0.....",
+    "....0K0.0K0.....",
+    "...0K0.0DD0.....",
+    "..0DD0..........",
+};
+
+static const char *SPR_ART_LAWYER_UP_0[16] = {
+    "................",
+    ".....00000......",
+    "...00hhhhh00....",
+    "..0hhHhhHhhh0...",
+    "..0hhhhhhhh0....",
+    "..0hhhhhhhh0....",
+    "...0hHHHHh0.....",
+    "...0KKKKKK0.....",
+    "..0KKK00KKK0....",
+    "..0sKK00KKs0....",
+    "...0KK00KK0.....",
+    "...0KBKKBK0.....",
+    "...0KKKKKK0.....",
+    "...0K0..0K0.....",
+    "..0DD0..0DD0....",
+    "...00....00.....",
+};
+
+static const char *SPR_ART_LAWYER_UP_1[16] = {
+    "................",
+    ".....00000......",
+    "...00hhhhh00....",
+    "..0hhHhhHhhh0...",
+    "..0hhhhhhhh0....",
+    "..0hhhhhhhh0....",
+    "...0hHHHHh0.....",
+    "...0KKKKKK0.....",
+    "..0KKK00KKK0....",
+    "..0sKK00KKs0....",
+    "...0KK00KK0.....",
+    "...0KBKKBK0.....",
+    "...0KKKKKK0.....",
+    "....0K0.0K0.....",
+    "...0DD0.0K0.....",
+    ".........0DD0...",
+};
+
+static const char *SPR_ART_LAWYER_UP_2[16] = {
+    "................",
+    ".....00000......",
+    "...00hhhhh00....",
+    "..0hhHhhHhhh0...",
+    "..0hhhhhhhh0....",
+    "..0hhhhhhhh0....",
+    "...0hHHHHh0.....",
+    "...0KKKKKK0.....",
+    "..0KKK00KKK0....",
+    "..0sKK00KKs0....",
+    "...0KK00KK0.....",
+    "...0KBKKBK0.....",
+    "...0KKKKKK0.....",
+    "....0K0.0K0.....",
+    "...0K0.0DD0.....",
+    "..0DD0..........",
+};
+
+static const char *SPR_ART_LAWYER_SIDE_0[16] = {
+    "................",
+    "......0000......",
+    "....00hhhh00....",
+    "...0hhhhhhhh0...",
+    "...0hssssshh0...",
+    "...0hs0ssshh0...",
+    "...0hssssshh0...",
+    "....0sssSs0.....",
+    ".....0ssss0.....",
+    "...0K1KKKK0.....",
+    "..0sK0KKKKKK0...",
+    "...0s0KBKBK0....",
+    "....0KKKKKK0....",
+    "....0K0.0K0.....",
+    "...0DD0.0DD0....",
+    "....00...00.....",
+};
+
+static const char *SPR_ART_LAWYER_SIDE_1[16] = {
+    "................",
+    "......0000......",
+    "....00hhhh00....",
+    "...0hhhhhhhh0...",
+    "...0hssssshh0...",
+    "...0hs0ssshh0...",
+    "...0hssssshh0...",
+    "....0sssSs0.....",
+    ".....0ssss0.....",
+    "...0K1KKKK0.....",
+    "...0K0KKKKKK0...",
+    "...0s0KBKBK0....",
+    "...0KKK0KKKK0...",
+    "..0KKK0..0KKK0..",
+    ".0DD0....0DD0...",
+    "..00......00....",
+};
+
+static const char *SPR_ART_LAWYER_SIDE_2[16] = {
+    "................",
+    "......0000......",
+    "....00hhhh00....",
+    "...0hhhhhhhh0...",
+    "...0hssssshh0...",
+    "...0hs0ssshh0...",
+    "...0hssssshh0...",
+    "....0sssSs0.....",
+    ".....0ssss0.....",
+    "...0K1KKKK0.....",
+    "..0sK0KKKKKK0...",
+    "...0s0KBKBK0....",
+    "....0KKKKKK0....",
+    ".....0KKK0......",
+    "....0K0DD0......",
+    ".....00.........",
+};
+
+/* THE PRIEST. Black cassock, white collar, and a sermon that stops
+ * mid-sentence. Frame 1 opens the arms -- "...and no evil shall..." */
+static const char *SPR_ART_PRIEST[16] = {
+    "................",
+    ".....00000......",
+    "....0kkkkk0.....",
+    "...0kkkkkkk0....",
+    "...0ksssssk0....",
+    "...0s0ss0s0.....",
+    "....0sssSs0.....",
+    ".....0ss0.......",
+    "....0K1K0.......",
+    "...0KK1KK0......",
+    "..0sKK1KKs0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "..0KKKKKKKK0....",
+    "...00000000.....",
+};
+
+static const char *SPR_ART_PRIEST_1[16] = {
+    "................",
+    ".....00000......",
+    "....0kkkkk0.....",
+    "...0kkkkkkk0....",
+    "...0ksssssk0....",
+    "...0s0ss0s0.....",
+    "....0sssSs0.....",
+    ".....0ss0.......",
+    "....0K1K0.......",
+    "..00KK1KK00.....",
+    ".0s0KK1KK0s0....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "..0KKKKKKKK0....",
+    "...00000000.....",
+};
+
+/* THE COP. Holding a line nobody drew, on a street he doesn't believe. */
+static const char *SPR_ART_COP[16] = {
+    "................",
+    ".....00000......",
+    "....0bbbbb0.....",
+    "...0bbbbbbb0....",
+    "...00000000.....",
+    "...0ssssss0.....",
+    "...0s0ss0s0.....",
+    "....0sssSs0.....",
+    ".....0ss0.......",
+    "...0bbbbbb0.....",
+    "..0sbbybbbs0....",
+    "...0bBbbBb0.....",
+    "...0BBBBBB0.....",
+    "...0B0..0B0.....",
+    "..0000..0000....",
+    "................",
+};
+
+static const char *SPR_ART_COP_1[16] = {
+    "................",
+    ".....00000......",
+    "....0bbbbb0.....",
+    "...0bbbbbbb0....",
+    "...00000000.....",
+    "...0ssssss0.....",
+    "...0s0ss0s0.....",
+    "....0sssSs0.....",
+    ".....0ss0.......",
+    "...0bbbbbb0.....",
+    "..0sbbybbbs0....",
+    "...0bBbbBb0.....",
+    "...0BBBBBB0.....",
+    "....0B0.0B0.....",
+    "...0000.0000....",
+    "................",
+};
+
+/* SOMEBODY'S SECRETARY, three blocks from home when it started. */
+static const char *SPR_ART_CITYWOMAN[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0h0ss0sh0....",
+    "....0sssSs0.....",
+    "....0h0ss0h0....",
+    ".....0ss0.......",
+    "...0mmmmmm0.....",
+    "..0smmmmmms0....",
+    "...0mMmmMm0.....",
+    "...0KKKKKK0.....",
+    "....0s0.0s0.....",
+    "...000..000.....",
+    "................",
+};
+
+static const char *SPR_ART_CITYWOMAN_1[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0h0ss0sh0....",
+    "....0sssSs0.....",
+    "....0h0ss0h0....",
+    ".....0ss0.......",
+    "...0mmmmmm0.....",
+    ".0s0mmmmmm0s0...",
+    "...0mMmmMm0.....",
+    "...0KKKKKK0.....",
+    "....0s0.0s0.....",
+    "...000..000.....",
+    "................",
+};
+
+/* THE CRUCIFIX -- the Part 1 name-screen cursor. The saucer picked the
+ * farmer; the lawyer gets picked by something older. */
+static const char *SPR_ART_CRUCIFIX[16] = {
+    "......00........",
+    ".....0yy0.......",
+    ".....0yY0.......",
+    "..0000yy0000....",
+    ".0yyyyyyyyyy0...",
+    "..0000yY0000....",
+    ".....0yy0.......",
+    ".....0yY0.......",
+    ".....0yy0.......",
+    ".....0yY0.......",
+    ".....0yy0.......",
+    ".....0yY0.......",
+    "....00yy00......",
+    "....0yyyy0......",
+    ".....0000.......",
+    "................",
+};
+
+/* THE PISTOL, lying where Mr. Kowalski left it. */
+static const char *SPR_ART_ITEM_HANDGUN[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "....00000000....",
+    "...0kkkkkkkk0...",
+    "...0kKKKKKKk0...",
+    "....000KK000....",
+    "......0KK0......",
+    "......0KD0......",
+    "......0DD0......",
+    ".......00.......",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
+/* THE BULLETS: an open carton of pistol rounds, brass ends up. Shells are
+ * for shotguns; the revolver gets these. */
+static const char *SPR_ART_ITEM_BULLETS[16] = {
+    "................",
+    "................",
+    "................",
+    "....00000000....",
+    "...0yYyYyYyY0...",
+    "...0YyYyYyYy0...",
+    "....00000000....",
+    "...0bbbbbbbb0...",
+    "...0b111111b0...",
+    "...0bbbbbbbb0...",
+    "....00000000....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
+/* HOLY WATER: a stoppered glass vial, cold to the touch. There are three
+ * of these in the entire game. */
+static const char *SPR_ART_ITEM_HOLYWATER[16] = {
+    "................",
+    "................",
+    "......000.......",
+    "......0D0.......",
+    ".....00000......",
+    "....0wWWww0.....",
+    "....0wWyWw0.....",
+    "....0wyyyw0.....",
+    "....0wWyWw0.....",
+    "....0wwyww0.....",
+    "....0wwwww0.....",
+    ".....00000......",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
+/* THE ROSARY: a loop of garnet beads and a small gold cross. It lies where
+ * she dropped it. */
+static const char *SPR_ART_ITEM_ROSARY[16] = {
+    "................",
+    "................",
+    "....R.R.R.R.....",
+    "...R.......R....",
+    "...R.......R....",
+    "...R.......R....",
+    "....R.....R.....",
+    ".....R...R......",
+    "......R.R.......",
+    ".......R........",
+    "......0y0.......",
+    ".....0yyy0......",
+    "......0y0.......",
+    "......0y0.......",
+    "......000.......",
+    "................",
+};
+
+/* DEACON CHARLIE. Almost ordained, still carrying the sacristy's last
+ * blessed vial. Frame 1: he lifts the little book. */
+static const char *SPR_ART_DEACON[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0s0ss0s0.....",
+    "....0sssSs0.....",
+    ".....0ss0.......",
+    "....0K1K0.......",
+    "...0KK1KK0......",
+    "..0sKKdKKs0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "..0KKKKKKKK0....",
+    "...00000000.....",
+};
+
+static const char *SPR_ART_DEACON_1[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0s0ss0s0.....",
+    "....0sssSs0.....",
+    ".....0ss0.......",
+    "....0KdK0.......",
+    "...0KKdKK0......",
+    "..0sKK1KKs0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "...0KKKKKK0.....",
+    "..0KKKKKKKK0....",
+    "...00000000.....",
+};
+
+/* MRS. ABERNATHY, THE LIBRARIAN. What the pond gave back. She is lying
+ * where it left her, glasses still on, her book beside her, and the blood
+ * has stopped moving. Both idle frames are the same frame: nothing about
+ * her is going to move again. */
+static const char *SPR_ART_DEADLADY[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "..0000..........",
+    ".0kkkk000000.dd.",
+    "0kksss0pppppp0..",
+    "0kks0s0pPppPp0..",
+    ".0kkss0pppppp00.",
+    "..rrRrrrRrrrr...",
+    "...rrrRrrrr.....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
+/* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
+ * on the street -- see copcar[] in assets.c and the special case in the
+ * overworld renderer, same arrangement as the van. */
+static const char *SPR_ART_COPCAR[32] = {
+    "................................................",
+    "................................................",
+    ".......000000........................000000.....",
+    ".......000000........................000000.....",
+    "..00000000000000000000000000000000000000000000..",
+    "..00KKKKKKKKK11111111111111111111111KKKKKKKK00..",
+    "..00KKKKKKKKK11111111111111111111111KKKKKKKK00..",
+    "..00KKKKKKKKK1wwwwwwkkkkkkkkkkwwwww1KKKKKKKK00..",
+    "..00yKKKKKKKK1wWWWWwkkkkkkkkkkwWWWw1KKKKKKKr00..",
+    "..00yKKKKKKKK1wWWWWwkkkkkkkkkkwWWWw1KKKKKKKr00..",
+    "..00yKKKKKKKK1wWWWWwk0000000kkwWWWw1KKKKKKKr00..",
+    "..00yKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKr00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00KKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKK00..",
+    "..00yKKKKKKKK1wWWWWwk0rrrbbbkkwWWWw1KKKKKKKr00..",
+    "..00yKKKKKKKK1wWWWWwk0000000kkwWWWw1KKKKKKKr00..",
+    "..00yKKKKKKKK1wWWWWwkkkkkkkkkkwWWWw1KKKKKKKr00..",
+    "..00yKKKKKKKK1wWWWWwkkkkkkkkkkwWWWw1KKKKKKKr00..",
+    "..00KKKKKKKKK1wwwwwwkkkkkkkkkkwwwww1KKKKKKKK00..",
+    "..00KKKKKKKKK11111111111111111111111KKKKKKKK00..",
+    "..00KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK00..",
+    "..00000000000000000000000000000000000000000000..",
+    ".......000000........................000000.....",
+    ".......000000........................000000.....",
+    "................................................",
+    "................................................",
+};
+
 #endif /* SPRITES_H */

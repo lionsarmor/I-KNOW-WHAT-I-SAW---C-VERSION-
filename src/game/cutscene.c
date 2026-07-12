@@ -385,10 +385,6 @@ void prologue_update(void)
         return;
 
     switch (G.end_sel) {
-    case 0:                      /* SAVE GAME -- the platform writes it */
-        G.save_pending = 1;
-        audio_sfx(SFX_CONFIRM);
-        break;
     case 1:                      /* LOAD GAME */
         if (!G.has_save) {
             audio_sfx(SFX_BLIP);
@@ -397,12 +393,17 @@ void prologue_update(void)
         G.load_pending = 1;
         audio_sfx(SFX_CONFIRM);
         break;
-    default:                     /* CONTINUE
-                                  * PART 1 ISN'T BUILT YET. Until it is,
-                                  * this starts the prologue over -- you keep
-                                  * your name, you lose everything else. */
+    default:                     /* SAVE GAME or CONTINUE -- either way,
+                                  * PART 1 BEGINS. You are somebody else now:
+                                  * the name screen asks who (crucifix over
+                                  * the letters, not a saucer), and the game
+                                  * writes its checkpoint the moment the city
+                                  * exists to save (see part1_start -- saving
+                                  * HERE would checkpoint the farmer's world
+                                  * with the lawyer's flag on it). */
+        G.flags |= FLAG_PART1;
         audio_sfx(SFX_CONFIRM);
-        overworld_start_game();
+        name_start();
         break;
     }
 }
@@ -467,8 +468,13 @@ void prologue_render(void)
     gfx_text((SCREEN_W - gfx_text_width(e, 1)) / 2, 56, e,
              RGB565(210, 210, 220));
 
-    /* ---- the menu -------------------------------------------------------*/
-    static const char *OPT[3] = { "SAVE GAME", "LOAD GAME", "CONTINUE" };
+    /* ---- the menu -------------------------------------------------------
+     * SAVE AND CONTINUE and CONTINUE go the same place now -- Part 1 --
+     * and both write the checkpoint once the city exists (part1_start).
+     * Two rows kept anyway: the player who came here to SAVE should still
+     * find the word. */
+    static const char *OPT[3] = { "SAVE AND CONTINUE", "LOAD GAME",
+                                  "CONTINUE" };
     for (int i = 0; i < 3; i++) {
         int oy = 92 + i * 16;
         int ox = (SCREEN_W - gfx_text_width(OPT[i], 1)) / 2;
@@ -496,5 +502,251 @@ void prologue_render(void)
         gfx_text((SCREEN_W - tw) / 2, 77, G.toast,
                  G.toast_good ? RGB565(150, 240, 150)
                               : RGB565(240, 110, 100));
+    }
+}
+
+/* ============================ PART 1: THE CHURCH ============================
+ * The real game opens at mass. A priest mid-sermon, a full congregation,
+ * and the sentence that never gets finished:
+ *
+ *   0 ......... candlelight. the pews. SUNDAY.
+ *   LINE1 ..... "...though the shadow walk beside me, I shall not fear..."
+ *   LINE2 ..... "...and no evil shall conquer me..."
+ *   LINE3 ..... "...and no evil shall..."     <- it trails off. he heard it.
+ *   STOP ...... everyone hears it now. the sirens.
+ *   END ....... black, and then Main Street.
+ *
+ * START skips, same as the intro.
+ * ==========================================================================*/
+
+#define CHURCH_LINE1  110
+#define CHURCH_LINE2  330
+#define CHURCH_LINE3  540
+#define CHURCH_STOP   700
+#define CHURCH_END    900
+
+/* Fresh body, empty pockets, a city instead of a farm. Called from the
+ * name screen once the lawyer has a name (see name_accept in intro.c). */
+void part1_start(void)
+{
+    player_t *p = &G.player;
+    p->hp = p->max_hp = PLAYER_MAX_HP;
+    p->level = 1;
+    p->xp    = 0;
+    p->dir   = DIR_DOWN;
+    for (int i = 0; i < NUM_ITEMS; i++)
+        p->items[i] = 0;               /* a lawyer carries a briefcase.
+                                          he left it in the pew. */
+    p->lamp   = 0;
+    p->rosary = 0;
+    G.items_seen = 0;
+    G.pack_sel = G.pack_top = 0;
+    G.spawns_gone[MAP_CITY]   = 0;     /* Part 1's maps start fresh; the
+                                          farm keeps its scars */
+    G.spawns_gone[MAP_OFFICE] = 0;
+    G.boons_done &= (uint16_t)~((1u << MAP_CITY) | (1u << MAP_OFFICE));
+    G.flags |= FLAG_PART1;
+
+    /* Sundown, on purpose: the street should go dark while you're on it --
+     * the lamps, the searchlights, the office with no power at all. */
+    G.daytime      = DAY_LEN_TICKS - DUSK_LEN_TICKS;
+    G.last_restock = G.daytime;        /* the clock jumped; don't let the
+                                          restock fire off the jump */
+    G.wx   = WX_CLEAR;                 /* whatever the farm's sky was doing,
+                                          the city starts with a clear one */
+    G.wx_t = 30 * TICKS_PER_SEC;
+
+    /* Build the street FIRST (so the world is real and saveable), then lay
+     * the church over the top of it. */
+    overworld_enter_map(MAP_CITY, 3, 5);       /* the church steps */
+    G.state = ST_CHURCH;
+    G.t     = 0;
+    audio_music(MUSIC_NONE);           /* candle-quiet */
+
+    /* THE CHECKPOINT. This is the save the END OF PROLOGUE menu promised:
+     * the prologue is done, Part 1 exists. Loading it resumes on Main
+     * Street (the church is a one-time scene, not a place). Written now --
+     * not on the menu -- because now there is a city and a lawyer to
+     * write. */
+    G.save_pending = 1;
+}
+
+static void church_leave(void)
+{
+    G.state  = ST_OVERWORLD;
+    G.t      = 0;
+    G.banner = 90;                     /* MAIN STREET, said once */
+    G.battle_grace = 60;
+    audio_music(map_music(G.map_id));
+}
+
+void church_update(void)
+{
+    if (PRESSED(BTN_START)) {          /* same skip button as the intro */
+        church_leave();
+        return;
+    }
+    if (G.t == CHURCH_STOP) {
+        audio_sfx(SFX_STING);          /* the sirens reach the nave */
+        shake(1, 24);
+    }
+    if (G.t >= CHURCH_END)
+        church_leave();
+}
+
+/* typewriter caption on a dark plate at the bottom of the frame. Handles
+ * one '\n' -- the plate grows to hold the second line. Every line has to
+ * stay under 30 characters or it runs off a 240px screen. */
+static void church_caption(const char *s, uint32_t t0, uint16_t col)
+{
+    if (G.t < t0)
+        return;
+    int reveal = (int)((G.t - t0) / 2);
+    char buf[72];
+    int i = 0, two = 0;
+    for (; s[i]; i++)
+        if (s[i] == '\n')
+            two = 1;
+    for (i = 0; s[i] && i < reveal && i < 71; i++)
+        buf[i] = s[i];
+    buf[i] = '\0';
+
+    int ph = two ? 26 : 17;
+    gfx_fill_rect(0, SCREEN_H - ph, SCREEN_W, ph, RGB565(6, 6, 12));
+    gfx_fill_rect(0, SCREEN_H - ph - 1, SCREEN_W, 1, RGB565(40, 40, 55));
+    gfx_text((SCREEN_W - gfx_text_width(s, 1)) / 2,
+             SCREEN_H - ph + 4, buf, col);
+}
+
+void church_render(void)
+{
+    /* the nave: warm dark, like the inside of a held breath */
+    gfx_clear(RGB565(20, 14, 16));
+
+    /* ---- THE WINDOW. A stained-glass arch, lit from outside -----------
+     * After STOP the light through it stutters -- something with a lot of
+     * red on its roof is parked outside. */
+    {
+        static const uint16_t pane[6] = {
+            RGB565(180,  60,  50), RGB565( 70, 110, 180),
+            RGB565(200, 170,  70), RGB565( 90, 150,  80),
+            RGB565(150,  80, 150), RGB565(200, 120,  60),
+        };
+        int wx = SCREEN_W / 2 - 21, wy = 6, pw = 6, ph = 9;
+        int flash = (G.t >= CHURCH_STOP) && ((G.t / 9) % 3 == 0);
+        for (int r = 0; r < 4; r++)
+            for (int c = 0; c < 7; c++) {
+                /* the arch: clip the top corners */
+                if (r == 0 && (c == 0 || c == 6))
+                    continue;
+                uint16_t col = pane[(r * 7 + c) % 6];
+                if (flash)
+                    col = RGB565(220, 80, 70);
+                gfx_fill_rect(wx + c * pw, wy + r * ph, pw - 1, ph - 1,
+                              gfx_dim(col, 170 + (int)((G.frame / 16) % 2) * 30));
+            }
+        /* the leading */
+        gfx_rect(wx - 2, wy - 2, 7 * pw + 3, 4 * ph + 3, RGB565(40, 30, 28));
+    }
+
+    /* ---- THE ALTAR, and the man behind it ------------------------------*/
+    gfx_fill_rect(SCREEN_W / 2 - 34, 52, 68, 4, RGB565(80, 56, 40));
+    gfx_fill_rect(SCREEN_W / 2 - 30, 56, 60, 8, RGB565(104, 72, 48));
+    gfx_fill_rect(SCREEN_W / 2 - 26, 50, 52, 3, RGB565(230, 226, 216));
+
+    /* candles either side: a stick, and a flame that moves */
+    for (int side = 0; side < 2; side++) {
+        int cx = SCREEN_W / 2 + (side ? 42 : -44);
+        gfx_fill_rect(cx, 48, 2, 8, RGB565(220, 214, 190));
+        int fy = 45 + (int)((G.frame / 7 + (uint32_t)side * 3) % 2);
+        gfx_fill_rect(cx, fy, 2, 3, RGB565(255, 200, 90));
+        gfx_add_pixel(cx + 1, fy - 1, RGB565(255, 230, 140), 160);
+    }
+
+    /* the priest, twice life size, mid-sermon. The arms open and close on
+     * the rhythm of the lines -- and after STOP they stay down. */
+    {
+        int frame = (G.t < CHURCH_STOP) ? (int)((G.t / 40) % 2) : 0;
+        gfx_blit_ex(sprites[frame ? SPR_PRIEST_1 : SPR_PRIEST].px,
+                    TILE, TILE, SCREEN_W / 2 - 16, 22, 2, 256, 0);
+    }
+
+    /* ---- THE CONGREGATION ----------------------------------------------
+     * Four pews, and the people in them. The lawyer is the one in the
+     * charcoal suit, back row, already nearest the door. */
+    {
+        static const int who[10] = {
+            SPR_NPC, SPR_MA, SPR_SKEPTIC, SPR_CITYWOMAN, SPR_NEIGHBOR,
+            SPR_STOREKEEP, SPR_CITYWOMAN, SPR_NPC, SPR_MA, SPR_SKEPTIC,
+        };
+        int n = 0;
+        for (int row = 0; row < 4; row++) {
+            int py = 74 + row * 20;
+            /* two pew blocks with a centre aisle */
+            gfx_fill_rect(28, py + 10, 76, 6, RGB565(70, 48, 34));
+            gfx_fill_rect(136, py + 10, 76, 6, RGB565(70, 48, 34));
+            gfx_fill_rect(28, py + 16, 76, 2, RGB565(46, 32, 24));
+            gfx_fill_rect(136, py + 16, 76, 2, RGB565(46, 32, 24));
+
+            /* heads over the pew backs, facing the altar. They breathe. */
+            for (int seat = 0; seat < 3 && row < 3; seat++) {
+                int sx = 38 + seat * 24 + ((row * 3 + seat) % 2) * 6;
+                int bob = (int)((G.frame / 50 + (uint32_t)(n * 7)) % 2);
+                gfx_blit_ex(sprites[who[n % 10] + 0].px, TILE, TILE,
+                            sx, py - 2 + bob, 1, 200, 0);
+                int sx2 = 146 + seat * 24 + ((row + seat) % 2) * 5;
+                gfx_blit_ex(sprites[who[(n + 5) % 10]].px, TILE, TILE,
+                            sx2, py - 2 + ((bob + 1) % 2), 1, 200, 0);
+                n++;
+            }
+        }
+        /* YOU. Back row, right block, aisle seat. */
+        gfx_blit_ex(sprites[SPR_LAWYER_UP_0].px, TILE, TILE,
+                    140, 132, 1, 256, 0);
+    }
+
+    /* ---- the sermon ------------------------------------------------------*/
+    {
+        uint16_t voice = RGB565(210, 200, 180);
+        if (G.t < CHURCH_LINE1)
+            church_caption("SUNDAY. THE LAST QUIET HOUR.", 20,
+                           RGB565(150, 150, 160));
+        else if (G.t < CHURCH_LINE2)
+            church_caption("...THOUGH THE SHADOW WALK\n"
+                           "BESIDE ME, I WILL NOT FEAR...",
+                           CHURCH_LINE1, voice);
+        else if (G.t < CHURCH_LINE3)
+            church_caption("...AND NO EVIL SHALL\nCONQUER ME...",
+                           CHURCH_LINE2, voice);
+        else if (G.t < CHURCH_STOP)
+            church_caption("...AND NO EVIL SHALL...", CHURCH_LINE3, voice);
+        else
+            church_caption("HE STOPS.\nYOU ALL HEAR IT NOW. SIRENS.",
+                           CHURCH_STOP + 20, RGB565(235, 90, 80));
+    }
+
+    /* the skip hint, quietly, like the intro's */
+    if (G.t > 150 && G.t < CHURCH_STOP) {
+        const char *k = "START: SKIP";
+        gfx_text_small(SCREEN_W - gfx_text_small_width(k) - 6, 4, k,
+                       RGB565(70, 70, 78));
+    }
+
+    /* the SAVED. toast -- the Part 1 checkpoint lands during the service */
+    if (G.toast_ticks > 0 && G.toast) {
+        G.toast_ticks--;
+        int tw = gfx_text_width(G.toast, 1);
+        gfx_fill_rect((SCREEN_W - tw) / 2 - 6, 60, tw + 12, 14,
+                      RGB565(16, 16, 24));
+        gfx_text((SCREEN_W - tw) / 2, 63, G.toast,
+                 G.toast_good ? RGB565(150, 240, 150)
+                              : RGB565(240, 110, 100));
+    }
+
+    /* it goes dark before it goes loud */
+    if (G.t > CHURCH_END - 40) {
+        int d = 256 - 256 * (int)(G.t - (CHURCH_END - 40)) / 40;
+        if (d < 0) d = 0;
+        gfx_night(d, 0, 0);
     }
 }

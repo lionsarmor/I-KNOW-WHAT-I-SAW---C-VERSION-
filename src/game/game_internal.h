@@ -34,6 +34,7 @@ typedef enum {
     ST_PROLOGUE,    /* END OF PROLOGUE + menu        (cutscene.c)  */
     ST_BATTLE,      /* turn-based fight              (battle.c)    */
     ST_GAMEOVER,    /* you blacked out...            (battle.c)    */
+    ST_CHURCH,      /* PART 1 opens at mass          (cutscene.c)  */
 } state_t;
 
 enum { DIR_DOWN, DIR_UP, DIR_LEFT, DIR_RIGHT };
@@ -50,6 +51,8 @@ typedef struct {
     int items[NUM_ITEMS];/* the pockets: count per ITEM_* (SHELLS =
                             ammo count, SHOTGUN nonzero = owned)     */
     int lamp;            /* flashlight switched on?                  */
+    int rosary;          /* rosary EQUIPPED? (owning it isn't wearing
+                            it -- see ROSARY_* in config.h). Saved.  */
     char name[PLAYER_NAME_MAX + 1];  /* what people call you. "PLAYER" if unset */
 } player_t;
 
@@ -121,6 +124,16 @@ typedef struct {
      * TNT_BOOM_TICKS; the fireball is drawn while it's nonzero. */
     int      boom_t, boom_x, boom_y;
 
+    /* A THROWN THING IN FLIGHT (TNT or holy water, field mode). It arcs
+     * from (lob_x0,y0) to (lob_x1,y1) over LOB_TICKS, and only THEN does
+     * anything explode or sizzle. Not saved: a reload lands mid-nothing. */
+    int      lob_active, lob_kind, lob_t;
+    int      lob_x0, lob_y0, lob_x1, lob_y1;
+
+    /* THE SIZZLING MIST holy water leaves behind. Counts down from
+     * MIST_TICKS; drawn (and glowing in the dark) while nonzero. */
+    int      mist_t, mist_x, mist_y;
+
     /* SCREEN SHAKE. shake_t counts down; the displacement decays with it. */
     int      shake_t, shake_len, shake_mag;
 
@@ -161,6 +174,10 @@ typedef struct {
     const char *dialog_text;
     int dialog_page;     /* index into dialog_text where THIS page starts */
     int dialog_shown;    /* typewriter: chars of this page revealed so far */
+    int dialog_style;    /* 0 = spoken (white box). 1 = INTERNAL MONOLOGUE:
+                            black plate, red border, red italic text -- the
+                            lawyer talking to himself. Not saved: a reload
+                            never lands mid-sentence. */
 
     /* the name-entry screen */
     int name_sel;        /* which cell of the letter grid    */
@@ -251,6 +268,7 @@ typedef struct {
         int move_idx;            /* which special move was announced   */
         int hits_left;           /* MV_MULTI: blows still to land      */
         int hit_power;           /* MV_MULTI: damage per blow          */
+        int lob_kind;            /* PH_LOB: what's in the air (ITEM_*) */
         char msg[80];
     } battle;
 
@@ -288,12 +306,25 @@ void prologue_update(void);   void prologue_render(void);
 void drive_start(void);       /* the van pulls out */
 void battle_update(void);     void battle_render(void);
 void gameover_update(void);   void gameover_render(void);
+void church_update(void);     void church_render(void);
+void part1_start(void);       /* new man, new city: begins at mass */
 
 /* scene transitions */
 void overworld_start_game(void);              /* fresh game from title  */
 void overworld_resume(void);                  /* CONTINUE from a save   */
 void overworld_enter_map(int map, int tx, int ty);
 void dialog_start(const char *text);
+void monologue_start(const char *text);       /* the voice in his head */
+
+/* does the player have SOMETHING that fires? (Part 1's pistol counts) */
+#define PLAYER_HAS_GUN() \
+    (G.player.items[ITEM_SHOTGUN] || G.player.items[ITEM_HANDGUN])
+
+/* ...and what feeds the gun he'd actually raise. The shotgun wins if he
+ * somehow carries both, and each gun eats ONLY its own ammunition:
+ * SHELLS for the shotgun, BULLETS for the pistol. */
+#define GUN_AMMO() \
+    (G.player.items[ITEM_SHOTGUN] ? ITEM_SHELLS : ITEM_BULLETS)
 void battle_start(int ent_index);
 void pack_discover(int item_kind);            /* it enters the pack     */
 void mark_dead(int ent_index);                /* it stays dead till dawn */

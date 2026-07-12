@@ -34,10 +34,36 @@ enum {
     PH_NOPE,        /* tried to SHOOT without gun/shells -> MENU    */
     PH_ITEMS,       /* the ITEM submenu (not a message phase)       */
     PH_ITEM_USED,   /* healed up -- costs your turn                 */
+    PH_LOB,         /* TNT or holy water in the air: arc, impact,
+                       explosion or sizzling mist (see the renderer) */
 };
 
 /* which tick of PH_SHOOT the trigger gets pulled on */
 #define SHOT_FIRE_TICK 10
+
+/* which tick of PH_LOB the thrown thing lands on */
+#define LOB_IMPACT_TICK 16
+
+/* ---- THE ROSARY, IN A FIGHT ------------------------------------------------
+ * Worn (not merely carried), Mrs. Abernathy's beads do two things:
+ * incoming attacks MISS often, and you swing ROSARY_LEVELS above your
+ * real level. Neither works from the bottom of the pack. */
+static int rosary_worn(void)
+{
+    return G.player.items[ITEM_ROSARY] && G.player.rosary;
+}
+
+static int rosary_deflect(void)
+{
+    return rosary_worn() && rng_range(1, 100) <= ROSARY_MISS_PCT;
+}
+
+/* the level your DAMAGE is computed at -- never fed to enemy scaling,
+ * or wearing the beads would fatten every creature you meet */
+static int eff_level(void)
+{
+    return G.player.level + (rosary_worn() ? ROSARY_LEVELS : 0);
+}
 
 /* tiny sprintf-free message builder: text a, text b, a number (if >= 0),
  * text c. e.g.  msgb("A ", sp->name, -1, " BLOCKS YOUR PATH!") */
@@ -131,7 +157,7 @@ void battle_start(int ent_index)
 
 static void player_attacks(void)
 {
-    int dmg = PLAYER_BASE_ATK + G.player.level + rng_range(0, 2);
+    int dmg = PLAYER_BASE_ATK + eff_level() + rng_range(0, 2);
     G.battle.enemy_hp -= dmg;
     if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
     audio_sfx(SFX_HIT);
@@ -190,6 +216,16 @@ static const move_t *pick_move(void)
 static void resolve_move(const move_t *m)
 {
     int dmg;
+
+    /* every move that TARGETS you can be turned aside by the beads --
+     * a heal isn't aimed at you, so it always goes through */
+    if (m->kind != MV_HEAL && rosary_deflect()) {
+        audio_sfx(SFX_BLIP);
+        msgb("THE BEADS FLARE. IT MISSES.", "", -1, "");
+        set_phase(PH_ENEMY_HIT);
+        return;
+    }
+
     switch (m->kind) {
     case MV_HEAVY:
         dmg = m->power + rng_range(0, 3);
@@ -251,6 +287,13 @@ static void enemy_attacks(void)
         return;
     }
 
+    if (rosary_deflect()) {
+        audio_sfx(SFX_BLIP);
+        msgb("THE ROSARY TURNS IT ASIDE!", "", -1, "");
+        set_phase(PH_ENEMY_HIT);
+        return;
+    }
+
     int dmg = foe()->atk + rng_range(0, 2);
     hurt_player(dmg);
     msgb("ITS EYES FLASH RED! ", "", dmg, " DMG!");
@@ -259,21 +302,31 @@ static void enemy_attacks(void)
 
 static void try_shoot(void)
 {
-    if (!G.player.items[ITEM_SHOTGUN]) {
+    if (!PLAYER_HAS_GUN()) {
         msgb("YOU MIME A GUN. IT ISN'T IMPRESSED.", "", -1, "");
         set_phase(PH_NOPE);
-    } else if (G.player.items[ITEM_SHELLS] <= 0) {
-        msgb("CLICK. OUT OF SHELLS.", "", -1, "");
+    } else if (G.player.items[GUN_AMMO()] <= 0) {
+        /* each gun starves on its own ammo: shells for the shotgun,
+         * bullets for the pistol */
+        msgb(GUN_AMMO() == ITEM_SHELLS ? "CLICK. OUT OF SHELLS."
+                                       : "CLICK. OUT OF BULLETS.",
+             "", -1, "");
         set_phase(PH_NOPE);
     } else {
-        G.player.items[ITEM_SHELLS]--;
-        msgb("YOU LEVEL BOTH BARRELS...", "", -1, "");
+        G.player.items[GUN_AMMO()]--;
+        /* the shotgun gets both barrels; the pistol gets both hands */
+        msgb(G.player.items[ITEM_SHOTGUN]
+                 ? "YOU LEVEL BOTH BARRELS..."
+                 : "YOU RAISE THE PISTOL, TWO HANDS...", "", -1, "");
         set_phase(PH_SHOOT);   /* the bang lands at SHOT_FIRE_TICK */
     }
 }
 
 /* The pockets you can reach mid-fight, in menu order. */
-static const int battle_items[3] = { ITEM_HERB, ITEM_MEDKIT, ITEM_TNT };
+#define N_BATTLE_ITEMS 4
+static const int battle_items[N_BATTLE_ITEMS] = {
+    ITEM_HERB, ITEM_MEDKIT, ITEM_TNT, ITEM_HOLYWATER
+};
 
 static void use_item(int kind)
 {
@@ -283,16 +336,15 @@ static void use_item(int kind)
     }
     G.player.items[kind]--;
 
-    if (kind == ITEM_TNT) {
-        /* PA'S TNT. A flat, enormous hit that doesn't roll and doesn't
-         * care what it's hitting. You still lose the turn -- you threw it
-         * and got down. */
-        G.battle.enemy_hp -= TNT_DMG;
-        if (G.battle.enemy_hp < 0)
-            G.battle.enemy_hp = 0;
-        audio_sfx(SFX_STING);
-        msgb("YOU LIGHT THE FUSE AND RUN! ", "", TNT_DMG, " DMG!");
-        set_phase(PH_ITEM_USED);
+    if (kind == ITEM_TNT || kind == ITEM_HOLYWATER) {
+        /* THROWN. The damage doesn't land here -- it lands when the arc
+         * comes down, LOB_IMPACT_TICK into PH_LOB (see battle_update and
+         * the animation in battle_render). */
+        G.battle.lob_kind = kind;
+        audio_sfx(SFX_BLIP);          /* the grunt of the throw */
+        msgb(kind == ITEM_TNT ? "YOU LIGHT THE FUSE AND THROW!"
+                              : "YOU HURL THE VIAL!", "", -1, "");
+        set_phase(PH_LOB);
         return;
     }
 
@@ -335,6 +387,8 @@ static void win_battle(void)
     mark_dead(G.battle.ent);
     if (kind == SPECIES_GOBLIN)
         G.flags |= FLAG_GOBLIN_DEAD;        /* the road east of town opens */
+    if (kind == SPECIES_CHUPA_BOSS)
+        G.flags |= FLAG_CHUPA_DEAD;         /* the park path stands empty */
     set_phase(PH_WIN);
 }
 
@@ -403,11 +457,14 @@ void battle_update(void)
 
     case PH_SHOOT:
         if (G.battle.timer == SHOT_FIRE_TICK) {          /* BOOM */
-            int dmg = SHOTGUN_BASE_DMG + G.player.level + rng_range(0, 4);
+            int shotgun = G.player.items[ITEM_SHOTGUN];
+            int dmg = (shotgun ? SHOTGUN_BASE_DMG : HANDGUN_BASE_DMG)
+                    + eff_level() + rng_range(0, 4);
             G.battle.enemy_hp -= dmg;
             if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
             audio_sfx(SFX_SHOTGUN);
-            msgb("THE FAMILY GUN ROARS! ", "", dmg, " DMG!");
+            msgb(shotgun ? "THE FAMILY GUN ROARS! "
+                         : "THE PISTOL CRACKS! ", "", dmg, " DMG!");
         }
         if (G.battle.timer > 40 && msg_done()) {
             if (G.battle.enemy_hp <= 0) win_battle();
@@ -421,17 +478,45 @@ void battle_update(void)
 
     case PH_ITEMS:
         if (PRESSED(BTN_UP)) {
-            G.battle.item_sel = (G.battle.item_sel + 2) % 3;
+            G.battle.item_sel = (G.battle.item_sel + N_BATTLE_ITEMS - 1)
+                              % N_BATTLE_ITEMS;
             audio_sfx(SFX_BLIP);
         }
         if (PRESSED(BTN_DOWN)) {
-            G.battle.item_sel = (G.battle.item_sel + 1) % 3;
+            G.battle.item_sel = (G.battle.item_sel + 1) % N_BATTLE_ITEMS;
             audio_sfx(SFX_BLIP);
         }
         if (PRESSED(BTN_B))
             set_phase(PH_MENU);
         else if (PRESSED(BTN_A))
             use_item(battle_items[G.battle.item_sel]);
+        break;
+
+    case PH_LOB:
+        /* the throw is in the air; the impact is a single, exact tick */
+        if (G.battle.timer == LOB_IMPACT_TICK) {
+            if (G.battle.lob_kind == ITEM_TNT) {
+                G.battle.enemy_hp -= TNT_DMG;
+                if (G.battle.enemy_hp < 0)
+                    G.battle.enemy_hp = 0;
+                audio_sfx(SFX_STING);
+                rumble(220);
+                shake(SHAKE_TNT_MAG - 2, 18);
+                msgb("THE BLAST TEARS AT IT! ", "", TNT_DMG, " DMG!");
+            } else {
+                /* HOLY WATER. No roll, no resistance, no boss clause:
+                 * whatever it is, it is OVER. That is what one of three
+                 * vials in the whole game buys. */
+                G.battle.enemy_hp = 0;
+                audio_sfx(SFX_HEAL);
+                msgb("IT SIZZLES. IT SCREAMS. IT COMES APART!", "", -1, "");
+            }
+        }
+        /* let the explosion / mist play out before the verdict */
+        if (G.battle.timer > 64 && msg_done()) {
+            if (G.battle.enemy_hp <= 0) win_battle();
+            else                        enemy_attacks();
+        }
         break;
 
     case PH_ITEM_USED:
@@ -463,11 +548,16 @@ void battle_update(void)
                 G.state = ST_GAMEOVER;
                 G.t = 0;
             } else if (G.battle.hits_left > 0) {
-                /* a MULTI move still has blows to land */
-                int dmg = G.battle.hit_power + rng_range(0, 1);
-                hurt_player(dmg);
+                /* a MULTI move still has blows to land -- and the beads
+                 * get a say on every single one of them */
                 G.battle.hits_left--;
-                msgb("AND AGAIN! ", "", dmg, "!");
+                if (rosary_deflect()) {
+                    msgb("AND AGAIN -- WIDE!", "", -1, "");
+                } else {
+                    int dmg = G.battle.hit_power + rng_range(0, 1);
+                    hurt_player(dmg);
+                    msgb("AND AGAIN! ", "", dmg, "!");
+                }
                 set_phase(PH_ENEMY_HIT);
             } else if (G.battle.stunned) {
                 G.battle.stunned = 0;
@@ -607,8 +697,9 @@ void battle_render(void)
                ? ((G.battle.timer / 2) % 2 ? 2 : -2) : 0;
     if (shot_landed && G.battle.timer < SHOT_FIRE_TICK + 5)
         pshake = -2;
-    gfx_blit_ex(sprites[SPR_FARMER_UP_0].px, TILE, TILE,
-                40 + pshake, 78, 3, 256, 0);
+    gfx_blit_ex(sprites[(G.flags & FLAG_PART1) ? SPR_LAWYER_UP_0
+                                               : SPR_FARMER_UP_0].px,
+                TILE, TILE, 40 + pshake, 78, 3, 256, 0);
 
     /* THE GUN. Once you own the shotgun you carry it into every fight --
      * shouldered and ready between turns, and only swapped for the
@@ -639,17 +730,93 @@ void battle_render(void)
         }
     }
 
-    /* status boxes */
+    /* ---- THE LOB: the thrown thing arcs at it, and lands ---------------*/
+    if (G.battle.phase == PH_LOB) {
+        int t   = G.battle.timer;
+        int exc = ex + 8 * escale;             /* the enemy's chest */
+        int eyc = ey + 8 * escale;
+        if (t < LOB_IMPACT_TICK) {
+            /* the arc, hand to target, with a tumble */
+            int fx = 66 + (exc - 66) * t / LOB_IMPACT_TICK;
+            int fy = 84 + (eyc - 84) * t / LOB_IMPACT_TICK
+                   - 4 * 26 * t * (LOB_IMPACT_TICK - t)
+                     / (LOB_IMPACT_TICK * LOB_IMPACT_TICK);
+            int spr = (G.battle.lob_kind == ITEM_TNT) ? SPR_ITEM_TNT
+                                                      : SPR_ITEM_HOLYWATER;
+            gfx_blit_ex(sprites[spr].px, TILE, TILE, fx - 8, fy - 8,
+                        1, 256, (t / 3) % 2);
+        } else if (G.battle.lob_kind == ITEM_TNT && t < LOB_IMPACT_TICK + 22) {
+            /* THE EXPLOSION: swells, whites out, eats itself into smoke --
+             * the field blast's little brother, centred on the thing */
+            int age = t - LOB_IMPACT_TICK;
+            int r   = 8 + age * 3;
+            if (r > 40) r = 40;
+            int holes = age * 8 / 22;
+            for (int y = -r; y <= r; y++)
+                for (int x = -r; x <= r; x++) {
+                    int d2 = x * x + y * y;
+                    if (d2 > r * r)
+                        continue;
+                    if (((x * 7 + y * 13 + (int)G.frame) & 7) < holes)
+                        continue;
+                    int d = d2 * 256 / (r * r + 1);
+                    uint16_t col = (d <  90) ? RGB565(255, 250, 220)
+                                 : (d < 170) ? RGB565(255, 176,  48)
+                                             : RGB565(190,  70,  24);
+                    gfx_pixel(exc + x, eyc + y, col);
+                }
+        } else if (G.battle.lob_kind == ITEM_HOLYWATER
+                   && t < LOB_IMPACT_TICK + 34) {
+            /* THE SIZZLING MIST: a pale cloud rises through it, popping
+             * with white sparks, and the thing inside it stops existing */
+            int age = t - LOB_IMPACT_TICK;
+            int r   = 10 + age * 2;
+            if (r > 38) r = 38;
+            int fade = 256 - age * 256 / 34;
+            for (int y = -r; y <= r; y++)
+                for (int x = -r; x <= r; x++) {
+                    int d2 = x * x + y * y;
+                    if (d2 > r * r)
+                        continue;
+                    if (((x * 5 + y * 9 + (int)(G.frame * 3)) & 7) < 3)
+                        continue;
+                    int edge = 256 - d2 * 256 / (r * r + 1);
+                    int a = 130 * edge / 256 * fade / 256;
+                    if (a < 8)
+                        continue;
+                    gfx_blend_pixel(exc + x, eyc + y - age / 2,
+                                    RGB565(205, 232, 255), a);
+                }
+            for (int i = 0; i < 10; i++) {         /* the sizzle */
+                uint32_t h = (uint32_t)i * 2654435761u + G.frame * 131u;
+                int sxp = (int)(h % (uint32_t)(r * 2 + 1)) - r;
+                int syp = (int)((h >> 9) % (uint32_t)(r * 2 + 1)) - r;
+                if (sxp * sxp + syp * syp > r * r)
+                    continue;
+                gfx_add_pixel(exc + sxp, eyc + syp - age / 2,
+                              RGB565(255, 255, 255), 150 * fade / 256);
+            }
+        }
+    }
+
+    /* status boxes. Worn beads show the borrowed level -- same as the HUD. */
     char plabel[16] = "YOU LV ";
-    plabel[7] = (char)('0' + G.player.level % 10);
-    plabel[8] = '\0';
+    {
+        int lv = G.player.level
+               + ((G.player.items[ITEM_ROSARY] && G.player.rosary)
+                  ? ROSARY_LEVELS : 0);
+        int p = 7;
+        if (lv > 9) plabel[p++] = (char)('0' + (lv / 10) % 10);
+        plabel[p++] = (char)('0' + lv % 10);
+        plabel[p] = '\0';
+    }
     hp_bar(6, 6, G.battle.enemy_hp, G.battle.enemy_max, foe()->name);
     hp_bar(SCREEN_W - 94, 78, G.player.hp, G.player.max_hp, plabel);
 
-    /* Message / menu box along the bottom. The ITEM list is three rows deep
+    /* Message / menu box along the bottom. The ITEM list is FOUR rows deep
      * now, which does NOT fit the 30px box the 2x2 menu uses -- so that one
      * panel grows upward to hold it. */
-    int panel_h = (G.battle.phase == PH_ITEMS) ? 42 : 30;
+    int panel_h = (G.battle.phase == PH_ITEMS) ? 54 : 30;
     int panel_y = SCREEN_H - 4 - panel_h;
     gfx_fill_rect(4, panel_y, SCREEN_W - 8, panel_h, RGB565(16, 16, 24));
     gfx_rect     (4, panel_y, SCREEN_W - 8, panel_h, RGB565(255, 255, 255));
@@ -657,8 +824,8 @@ void battle_render(void)
     if (G.battle.phase == PH_MENU) {
         /* 2x2: FIGHT SHOOT / ITEM RUN. SHOOT greys out until you have
          * the gun (and something to feed it). */
-        int can_shoot = G.player.items[ITEM_SHOTGUN] &&
-                        G.player.items[ITEM_SHELLS] > 0;
+        int can_shoot = PLAYER_HAS_GUN() &&
+                        G.player.items[GUN_AMMO()] > 0;
         static const char *entry[4] = { "FIGHT", "SHOOT", "ITEM", "RUN" };
         for (int i = 0; i < 4; i++) {
             uint16_t col = (i == 1 && !can_shoot)
@@ -669,11 +836,11 @@ void battle_render(void)
         gfx_cursor(19 + (G.battle.menu & 1) * 80,
                    SCREEN_H - 30 + (G.battle.menu >> 1) * 12, G.frame);
     } else if (G.battle.phase == PH_ITEMS) {
-        /* the pockets: herb, medkit and pa's TNT, with counts. B backs out.
-         * Rows hang off the top of the (taller) panel, so they stay inside
-         * it however the panel is sized. */
+        /* the pockets: herb, medkit, pa's TNT and the holy water, with
+         * counts. B backs out. Rows hang off the top of the (taller)
+         * panel, so they stay inside it however the panel is sized. */
         const int top = panel_y + 4;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < N_BATTLE_ITEMS; i++) {
             int kind = battle_items[i];
             int n = G.player.items[kind];
             char row[16];
@@ -685,13 +852,15 @@ void battle_render(void)
             if (n > 9) row[p++] = (char)('0' + (n / 10) % 10);
             row[p++] = (char)('0' + n % 10);
             row[p] = '\0';
-            /* TNT reads hot when you have it -- it's the panic button */
+            /* TNT reads hot when you have it -- it's the panic button.
+             * Holy water reads COLD, because it's the other one. */
             uint16_t col = !n ? RGB565(110, 110, 110)
-                         : (kind == ITEM_TNT) ? RGB565(255, 140, 80)
-                                              : RGB565(255, 255, 255);
+                         : (kind == ITEM_TNT)       ? RGB565(255, 140, 80)
+                         : (kind == ITEM_HOLYWATER) ? RGB565(160, 215, 255)
+                                                    : RGB565(255, 255, 255);
             gfx_text(30, top + i * 12, row, col);
         }
-        gfx_text(SCREEN_W - 64, top + 24, "B:BACK", RGB565(110, 110, 110));
+        gfx_text(SCREEN_W - 64, top + 36, "B:BACK", RGB565(110, 110, 110));
         gfx_cursor(19, top + G.battle.item_sel * 12, G.frame);
     } else {
         draw_msg(G.battle.msg, 12, SCREEN_H - 28);
@@ -704,7 +873,7 @@ void gameover_update(void)
 {
     /* You read it. All of it. See GAMEOVER_READ_TICKS. */
     if (G.t > GAMEOVER_READ_TICKS && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
-        /* You wake up in your own field. Hurt, but alive.
+        /* You wake up somewhere you started. Hurt, but alive.
          *
          * THE PRICE: half the experience you'd banked toward your next
          * level is simply gone. Whatever they did to you out there, some
@@ -713,7 +882,11 @@ void gameover_update(void)
         G.player.xp /= 2;
 
         G.player.hp = G.player.max_hp;
-        overworld_enter_map(MAP_FARM, 5, 6);
+        /* the farmer wakes in his field; the lawyer on the church steps */
+        if (G.flags & FLAG_PART1)
+            overworld_enter_map(MAP_CITY, 3, 5);
+        else
+            overworld_enter_map(MAP_FARM, 5, 6);
     }
 }
 
@@ -790,8 +963,10 @@ void gameover_render(void)
     uint16_t red  = RGB565(216, 40, 32);
     uint16_t gray = RGB565(120, 120, 120);
 
+    int part1 = (G.flags & FLAG_PART1) != 0;
     const char *l1 = "EVERYTHING WENT WHITE.";
-    const char *l2 = "YOU WOKE IN YOUR OWN FIELD.";
+    const char *l2 = part1 ? "YOU WOKE ON THE CHURCH STEPS."
+                           : "YOU WOKE IN YOUR OWN FIELD.";
     const char *l3 = "SIX HOURS ARE MISSING.";
     const char *l4 = "SO IS HALF OF WHAT YOU KNEW.";
 

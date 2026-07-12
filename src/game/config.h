@@ -68,7 +68,13 @@
 /* ---- Items ----------------------------------------------------------------*/
 #define HERB_HEAL         8   /* HP restored by one herb                    */
 #define SHELLS_PER_BOX    6   /* shotgun shells in one SHELLS pickup        */
+#define BULLETS_PER_BOX   8   /* pistol rounds in one BULLETS pickup. Shells
+                                 are for SHOTGUNS: the Part 1 pistol eats
+                                 only these.                                */
 #define SHOTGUN_BASE_DMG  8   /* a blast does this + level + rng(0..4)      */
+#define HANDGUN_BASE_DMG  6   /* PART 1's pistol: same trigger, less gun.
+                                 It shares the SHELLS ammo pool -- one
+                                 counter, whatever you're holding.          */
 
 /* The world restocks: every this many ticks, every ITEM you've taken comes
  * back where it lay. Herbs regrow, the store gets a delivery, somebody
@@ -147,6 +153,29 @@
 #define TNT_DMG           34   /* battle damage. it does not roll.     */
 #define TNT_RADIUS        44   /* blast radius in pixels               */
 #define TNT_THROW         26   /* how far ahead of you it lands        */
+
+/* ---- THE LOB ----------------------------------------------------------------
+ * TNT and holy water are THROWN, and the throw is visible: the item arcs
+ * from your hand to where it lands, and THEN the effect happens. An instant
+ * explosion with no flight reads as a bug; a thing you watched sail through
+ * the air reads as a decision you made. */
+#define LOB_TICKS         22   /* flight time, field and battle alike  */
+#define LOB_ARC           18   /* how high the arc rises, in pixels    */
+
+/* ---- HOLY WATER --------------------------------------------------------------
+ * There are exactly THREE vials in the whole game (the deacon's gift is the
+ * free sample). One throw KILLS one of those things outright -- any of them,
+ * the bosses included. It never restocks. The smart player hoards it; the
+ * smarter one knows exactly which fight it's for. */
+#define HOLY_RADIUS       40   /* the mist's kill radius, field mode   */
+#define MIST_TICKS        48   /* how long the sizzle hangs in the air */
+
+/* ---- THE ROSARY --------------------------------------------------------------
+ * Mrs. Abernathy's. EQUIPPED from the pack (a switch, like the flashlight):
+ * attacks miss you often, and you fight ROSARY_LEVELS levels above yourself.
+ * Unequipped it is just beads in your pocket. */
+#define ROSARY_MISS_PCT   35   /* chance an attack is simply turned aside */
+#define ROSARY_LEVELS      5   /* levels of borrowed strength, damage only */
 #define TNT_OW_HITS        3   /* field hits taken off everything near */
 #define TNT_STUN_MULT      2   /* survivors reel for DOUBLE the usual  */
 #define TNT_BOOM_TICKS    26   /* how long the fireball is on screen   */
@@ -186,6 +215,12 @@
 /* A street lamp throws a wider, warmer pool than your torch -- and it
  * flickers, because the ones out here always do. */
 #define LAMP_RADIUS       46
+
+/* A map marked `dark` (the office tower with the power out) sits at this
+ * brightness no matter what the sun is doing. It has to be darker than
+ * NIGHT_BRIGHTNESS -- night still has a sky. This has a ceiling and a
+ * dead bulb. */
+#define DARK_BRIGHT       58
 
 /* ---- Your name ------------------------------------------------------------
  * Chosen on the name screen at the start of a new game. NPCs who know you

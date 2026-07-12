@@ -281,6 +281,33 @@ void gfx_text(int x, int y, const char *s, uint16_t color)
     gfx_text_ex(x, y, s, color, 1);
 }
 
+/* ITALIC text: the same glyphs, SHEARED -- each row of the 8x8 glyph slides
+ * right by (7 - row) / 3, so the top leans 2px ahead of the feet. A bitmap
+ * font can't slant its strokes, but a slanted stack of rows reads as italic
+ * at this size, and it's what makes the internal monologue look like a
+ * different voice instead of a different color. Scale 1 only -- it's a
+ * textbox face, not a headline. */
+void gfx_text_italic(int x, int y, const char *s, uint16_t color)
+{
+    int cx = x;
+    for (; *s; s++) {
+        if (*s == '\n') {
+            cx = x;
+            y += 9;
+            continue;
+        }
+        const unsigned char *g = glyph_for(*s);
+        for (int row = 0; row < 8; row++) {
+            unsigned char bits = g[row];
+            int shear = (7 - row) / 3;             /* 2,2,1,1,1,0,0,0 */
+            for (int col = 0; col < 8; col++)
+                if (bits & (0x80u >> col))
+                    gfx_pixel(cx + col + shear, y + row, color);
+        }
+        cx += 8;
+    }
+}
+
 int gfx_text_width(const char *s, int scale)
 {
     int n = 0, best = 0;

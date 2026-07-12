@@ -70,6 +70,7 @@ void render_scene(int s)
     case ST_GAMEOVER:  gameover_render();  break;
     case ST_PAUSE:     pause_render();     break;
     case ST_CONTROLS:  controls_render();  break;
+    case ST_CHURCH:    church_render();    break;
     }
 }
 
@@ -94,6 +95,7 @@ void game_update(uint16_t buttons_held)
     case ST_GAMEOVER:  gameover_update();  break;
     case ST_PAUSE:     pause_update();     break;
     case ST_CONTROLS:  controls_update();  break;
+    case ST_CHURCH:    church_update();    break;
     }
 
     if (G.shake_t > 0)
@@ -123,14 +125,19 @@ const uint16_t *game_framebuffer(void)
  * rather than being misread.
  * ==========================================================================*/
 #define SAVE_MAGIC   0x494B5753u   /* "IKWS" */
-#define SAVE_VERSION 5             /* v5 adds TNT + who has been kind */
+#define SAVE_VERSION 8             /* v8: holy water + the rosary join the
+                                      items, and whether the rosary is WORN
+                                      is part of the player now. (v7 added
+                                      the pistol, its bullets, and the
+                                      city.) Old saves fail the check and
+                                      are ignored, as designed. */
 
 /* Exactly how many bytes game_save_write() lays down. Kept next to the
  * writer so the two can't drift apart, and checked at COMPILE TIME below:
  * add a couple of items or maps without noticing and the blob would
  * quietly run off the end of the platform's buffer. */
 #define SAVE_BYTES (4 /*magic*/ + 4 /*version*/                              \
-                  + 8 * 4 /*x y dir hp max level xp lamp*/                   \
+                  + 9 * 4 /*x y dir hp max level xp lamp rosary*/            \
                   + NUM_ITEMS * 4                                            \
                   + (PLAYER_NAME_MAX + 1)                                           \
                   + 4 /*map*/ + 4 /*daytime*/ + 4 /*restock*/                \
@@ -192,6 +199,7 @@ void game_save_write(uint8_t *buf)
     w32(&c, (uint32_t)G.player.level);
     w32(&c, (uint32_t)G.player.xp);
     w32(&c, (uint32_t)G.player.lamp);
+    w32(&c, (uint32_t)G.player.rosary);
     for (int i = 0; i < NUM_ITEMS; i++)
         w32(&c, (uint32_t)G.player.items[i]);
     for (int i = 0; i < PLAYER_NAME_MAX + 1; i++)      /* your name, one byte each */
@@ -233,6 +241,7 @@ int game_save_load(const uint8_t *buf, int len)
     p.level   = (int)r32(&c);
     p.xp      = (int)r32(&c);
     p.lamp    = (int)r32(&c);
+    p.rosary  = (int)r32(&c);
     for (int i = 0; i < NUM_ITEMS; i++)
         p.items[i] = (int)r32(&c);
     for (int i = 0; i < PLAYER_NAME_MAX + 1; i++)

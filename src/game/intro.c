@@ -259,6 +259,10 @@ void title_update(void)
     default:
         /* reseed rng from how long the player dawdled -> unique run */
         G.rng ^= (G.frame * 2654435761u) | 1u;
+        /* NEW GAME means the PROLOGUE, even if the loaded save was already
+         * in Part 1 -- without this the farmer would be named under a
+         * crucifix and wake up in the city (see name_accept). */
+        G.flags &= ~FLAG_PART1;
         name_start();      /* who are you? then the game begins */
         return;
     }
@@ -828,7 +832,12 @@ static void name_accept(void)
         G.player.name[i] = '\0';
     }
     audio_sfx(SFX_CONFIRM);
-    overworld_start_game();
+    /* The same screen names two different men. The farmer's name starts
+     * the prologue; the lawyer's starts Part 1 (see part1_start). */
+    if (G.flags & FLAG_PART1)
+        part1_start();
+    else
+        overworld_start_game();
 }
 
 void name_update(void)
@@ -884,9 +893,13 @@ void name_update(void)
 
 void name_render(void)
 {
-    gfx_clear(RGB565(10, 10, 24));
+    int part1 = (G.flags & FLAG_PART1) != 0;
 
-    const char *title = "WHAT DO THEY CALL YOU?";
+    /* Part 1 asks in the church's colors, not the saucer's */
+    gfx_clear(part1 ? RGB565(16, 10, 12) : RGB565(10, 10, 24));
+
+    const char *title = part1 ? "WHO ARE YOU, COUNSELOR?"
+                              : "WHAT DO THEY CALL YOU?";
     gfx_text((SCREEN_W - gfx_text_width(title, 1)) / 2, 8, title,
              RGB565(200, 200, 210));
 
@@ -937,12 +950,19 @@ void name_render(void)
         }
     }
 
-    /* THE SAUCER, hovering over the chosen cell (it bobs) */
+    /* THE CURSOR, hovering over the chosen cell (it bobs).
+     * The prologue's is a saucer -- the farmer gets picked by a light in
+     * the sky. Part 1's is a CRUCIFIX: the lawyer walked out of a sermon,
+     * and it followed him onto the menu. */
     int sx = gx + (G.name_sel % NAME_COLS) * NAME_CELL_W - 4;
     int sy = gy + (G.name_sel / NAME_COLS) * NAME_CELL_H - 13
            + (int)((G.frame / 10) % 2);
-    int ufo = ((G.frame / 8) % 2) ? SPR_UFO_1 : SPR_UFO;
-    gfx_blit(sprites[ufo].px, TILE, TILE, sx, sy);
+    if (G.flags & FLAG_PART1) {
+        gfx_blit(sprites[SPR_CRUCIFIX].px, TILE, TILE, sx, sy);
+    } else {
+        int ufo = ((G.frame / 8) % 2) ? SPR_UFO_1 : SPR_UFO;
+        gfx_blit(sprites[ufo].px, TILE, TILE, sx, sy);
+    }
 
     const char *help = "A PICK   B DEL   START DONE";
     gfx_text((SCREEN_W - gfx_text_width(help, 1)) / 2, SCREEN_H - 12, help,

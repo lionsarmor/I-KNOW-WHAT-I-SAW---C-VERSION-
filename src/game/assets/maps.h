@@ -373,6 +373,10 @@ static const spawn_t MAP_SPAWNS_WRECK[] = {
 
     { ENT_ITEM, 11, 8, ITEM_MEDKIT, 0 },
     { ENT_ITEM,  2, 8, ITEM_SHELLS, 0 },
+    /* HOLY WATER, THE THIRD OF THREE -- in the house of the man they took
+     * out through the roof. He kept it by the bed. It didn't help him;
+     * it can still help somebody. Never restocks. */
+    { ENT_ITEM, 13, 8, ITEM_HOLYWATER, 0 },
 };
 
 static const warp_t MAP_WARPS_WRECK[] = {
@@ -440,6 +444,233 @@ static const warp_t MAP_WARPS_VANLOT[] = {
     { 0, 11, MAP_TOWN, 28, 12 },   /* back west into town */
 };
 
+/* ============================================================================
+ *                                PART 1
+ * ============================================================================*/
+
+/* ============================ MAIN STREET ==================================
+ * THE CITY. You come out of the church into this. Sirens somewhere, every
+ * TV saying the same thing, and everybody on the street doing the math on
+ * how far home is.
+ *
+ * Layout: church and the office tower along the north side, the street
+ * through the middle, and a little park on the south -- which is where IT
+ * is. The service alley between the buildings (cols 10-11) is the only way
+ * into the tower: the lobby locked itself when the power went.
+ *
+ * THIS IS A CITY, so it is built like one:
+ *   S  skyscraper facade (floors of windows -- the tower keeps going up
+ *      past the top of the screen)
+ *   Z  a shorter building's roof line (the shops)
+ *   z  the map border: smaller towers a block away, where the farm maps
+ *      have trees
+ *   C/W/+/U  the CATHOLIC CHURCH: dressed stone, stained glass, the
+ *      gilded cross over the arched doors
+ *   G  the tower's glass lobby doors    p  sidewalk    a  asphalt
+ *   =  centre line                      L  street lamp
+ */
+static const char *const MAP_ROWS_CITY[20] = {
+    "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    "zCC+CCCCCCaaSSSSSSSSZZZZZZZZZz",
+    "zCWCCCCWCCaaDSSSSSSSSSSSSSSSSz",
+    "zCCCCCCCCCaaSSSSSSSSSSSSSSSSSz",
+    "zCCUCCCCCCaaSSSGSSSSSSSSDSSSSz",
+    "zppppppppppppppppppppppppppppz",
+    "zppppppppppppppppppppppppppppz",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "a=aa=aa=aa=aa=aa=aa=aa=aa=aa=a",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "zpLpppppppppLpppppppppLppppppz",
+    "zppppppppppppppppppppppppppppz",
+    "z....T..*......T.....*.....T.z",
+    "z.T......ww.........T....*...z",
+    "z....*...ww....T.........T...z",
+    "z..T............*...T........z",
+    "z.....T...###............T...z",
+    "zzzzzzzzzzz#zzzzzzzzzzzzzzzzzz",
+};
+
+static const spawn_t MAP_SPAWNS_CITY[] = {
+    /* THE PRIEST, out on the steps with his flock bolted in behind him. */
+    { ENT_NPC,    5,  5, LOOK_PRIEST,
+      "GO HOME, MY SON. BE WITH YOUR FAMILY -- THAT'S THE WHOLE SERMON "
+      "NOW. LOCK THE DOORS, AND PRAY LOUD ENOUGH THAT THEY CAN HEAR IT "
+      "OVER THE SIRENS." },
+
+    /* DEACON CHARLIE -- almost ordained, and holding the sacristy's last
+     * blessed vial. His gift is the game's whole lesson on holy water:
+     * there are THREE in existence, it never restocks, and one throw ENDS
+     * one of those things. The player who spends it on an ant deserves
+     * the rest of their night. */
+    { ENT_NPC,    2,  5, LOOK_DEACON,
+      "DEACON CHARLIE. WELL -- ALMOST. THEY'D HAVE ORDAINED ME IN JUNE.\n"
+      "FATHER BLESSED EVERY DROP IN THE SACRISTY THIS MORNING, AND THIS "
+      "IS THE LAST VIAL OF IT. TAKE IT.\n"
+      "IT DOESN'T HURT THOSE THINGS, ~. IT ENDS THEM. ONE THROW, ONE "
+      "MIRACLE -- SO SPEND IT LIKE THE LAST PRAYER ON EARTH, BECAUSE IT "
+      "VERY NEARLY IS.",
+      GIFT(ITEM_HOLYWATER),
+      "SPEND IT WELL, ~. WHEN IT'S GONE THERE IS NO MORE -- I'D KNOW, "
+      "I CARRIED THE CRATE IN MYSELF." },
+
+    /* MRS. ABERNATHY. The librarian, by the pond, and the pond did not do
+     * this to her. Her rosary is still in her hand -- taking it comes with
+     * a prayer he only half remembers (see the LOOK_DEADLADY monologue
+     * special-case in try_talk). */
+    { ENT_NPC,    8, 16, LOOK_DEADLADY,
+      "MRS. ABERNATHY. THE LIBRARIAN. SHE STAMPED MY BOOKS WHEN I WAS "
+      "NINE AND SHE STAMPED MY KIDS' BOOKS LAST TUESDAY.\n"
+      "SOMETHING OPENED HER UP AND LEFT HER BY THE POND. HER ROSARY IS "
+      "STILL IN HER HAND.\n"
+      "...FORGIVE ME, MRS. A. OUR FATHER, WHO ART -- I DON'T REMEMBER "
+      "THE REST. I'M A BAD CATHOLIC. BUT I HOPE TO GOD THIS GIVES ME "
+      "STRENGTH.\n"
+      "THE BEADS ARE WARM. EQUIP THEM FROM THE PACK.",
+      GIFT(ITEM_ROSARY),
+      "SHE IS PAST HELPING. THE PRAYER WILL HAVE TO DO." },
+
+    /* THE COPS. They block the ends of the street, which makes the alley
+     * the only way forward -- that's the puzzle, and they'll even tell
+     * you so if you ask. */
+    { ENT_NPC,    2,  8, LOOK_COP,
+      "ROAD'S CLOSED, COUNSELOR. EVERYTHING WEST OF HERE IS... LOOK, IT'S "
+      "CLOSED.\nYOU WANT OFF THIS STREET? THE TOWERS LOCKED THEIR LOBBIES "
+      "WHEN THE POWER WENT. TRY THE SERVICE ALLEY BY THE CHURCH -- "
+      "MAINTENANCE NEVER LOCKS UP." },
+    { ENT_NPC,   27,  9, LOOK_COP,
+      "TURN AROUND. THE BRIDGE IS CARS AS FAR AS YOU CAN SEE, AND NOBODY "
+      "IS IN THE CARS.\nI'M NOT SAYING IT AGAIN. TURN AROUND." },
+    { ENT_NPC,   11, 13, LOOK_COP,
+      "STAY OUT OF THE PARK. IT TOOK LENNY AT THE FOUNTAIN, AND LENNY "
+      "HAD A SHOTGUN.\nWHATEVER YOU'VE GOT TO DO, IT ISN'T IN THE PARK." },
+
+    /* the cruisers, parked where they stopped mattering */
+    { ENT_NPC,    3, 10, LOOK_COPCAR,
+      "THE RADIO IS STILL SQUAWKING. UNITS CALLING FOR UNITS THAT DON'T "
+      "ANSWER. NOBODY IS SAYING 'OVER' ANY MORE." },
+    { ENT_NPC,   21,  7, LOOK_COPCAR,
+      "BOTH DOORS HANG OPEN. THE ENGINE IS RUNNING. THE LIGHTS TURN, AND "
+      "TURN, AND TURN." },
+
+    /* THE PEOPLE. Every one of them is somebody specific. */
+    { ENT_NPC,    8,  6, LOOK_CITYWOMAN,
+      "THE TV SAID STAY INSIDE. THEN THE TV SHOWED ONE OF THEM. THEN THE "
+      "TV STOPPED.\nI KEEP TURNING THE KNOB LIKE IT'S GOING TO APOLOGIZE." },
+    { ENT_NPC,   17,  5, LOOK_SKEPTIC,
+      "MY CAR WON'T START. NOBODY'S CAR STARTS.\nI HAVE A DEPOSITION "
+      "MONDAY MORNING. THINGS WILL BE NORMAL BY MONDAY. SAY THEY WILL." },
+    { ENT_NPC,   24,  6, LOOK_WITNESS,
+      "I SAW IT DRAG A DOG UNDER THE EL PLATFORM. A BIG DOG.\nI'M NOT "
+      "GOING TO TELL YOU WHAT IT LOOKED LIKE, BECAUSE THEN YOU'D KNOW "
+      "TOO." },
+    { ENT_NPC,   25,  5, LOOK_STOREKEEP,
+      "EVERY SET IN MY WINDOW SAYS THE SAME THING. CREATURES. IN THE "
+      "CITY. STAY INDOORS.\nTHEN COLOR BARS, ON EVERY CHANNEL. I SELL "
+      "TVS, FRIEND. COLOR BARS ON CHANNEL 5 IS THE END OF THE WORLD." },
+    { ENT_NPC,    6, 13, LOOK_CITYWOMAN,
+      "MY HUSBAND WENT BACK FOR THE CAR. I TOLD HIM THE CAR DOESN'T "
+      "MATTER.\nIF YOU SEE A MAN IN A GREEN COAT -- TELL HIM THE CAR "
+      "DOESN'T MATTER." },
+    { ENT_NPC,   20, 13, LOOK_MA,
+      "THE PIGEONS KNEW FIRST. WHOLE FLOCK GOT UP AN HOUR AGO AND WENT "
+      "NORTH, ALL AT ONCE, LIKE A CURTAIN.\nI JUST LIKE THIS BENCH, DEAR. "
+      "AT MY AGE YOU DON'T RUN, YOU WATCH." },
+    { ENT_NPC,   14, 12, LOOK_DOG,
+      "WOOF! WOOF WOOF! A CITY DOG, DRAGGING ITS LEASH. NOBODY IS "
+      "HOLDING THE OTHER END." },
+
+    /* IT HIDES. A dogman in the mouth of the alley, waiting for somebody
+     * to need the only way through. */
+    { ENT_ALIEN, 10,  1, SPECIES_DOGMAN, 0 },
+
+    /* LE CHUPACABRA. The thing in the park, standing square on the path
+     * south -- the path that goes HOME. A boss: it waits, it doesn't
+     * wander, and once it's down it stays down. */
+    { ENT_ALIEN, 11, 18, SPECIES_CHUPA_BOSS, 0 },
+
+    /* what the street has to offer */
+    { ENT_ITEM,  13, 16, ITEM_HERB,    0 },  /* growing wild by the pond  */
+    { ENT_ITEM,  26, 12, ITEM_MEDKIT,  0 },  /* dropped outside the shop  */
+    { ENT_ITEM,  11,  1, ITEM_BULLETS, 0 },  /* deep in the alley. earn it */
+};
+
+static const warp_t MAP_WARPS_CITY[] = {
+    /* the service door in the alley -- the way into the dark tower */
+    { 12,  2, MAP_OFFICE, 2, 6 },
+
+    /* every door that ISN'T a way forward says exactly why (FLAG_NEVER:
+     * a flag nobody sets, so the door never opens and the line always
+     * plays -- see check_door_bump) */
+    {  3,  4, MAP_CITY, 0, 0, 0, FLAG_NEVER,
+      "YOU CAN HEAR THEM PRAYING THROUGH THE DOOR. THEY BOLTED IT "
+      "BEHIND YOU." },
+    { 15,  4, MAP_CITY, 0, 0, 0, FLAG_NEVER,
+      "THE LOBBY DOORS ARE BOLTED. THROUGH THE GLASS: PITCH DARK, AND "
+      "THE FERNS ARE KNOCKED OVER. ALL OF THEM." },
+    { 24,  4, MAP_CITY, 0, 0, 0, FLAG_NEVER,
+      "SHUTTERED. THE SIGN SAYS BACK IN FIVE MINUTES. THE SIGN HAS BEEN "
+      "SAYING THAT SINCE THIS MORNING." },
+
+    /* THE PATH HOME. South, past the park, past the thing standing in it.
+     * This is where Part 1 stops -- for now. */
+    { 11, 19, MAP_CITY, 0, 0, 0, FLAG_NEVER,
+      "SOUTH. HOME. MILES OF STREETS BETWEEN HERE AND THE HOUSE, AND "
+      "EVERY ONE OF THEM SOUNDS LIKE THIS ONE.\nYOU'LL GET THERE. NOT "
+      "TONIGHT. (PART 1 ENDS HERE -- FOR NOW.)" },
+};
+
+/* ============================ THE DARK OFFICE ==============================
+ * Fourteen floors of tower and the only one that matters is this one. The
+ * power is out (`dark` in the map table), so the room is DARK_BRIGHT black
+ * until the flashlight is in your hand -- which is the first thing lying
+ * near the door, because the game is dark, not cruel.
+ */
+static const char *const MAP_ROWS_OFFICE[12] = {
+    "HHHHHHHHHHHHHHHHHH",
+    "Hx______t______xxH",
+    "H_tt____t__tt___xH",
+    "H_tt_______tt____H",
+    "H________________H",
+    "Hx__t____x___t__xH",
+    "HM_______________H",
+    "H___tt_____tt____H",
+    "H___tt_____tt___xH",
+    "Hx_______x_______H",
+    "H__t__________ttxH",
+    "HHHHHHHHHHHHHHHHHH",
+};
+
+static const spawn_t MAP_SPAWNS_OFFICE[] = {
+    /* THE NIGHT GUARD, under his desk, going nowhere until sunrise. */
+    { ENT_NPC,   2,  4, LOOK_WITNESS,
+      "DON'T SHINE THAT AT ME -- OH. OH, YOU'RE A PERSON.\nSOMETHING'S "
+      "BEEN WALKING THE FLOOR ABOVE US FOR AN HOUR. WALKING, AND THEN "
+      "STOPPING. THE STOPPING IS WORSE.\nMR. KOWALSKI IN THE BACK OFFICE "
+      "KEPT A PISTOL IN HIS DESK. BACK WALL. TAKE IT, HE'D WANT YOU TO. "
+      "I'M NOT MOVING TILL SUNRISE." },
+
+    { ENT_ITEM,  4,  6, ITEM_FLASHLIGHT, 0 },  /* the maintenance torch,
+                                                   right inside the door  */
+    { ENT_ITEM, 13, 10, ITEM_HANDGUN,    0 },  /* Kowalski's desk drawer  */
+    { ENT_ITEM, 14,  1, ITEM_BULLETS,    0 },  /* ...and the carton under
+                                                   it. Pistol BULLETS --
+                                                   shells are for shotguns */
+    { ENT_ITEM,  8,  9, ITEM_MEDKIT,     0 },  /* the break-room kit      */
+    /* HOLY WATER, THE SECOND OF THREE. Somebody on this floor was more
+     * scared than they let on. It never restocks. */
+    { ENT_ITEM, 10, 10, ITEM_HOLYWATER,  0 },
+
+    /* IT GOT IN. The second dogman is already inside, between you and
+     * the pistol, and you will hear it before your little light finds it. */
+    { ENT_ALIEN, 10,  4, SPECIES_DOGMAN, 0 },
+};
+
+static const warp_t MAP_WARPS_OFFICE[] = {
+    { 1, 6, MAP_CITY, 11, 2 },   /* the mat by the service door -> alley */
+};
+
 /* ============================ THE MAP TABLE ===============================*/
 #define N(a) (int)(sizeof(a) / sizeof((a)[0]))
 
@@ -468,6 +699,15 @@ const map_t maps[NUM_MAPS] = {                       /* outdoor? (night) */
     [MAP_VANLOT] = { "THE PARKING LOT", MAP_ROWS_VANLOT, 24, 14,
                     MAP_SPAWNS_VANLOT, N(MAP_SPAWNS_VANLOT),
                     MAP_WARPS_VANLOT,  N(MAP_WARPS_VANLOT), 1 },
+    /* ---- PART 1 ---- */
+    [MAP_CITY]  = { "MAIN STREET", MAP_ROWS_CITY, 30, 20,
+                    MAP_SPAWNS_CITY,  N(MAP_SPAWNS_CITY),
+                    MAP_WARPS_CITY,   N(MAP_WARPS_CITY),   1 },
+    /* the tower: indoors, and DARK -- the last field is what kills the
+     * lights (see `dark` in map_t, and DARK_BRIGHT in config.h) */
+    [MAP_OFFICE] = { "HALLORAN AND WEEKS", MAP_ROWS_OFFICE, 18, 12,
+                    MAP_SPAWNS_OFFICE, N(MAP_SPAWNS_OFFICE),
+                    MAP_WARPS_OFFICE,  N(MAP_WARPS_OFFICE), 0, 1 },
 };
 
 #undef N

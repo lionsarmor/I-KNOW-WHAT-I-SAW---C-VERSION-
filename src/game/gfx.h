@@ -108,4 +108,8 @@ void gfx_text(int x, int y, const char *s, uint16_t color);
 void gfx_text_ex(int x, int y, const char *s, uint16_t color, int scale);
 int  gfx_text_width(const char *s, int scale); /* for centering */
 
+/* The same glyphs leaning forward: each row shifted right as it climbs, up
+ * to 2px at the top. The internal-monologue face (scale 1 only). */
+void gfx_text_italic(int x, int y, const char *s, uint16_t color);
+
 #endif /* GFX_H */

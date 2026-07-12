@@ -390,6 +390,220 @@ static const char *TILE_ART_LINE[16] = {
     "KKKKKKK11KKKKKKK",
 };
 
+/* ---- THE CITY -------------------------------------------------------------*/
+
+/* sidewalk: pale slabs with expansion joints, and the odd crack */
+static const char *TILE_ART_SIDEWALK[16] = {
+    "kkkkkkkKkkkkkkkK",
+    "kkkkkkkKkkkkkkkK",
+    "kkKkkkkKkkkkkkkK",
+    "kkkkkkkKkkkkKkkK",
+    "kkkkkkkKkkkkkkkK",
+    "kkkkkkkKkkkkkkkK",
+    "kkkkKkkKkkkkkkkK",
+    "KKKKKKKKKKKKKKKK",
+    "kkkkkkkKkkkkkkkK",
+    "kkkkkkkKkkKkkkkK",
+    "kKkkkkkKkkkkkkkK",
+    "kkkkkkkKkkkkkkkK",
+    "kkkkkkkKkkkkkKkK",
+    "kkkKkkkKkkkkkkkK",
+    "kkkkkkkKkkkkkkkK",
+    "KKKKKKKKKKKKKKKK",
+};
+
+/* the centre line of a street that runs ACROSS the screen -- TILE_LINE
+ * turned on its side. Painted long ago, worn by everything since. */
+static const char *TILE_ART_LINE_H[16] = {
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKkKKKKKKKKKK",
+    "KKKKKKKKKKKkKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KkKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "111111111k111111",
+    "11111k1111111111",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKkKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKkKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKkKK",
+    "KKKKKKKkKKKKKKKK",
+};
+
+/* ---- THE CITY'S ARCHITECTURE ----------------------------------------------
+ * Skyscrapers, and a catholic church. The facades are drawn front-on, the
+ * way every building in this engine is -- what makes them read as TALL is
+ * the window grid: floors of lit and dark offices instead of logs.
+ */
+
+/* skyscraper facade: concrete, and two floors of windows per tile. Some
+ * windows are lit -- somebody is still up there, or left in a hurry. */
+static const char *TILE_ART_SKY_WALL[16] = {
+    "KKKKKKKKKKKKKKKK",
+    "K0000KKK0000KKKK",
+    "K0BBB0KK0yyy0KKK",
+    "K0BbB0KK0y1y0KKK",
+    "K0BBB0KK0yyy0KKK",
+    "K0000KKK0000KKKK",
+    "KKKKKKKKKKKKKKKK",
+    "0000000000000000",
+    "KKKKKKKKKKKKKKKK",
+    "K0000KKK0000KKKK",
+    "K0yyy0KK0BBB0KKK",
+    "K0y1y0KK0BbB0KKK",
+    "K0yyy0KK0BBB0KKK",
+    "K0000KKK0000KKKK",
+    "KKKKKKKKKKKKKKKK",
+    "0000000000000000",
+};
+
+/* a shorter building's roof line: parapet cap, shadow, then windows */
+static const char *TILE_ART_SKY_TOP[16] = {
+    "kkkkkkkkkkkkkkkk",
+    "kkkkkkkkkkkkkkkk",
+    "0000000000000000",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "K0000KKK0000KKKK",
+    "K0BBB0KK0yyy0KKK",
+    "K0BbB0KK0y1y0KKK",
+    "K0BBB0KK0yyy0KKK",
+    "K0000KKK0000KKKK",
+    "KKKKKKKKKKKKKKKK",
+    "KKKKKKKKKKKKKKKK",
+    "K0000KKK0000KKKK",
+    "K0BBB0KK0BBB0KKK",
+    "K0BBB0KK0BbB0KKK",
+    "K0000KKK0000KKKK",
+};
+
+/* THE EDGE OF THE MAP: smaller towers a block away, black against the
+ * night, a few windows still burning. This is the city's tree line. */
+static const char *TILE_ART_SKY_FAR[16] = {
+    "00000000KKKKKK00",
+    "00000000KyKKKK00",
+    "00000000KKKKKK00",
+    "00000000KKKyKK00",
+    "0KKKKK00KKKKKK00",
+    "0KKKyK00KKKKKK00",
+    "0KKKKK00KyKKKK00",
+    "0KyKKK00KKKKKK00",
+    "0KKKKK00KKKKyK00",
+    "0KKKKK00KKKKKK00",
+    "0KKKyK00KyKKKK00",
+    "0KKKKK00KKKKKK00",
+    "0KyKKK00KKKyKK00",
+    "0KKKKK00KKKKKK00",
+    "0KKKKK00KyKKKK00",
+    "0KKKKK00KKKKKK00",
+};
+
+/* dressed stone, laid in courses -- nothing else downtown is built of it */
+static const char *TILE_ART_CHURCH_WALL[16] = {
+    "kkkkkkkKkkkkkkkk",
+    "kkkkkkkKkkkkkkkk",
+    "kkkkkkkKkkkkkkkk",
+    "KKKKKKKKKKKKKKKK",
+    "kkkKkkkkkkkKkkkk",
+    "kkkKkkkkkkkKkkkk",
+    "kkkKkkkkkkkKkkkk",
+    "KKKKKKKKKKKKKKKK",
+    "kkkkkkkKkkkkkkkk",
+    "kkkkkkkKkkkkkkkk",
+    "kkkkkkkKkkkkkkkk",
+    "KKKKKKKKKKKKKKKK",
+    "kkkKkkkkkkkKkkkk",
+    "kkkKkkkkkkkKkkkk",
+    "kkkKkkkkkkkKkkkk",
+    "KKKKKKKKKKKKKKKK",
+};
+
+/* a stained-glass arch set in that stone. The same window the cutscene
+ * lights from inside. */
+static const char *TILE_ART_CHURCH_WIN[16] = {
+    "kkkkkkkKkkkkkkkk",
+    "kkkkk000000kkkkk",
+    "kkkk0rybgpr0kkkk",
+    "kkk0rybKbgpr0kkk",
+    "KKK0ybgKgpry0KKK",
+    "kkk0bgpKpryb0kkk",
+    "kkk0000K0000kkkk",
+    "KKK0gprKrybg0KKK",
+    "kkk0prybKybgp0kk",
+    "kkk0rybgKbgpr0kk",
+    "kkk0ybgpKgpry0kk",
+    "KKK0bgprKpryb0KK",
+    "kkk0000000000kkk",
+    "kkkkkkkKkkkkkkkk",
+    "kkkKkkkkkkkKkkkk",
+    "KKKKKKKKKKKKKKKK",
+};
+
+/* the gilded cross in the gable, over the doors */
+static const char *TILE_ART_CHURCH_CROSS[16] = {
+    "kkkkkkkKkkkkkkkk",
+    "kkkkkk0000kkkkkk",
+    "kkkkkk0yY0kkkkkk",
+    "kkkkkk0yY0kkkkkk",
+    "kkk00000yY000kkk",
+    "kkk0yyyyyyyyY0kk",
+    "kkk0YyyyyyyyY0kk",
+    "kkk00000yY000kkk",
+    "kkkkkk0yY0kkkkkk",
+    "kkkkkk0yY0kkkkkk",
+    "kkkkkk0yY0kkkkkk",
+    "KKKKKK0yY0KKKKKK",
+    "kkkkkk0yY0kkkkkk",
+    "kkkkkk0000kkkkkk",
+    "kkkKkkkkkkkKkkkk",
+    "KKKKKKKKKKKKKKKK",
+};
+
+/* THE CHURCH DOOR: an arched double door of old oak. It is a DOOR tile in
+ * every way that matters -- solid, and walking into it fires its warp. */
+static const char *TILE_ART_CHURCH_DOOR[16] = {
+    "kkkkk000000kkkkk",
+    "kkk00DDDDDD00kkk",
+    "kk0DDdDDDDdDD0kk",
+    "kk0DdDD00DDdD0kk",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDy00yDdDD0k",
+    "k0DDdDy00yDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "k0DDdDD00DDdDD0k",
+    "0000000000000000",
+};
+
+/* an office lobby's glass doors: aluminium frame, push bar, and nothing
+ * moving on the other side. Also a DOOR tile. */
+static const char *TILE_ART_DOOR_GLASS[16] = {
+    "KKKKKKKKKKKKKKKK",
+    "K00000000000000K",
+    "K0BBBWB00BWBBB0K",
+    "K0BBWBB00WBBBB0K",
+    "K0BWBBB00BBBBB0K",
+    "K0WBBBB00BBBBW0K",
+    "K0BBBBB00BBBWB0K",
+    "K0kkkkk00kkkkk0K",
+    "K0BBBBB00BBWBB0K",
+    "K0BBBBB00BWBBB0K",
+    "K0BBBBB00WBBBB0K",
+    "K0B0BBB00BBB0B0K",
+    "K0B0BBB00BBB0B0K",
+    "K00000000000000K",
+    "KKKKKKKKKKKKKKKK",
+    "0000000000000000",
+};
+
 /* a street light. The head is lit -- see the lights[] list in overworld.c,
  * which finds these tiles and puts a pool of light under each one. */
 static const char *TILE_ART_LAMP[16] = {
