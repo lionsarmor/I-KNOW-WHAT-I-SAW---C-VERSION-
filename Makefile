@@ -161,11 +161,45 @@ vendor-sdl:
 	    mv vendor/SDL2-2.30.11 vendor/SDL2-mingw && \
 	    echo "-> vendor/SDL2-mingw"; }
 
+# ---- ONE FILE TO HAND SOMEBODY ---------------------------------------------
+# `make zip` -> dist/*.zip, ready to drag into Discord / itch.io / an email.
+#
+# It has to be a ZIP, not a bare .exe: the game needs SDL2.dll sitting NEXT to
+# it, and an .exe on its own will just fail to start on the other person's
+# machine with an unhelpful box about a missing DLL. Ship them together.
+#
+# The zip contains ONE folder, so it doesn't vomit loose files into whatever
+# directory they unzip it in.
+ZIPNAME := iknowwhatisaw-$(VERSION)
+
+zip: zip-windows zip-linux
+	@echo
+	@ls -lh $(DIST)/*.zip $(DIST)/*.tar.gz 2>/dev/null | awk '{print "  " $$9 "  " $$5}'
+	@echo "  ^ drag that into Discord"
+
+zip-windows: dist-windows
+	@rm -rf $(DIST)/pack && mkdir -p $(DIST)/pack/$(ZIPNAME)
+	@cp -r $(DIST)/windows/. $(DIST)/pack/$(ZIPNAME)/
+	@printf 'I KNOW WHAT I SAW\r\n\r\nDouble-click iknowwhatisaw.exe.\r\nKeep SDL2.dll in the same folder - the game needs it.\r\n\r\nArrows/WASD move. Z = A. X = B. Enter = START. Esc = menu.\r\nF11 = fullscreen. Plug in a gamepad and it just works.\r\n' \
+	    > $(DIST)/pack/$(ZIPNAME)/README.txt
+	@cd $(DIST)/pack && zip -qr ../$(ZIPNAME)-windows.zip $(ZIPNAME)
+	@rm -rf $(DIST)/pack
+	@echo "windows zip -> $(DIST)/$(ZIPNAME)-windows.zip"
+
+zip-linux: dist-linux
+	@rm -rf $(DIST)/pack && mkdir -p $(DIST)/pack/$(ZIPNAME)
+	@cp -r $(DIST)/linux/. $(DIST)/pack/$(ZIPNAME)/
+	@printf 'I KNOW WHAT I SAW\n\nRun ./run.sh\n(or ./iknowwhatisaw - SDL is bundled in lib/)\n' \
+	    > $(DIST)/pack/$(ZIPNAME)/README.txt
+	@cd $(DIST)/pack && tar czf ../$(ZIPNAME)-linux.tar.gz $(ZIPNAME)
+	@rm -rf $(DIST)/pack
+	@echo "linux tarball -> $(DIST)/$(ZIPNAME)-linux.tar.gz"
+
 dist-clean:
 	rm -rf $(DIST)
 
 clean:
 	rm -rf build *.o
 
-.PHONY: pc ascii esp32 flash run run-ascii check clean \
+.PHONY: pc ascii esp32 flash run run-ascii check clean zip zip-windows zip-linux \
         dist dist-linux dist-windows vendor-sdl dist-clean

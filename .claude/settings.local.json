@@ -6,10 +6,18 @@
       "Read(//home/legion/Desktop/I KNOW WHAT I SAW - C VERSION\\\\ /**)",
       "Bash(cd \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION \" && sed -n '/^void title_render/,/^}/p' src/game/intro.c)",
       "Bash(cd \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION \" && sed -n '/^int game_init/,/^}/p' src/game/game.c)",
-      "Bash(cd \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION \" && grep -n \"static void draw_static\" -A 12 src/game/intro.c | head -16; echo \"=== game.c dispatch ===\"; sed -n '/^void game_update/,/^}/p' src/game/game.c)"
+      "Bash(cd \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION \" && grep -n \"static void draw_static\" -A 12 src/game/intro.c | head -16; echo \"=== game.c dispatch ===\"; sed -n '/^void game_update/,/^}/p' src/game/game.c)",
+      "Bash(unzip -l dist/iknowwhatisaw-0.1.0-windows.zip)",
+      "Bash(rm -rf /tmp/dl)",
+      "Bash(mkdir /tmp/dl)",
+      "Read(//tmp/**)",
+      "Bash(unzip -q \"/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /dist/iknowwhatisaw-0.1.0-windows.zip\")",
+      "Read(//home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /iknowwhatisaw-0.1.0/**)"
     ],
     "additionalDirectories": [
-      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game"
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /src/game",
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION ",
+      "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /iknowwhatisaw-0.1.0"
     ]
   }
 }

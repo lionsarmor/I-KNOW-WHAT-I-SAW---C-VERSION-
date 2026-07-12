@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "iknowwhatisaw",
-    "project_version":    "b523208-dirty",
+    "project_version":    "afbb93f-dirty",
     "project_path":       "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32",
     "idf_path":           "/home/legion/esp/esp-idf",
     "build_dir":          "/home/legion/Desktop/I KNOW WHAT I SAW - C VERSION /platform/esp32/build",

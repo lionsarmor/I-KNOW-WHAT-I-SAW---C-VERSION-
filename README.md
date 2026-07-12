@@ -1,202 +1,318 @@
-# I KNOW WHAT I SAW
+# 🛸 I KNOW WHAT I SAW
 
-A retro top-down RPG boilerplate that runs the *same game code* on modern
-computers and on small, cheap, hackable chips.
+> **October 3rd, 1987.** The lights came to the farm.
+> Your crops are flat in circles. The cows won't go near the pond.
+> The dog has been barking at the sky all week and he is not sorry.
 
-October 3rd, 1987. The lights came to the farm. A farmer, his crops
-flattened in circles, sets out for town — and the visitors are still
-out there, wandering the fields.
+A retro alien-abduction RPG in **portable C99** — the *same game code* runs on
+a PC, in your terminal, and on a $4 microcontroller. 👽
 
-- Creepy intro cinematic → **BAM** → title screen
-- Zelda/Pokemon-style overworld: walking, collision (walls *and* people),
-  a scrolling camera, NPCs with dialog, enterable buildings, five maps
-  (farm, town, and three interiors) connected by roads and doors
-- Turn-based battles when a visitor catches you — or when you walk into
-  one — with HP, XP, levels, and a data-driven enemy species table
-- **FIGHT / SHOOT / ITEM / RUN**: find the family shotgun and blast them
-  (muzzle flash, pellets, recoil — and it eats shells); chew a herb or
-  crack a medkit mid-fight
-- **Day/night cycle** — dusk falls, the outdoors goes moonlit and dark,
-  and the lamps stay on indoors
-- 2-channel chiptune synth (square wave + noise), per-map ambience
-- **Everything** — sprites, tiles, maps, font, sounds, the cast — is
-  human-readable text you can edit with no tools
+---
 
-## Quick start
+## 🎮 Play it
 
-```
-sudo apt install build-essential libsdl2-dev    # or brew install sdl2
+```sh
+sudo apt install build-essential libsdl2-dev     # or: brew install sdl2
 make run
 ```
 
-One command per platform:
+**Controls** — arrows/WASD move · `Z`/space = **A** · `X` = **B** · `Enter` = **START**
+`Esc` = pause menu · `F11` / `Alt+Enter` = fullscreen
+
+🎮 **Gamepads just work.** Xbox, Switch Pro, DualShock, no-name USB — plug one in
+mid-game and it's picked up automatically. `OPTIONS → CONTROLS` shows what's
+connected, and lets you swap A/B and toggle rumble.
+
+---
+
+## 🔨 Build commands
+
+| Command | What you get |
+|---|---|
+| `make run` | 🖥️ build **and launch** the desktop game |
+| `make pc` | 🖥️ desktop binary → `build/iknowwhatisaw` |
+| `make ascii` | ⌨️ **the whole game in your terminal** → `build/iknowwhatisaw-ascii` |
+| `make esp32` | 🔌 the handheld (ESP-IDF) |
+| `make flash` | 🔌 esp32 + flash + serial monitor |
+| `make check` | ✅ **the tripwire** — proves the core still compiles freestanding |
+| `make dist` | 📦 **shippable Linux + Windows builds** (see below) |
+| `make clean` | 🧹 |
+
+`make ascii` needs **no SDL at all** — it renders every frame as coloured ASCII in
+any terminal ≥ 120×40. Same game, same code, zero graphics libraries.
+
+---
+
+## 📦 Shipping it (Steam, itch.io, a zip file)
+
+```sh
+sudo apt install mingw-w64      # once, for the Windows cross-compile
+make dist
+```
+
+That produces **two self-contained folders**. Point a Steam depot at each and ship —
+the player needs nothing installed, SDL travels with the game:
 
 ```
-make pc          # desktop (SDL2)            -> build/iknowwhatisaw
-make ascii       # THE GAME IN YOUR TERMINAL -> build/iknowwhatisaw-ascii
-make esp32       # the handheld (ESP-IDF)    -> platform/esp32/build/
-make flash       # esp32 + flash + serial monitor
+dist/linux/     iknowwhatisaw  +  lib/libSDL2-2.0.so.0  +  run.sh
+dist/windows/   iknowwhatisaw.exe  +  SDL2.dll
 ```
 
-`make ascii` needs no SDL at all — it renders every frame as colored
-ASCII characters (`--mono` for pure ASCII) in any terminal that's at
-least 120x40. Same game, same code, zero graphics libraries.
+🐧 **Linux** bundles SDL next to the binary with an `$ORIGIN/lib` rpath rather than
+static-linking it. A *static* SDL2 still drags in ~50 system libraries (X11, Wayland,
+PulseAudio, ALSA…) and pins you to one distro's versions of them. Bundling the `.so`
+is what actually survives the trip between machines — and it's what the Steam Linux
+Runtime expects.
 
-Controls: arrows/WASD move · Z (or space) = A · X = B · Enter = START · Esc quits.
+🪟 **Windows** is cross-compiled with mingw-w64 and built as a GUI subsystem app
+(no console window pops up behind the game). The SDL2 Windows SDK is vendored in
+`vendor/` — `make vendor-sdl` re-fetches it.
 
-## The architecture (read this before hacking)
+💾 **Saves and settings go to the OS's per-user folder**, never next to the binary
+(a shipped game lives somewhere read-only):
+
+| | |
+|---|---|
+| Windows | `%APPDATA%\Weeks\I Know What I Saw\` |
+| Linux | `~/.local/share/Weeks/I Know What I Saw/` |
+| macOS | `~/Library/Application Support/Weeks/…` |
+
+Change the `SAVE_ORG` / `SAVE_APP` strings in
+[main_sdl.c](platform/desktop/main_sdl.c) to whatever you register on Steam.
+
+---
+
+## 🌾 What's in the game
+
+**🚜 The overworld** — Zelda-style. Walking, collision, a scrolling camera, NPCs who
+talk, enterable buildings, eight maps (farm, town, three interiors, the north ridge,
+the wrecked Hollis place, the grocery-store car park) wired together by roads and doors.
+
+**⚔️ Two ways to fight, and they're the same wound**
+- **Turn-based battles** — `FIGHT / SHOOT / ITEM / RUN`, HP, XP, levels, and every
+  creature has special moves drawn from its legend.
+- **Zelda mode** — once you have the family shotgun you can just *shoot things in the
+  field*. They stagger, get knocked back, and come apart in a bloody mess.
+- 🩸 **Damage carries across.** Put four shells into the goblin and let it catch you
+  anyway, and it walks into the battle **bleeding**, with a visibly short bar. Hurt
+  something in a fight and *run*, and it's still hurt when you shoot at it.
+- A field kill is quicker and more dangerous, so it pays **60%** of the XP. Walking
+  into one instead gets you the full amount.
+
+**🐜 The bestiary** — giant ants, soldier ants, **ANT HILLS** that never move and just
+keep making more, the **MUTANT QUEEN** (bloated, winged, and *faster than you can run*),
+the Hopkinsville goblin, the Dover demon, Mothman, the chupacabra, the greys, reptoids,
+Loch Ness, sasquatch, dogman, and **THE TALL ONE** — grey, red-eyed, arms past the knees,
+and it doesn't charge. It's just closer every time you look up.
+
+**🌒 Day and night** — dusk falls, the outdoors goes moonlit and cold. Your flashlight
+cuts a white hole in it; sodium street lamps cut warm orange ones and *flicker*, because
+the ones out there always do.
+
+**🎒 Items** — herbs, medkits, shells, the family shotgun, a flashlight that matters, a
+brass key, and **PA'S TNT** (it was for stumps). The pack starts *empty* and only lists
+what you've actually found, so it never spoils an item you haven't met.
+
+**🎁 The kindness of strangers** — on every map, exactly **one** person is holding
+something for you, drawn at random when you walk in. You won't know who until you talk
+to them. Resets on the day clock, so you can't farm it by door-scumming.
+
+**💀 Death costs you.** Lose 50% of your XP.
+
+**🌅 The world resets.** Kill something and it *stays* dead — walk out, walk back, still
+gone. Then the sun comes up and they've dug their way back out. Bosses die once, forever.
+
+**🎬 Scary cutscenes** — a creeping intro (a light in the sky, a face that lunges once,
+words in the static you almost don't read), and a driving sequence down a night highway
+that ends the way you know it ends.
+
+**💾 Save games, a pause menu, an options screen** — separate music/SFX volume, fullscreen,
+gamepad settings. All of it persists.
+
+---
+
+## 🎵 The music
+
+A **software tracker**, written from scratch, no floats, no libc:
+
+- 🎹 Multiple voices — a bassline *under* a melody
+- 📈 **Envelopes** — notes swell and decay instead of switching on and off
+- 🌊 Pulse (three widths), triangle, sawtooth, noise
+- 〰️ **Vibrato**, so a held note wavers like somebody's playing it
+- 🥁 **Pitch slide** — a pitch falling off a cliff is what your ear hears as a *hit*.
+  That's the whole trick behind the drum kit.
+
+Songs for the farm, the town, battles, boss fights, the highway, the title, and the end
+of the prologue. The whole score is in **A minor** and leans on the flat second and the
+tritone — the two most uncomfortable intervals in western music. They never resolve.
+That's deliberate.
+
+| | Desktop | ESP32 |
+|---|---|---|
+| Sample rate | 44.1 kHz | 22.05 kHz |
+| Voices | 8 | 4 |
+
+Same songs, same code. A song with more tracks than the machine has voices simply
+loses its *last* tracks — which is why every song is ordered **lead → bass → drums →
+sweetening**. The little chip keeps the tune and the drums and loses the pad.
+
+---
+
+## 🏛️ The architecture (read this before hacking)
 
 ```
-src/game/        THE GAME. Portable C99. No OS, no malloc, no files,
-                 no floats. This code does not know what a computer is.
-platform/        One small file per machine. Its whole job:
-  desktop/         call game_update(buttons) 60x per second,
-  esp32/           put game_framebuffer() on a screen,
-  terminal/        feed game_audio_fill() to a speaker.
-                   (terminal/ proves the point: a "screen" can
-                   even be stdout printing ASCII characters.)
+src/game/     THE GAME. Portable C99. No OS, no malloc, no files, no floats.
+              This code does not know what a computer is.
+
+platform/     One small file per machine. Its whole job:
+  desktop/      call game_update(buttons) 60× a second,
+  esp32/        put game_framebuffer() on a screen,
+  terminal/     feed game_audio_fill() to a speaker.
 ```
 
 The contract between the two halves is **four functions** in
-[game.h](src/game/game.h). A platform layer is ~200 lines. That's why this
-can run on an ESP32, a bare-metal Raspberry Pi, a RISC-V board, or a Steam
-build — port the thin layer, never the game.
+[game.h](src/game/game.h). A platform layer is ~200 lines. That's why this can run on
+an ESP32, a bare-metal Pi, a RISC-V board, or Steam — *port the thin layer, never the
+game.*
 
-**The golden rule:** never include an OS header (or SDL, or ESP-IDF) inside
-`src/game/`. Run `make check` to prove the core still compiles freestanding
-(no OS, no libc) — do this often; it's the tripwire that keeps the game
-portable to bare metal.
+> ⛔ **The golden rule:** never include an OS header (or SDL, or ESP-IDF) inside
+> `src/game/`.
+>
+> ✅ Run **`make check`** to prove it. It compiles the core `-ffreestanding
+> -fno-builtin` — no OS, no libc. Run it often. It is the tripwire that keeps this
+> game portable to bare metal.
 
-### Where everything lives
+The platform also owns anything the core can't: **saving** (a file here, NVS there),
+**the window**, **gamepads**, **rumble**. Each is a tiny protocol in `game.h` — the core
+records what the player *wants* and the platform makes it so. That's why `OPTIONS` shows
+a `DISPLAY` row on the PC and not on the handheld: a menu row that does nothing when you
+press it is a lie.
 
-| You want to... | Go to |
+---
+
+## 🗺️ Where everything lives
+
+| You want to… | Go to |
 |---|---|
-| Change resolution, speeds, HP, buttons | [src/game/config.h](src/game/config.h) |
-| **Day/night length, night darkness** | `DAY_LEN_TICKS` etc. in [config.h](src/game/config.h) |
-| **Add an item (heal, ammo, weapon)** | recipe: "THE ITEMS" in [assets.h](src/game/assets.h) · table: end of [assets.c](src/game/assets.c) |
-| **Add an enemy species or NPC look** | recipe: "THE CAST" in [assets.h](src/game/assets.h) · tables: end of [assets.c](src/game/assets.c) |
-| **Add an NPC + dialog, place enemies, drop items** | spawn lists in [assets/maps.h](src/game/assets/maps.h) |
-| **Add a map / an enterable building** | recipe at top of [assets/maps.h](src/game/assets/maps.h) |
-| Edit / add character sprites (ASCII art) | [src/game/assets/sprites.h](src/game/assets/sprites.h) |
-| Edit / add map tiles (ASCII art) | [src/game/assets/tiles.h](src/game/assets/tiles.h) |
-| Change colors (the palette) | top of [src/game/assets.c](src/game/assets.c) |
-| Add sound effects / music | [src/game/audio.c](src/game/audio.c) |
-| Edit the font | [src/game/assets/font.h](src/game/assets/font.h) |
-| The intro & title screen | [src/game/intro.c](src/game/intro.c) |
-| Walking, camera, doors, dialog box | [src/game/overworld.c](src/game/overworld.c) |
-| The battle system, game over | [src/game/battle.c](src/game/battle.c) |
-| Add a whole new scene (menu, shop...) | recipe at top of [src/game/game_internal.h](src/game/game_internal.h) |
-| Keyboard mapping | [platform/desktop/main_sdl.c](platform/desktop/main_sdl.c) |
-| ESP32 pins / wiring | [platform/esp32/main/esp32_main.c](platform/esp32/main/esp32_main.c) |
+| 🎛️ Resolution, walk speed, HP, buttons, **every tunable number** | [config.h](src/game/config.h) |
+| 🌗 Day/night length, night darkness, lamp radius | `DAY_LEN_TICKS` etc. in [config.h](src/game/config.h) |
+| 🔫 How many shells an enemy takes in the field | `ow_hits` in `species[]`, [assets.c](src/game/assets.c) |
+| 🐜 Ant-hill spawn rate, TNT damage, boss chase speed | [config.h](src/game/config.h) |
+| 👹 Add an enemy species / NPC look | recipe: "THE CAST" in [assets.h](src/game/assets.h) · tables in [assets.c](src/game/assets.c) |
+| 🎒 Add an item | recipe: "THE ITEMS" in [assets.h](src/game/assets.h) |
+| 🗣️ Add an NPC + dialog, place enemies, drop items | spawn lists in [assets/maps.h](src/game/assets/maps.h) |
+| 🏠 Add a map / an enterable building | recipe at top of [assets/maps.h](src/game/assets/maps.h) |
+| 🎨 Sprites, tiles, the font (all ASCII art) | [assets/sprites.h](src/game/assets/sprites.h) · [tiles.h](src/game/assets/tiles.h) · [font.h](src/game/assets/font.h) |
+| 🌈 The colour palette | `pal()` at the top of [assets.c](src/game/assets.c) |
+| 🎵 Write a song / a sound effect | [audio.c](src/game/audio.c) |
+| 🎬 Intro, title, options, pause | [intro.c](src/game/intro.c) |
+| 🚶 Walking, camera, doors, dialog, the pack, Zelda mode | [overworld.c](src/game/overworld.c) |
+| ⚔️ Battles, game over | [battle.c](src/game/battle.c) |
+| 🚐 The driving cutscene, END OF PROLOGUE | [cutscene.c](src/game/cutscene.c) |
+| ➕ A whole new scene (shop? map screen?) | recipe at top of [game_internal.h](src/game/game_internal.h) |
+| ⌨️ Keyboard & gamepad mapping | [main_sdl.c](platform/desktop/main_sdl.c) |
+| 🔌 ESP32 pins / wiring | [esp32_main.c](platform/esp32/main/esp32_main.c) |
 
-Every one of those files opens with a comment explaining its recipe
-("TO ADD A TILE: ...", "TO ADD A SOUND: ...").
+Every one of those files opens with a comment explaining its recipe.
 
-### The 60-second content recipes
+---
 
-**A new enemy** — add `SPECIES_MANTIS` to the enum in `assets.h`, one row
-of stats in the `species[]` table in `assets.c` (reuse existing sprites
-with a different `bright` for an instant palette-swap villain), then
-spawn it on any map: `{ ENT_ALIEN, 12, 7, SPECIES_MANTIS, 0 }`. Wandering,
-ambushes, battles, XP — all automatic.
+## ⚡ The 60-second content recipes
 
-**A new item** — add `ITEM_LANTERN` to the enum in `assets.h`, draw its
-sprite, add one row to `item_info[]` in `assets.c` (name, sprite, the
-line it says when you grab it), then drop it on any map:
-`{ ENT_ITEM, 12, 16, ITEM_LANTERN, 0 }`. Walking into it pockets it —
-chime, message, gone for the rest of the run. Healing items appear in
-the battle ITEM menu; `HERB_HEAL` and friends live in `config.h`.
+**👾 A new enemy** — add `SPECIES_MANTIS` to the enum in `assets.h`, one row of stats in
+`species[]` in `assets.c`, then spawn it on any map:
+`{ ENT_ALIEN, 12, 7, SPECIES_MANTIS, 0 }`.
+Wandering, chasing, ambushes, battles, XP, gore — all automatic.
 
-**A new NPC with dialog** — one line in a map's spawn list:
+**🎒 A new item** — an id in the enum, a sprite, one row in `item_info[]`, then drop it:
+`{ ENT_ITEM, 12, 16, ITEM_LANTERN, 0 }`. Walking into it pockets it.
+
+**🗣️ A new NPC** — one line in a map's spawn list:
 `{ ENT_NPC, 9, 4, LOOK_VILLAGER, "THE PIGS SCREAM AT NOTHING NOW." }`
-They stand, breathe, block your path, and talk when you face them and
-press A. Want a new look? Draw two idle frames in `sprites.h` and add a
-`LOOK_*` row to `npc_looks[]`.
+Write a `~` anywhere in the line and it becomes the player's name.
 
-**An enterable building** — draw the interior as its own little map
-(minimum 15x10), put a doormat `M` in its wall gap, add one warp on the
-outside door and one on the mat. Full walkthrough at the top of
-`assets/maps.h`. A door with no warp is automatically "locked".
+**🎵 A new song** — an id in the `MUSIC_*` enum, a few note tracks, one row in
+`song_table[]`. `NOTE(N_A, 4)` is an A above middle C.
 
-**A different player character** — the hero is the nine `SPR_ART_FARMER_*`
-drawings in `sprites.h` (3 frames × 3 directions; left is mirrored for
-right). Redraw them and the game stars whoever you want. The 16-bit
-style rules (outlines, one shade color) are written at the top of that
-file so new art matches.
+---
 
-### How the art works
+## 🖼️ How the art works
 
-Sprites and tiles are ASCII drawings, one character per pixel, decoded at
-boot. The palette letters are defined once in `assets.c`:
+Every sprite, tile and map is an **ASCII drawing**, one character per pixel, decoded at
+boot. No tools, no binary blobs, no asset pipeline — open the header and draw.
 
 ```c
-static const char *SPR_ART_ALIEN_0[16] = {
-    "................",
-    ".....aaaaaa.....",      /* a = alien green  */
-    "....aaaaaaaa....",
-    "...a00aaaa00a...",      /* 0 = near-black   */
+static const char *SPR_ART_TALL_0[16] = {
+    "......0aa0......",
+    ".....0aaaa0.....",
+    ".....0raar0.....",   /* r = red. the eyes. they do not blink. */
+    ".....0aaaa0.....",
+    "......0aa0......",   /* the neck is too long as well */
     ...
 ```
 
-Maps are the same idea, one character per 16x16 tile:
+Maps are the same idea, one character per 16×16 tile:
 
 ```
-"T..RRRRR.....................T",     T tree   R roof   # path
-"T..HHDHH....,................T",     H wall   D door   . grass
-"T....#########################",     <- the road out of the farm
+"T..RRRRR.....................T"     T tree   R roof   # path
+"T..HHDHH....,................T"     H wall   D door   . grass
+"T....#########################"     <- the road out of the farm
 ```
 
-If art is malformed (a row too short, an unknown letter) the game still
-boots — you get loud magenta pixels at the mistake and a warning count
-from `game_init()`.
+🚨 If art is malformed — a row too short, a palette letter that doesn't exist, a spawn
+placed inside a wall, a line of dialog too long for its buffer — **the game still boots**
+and `game_init()` hands the platform an error count. Mistakes show up as loud magenta
+pixels, not as silent corruption.
 
-## Testing / debugging
+---
 
-- All state lives in one struct, `G` ([game_internal.h](src/game/game_internal.h)) —
-  put a breakpoint anywhere and inspect the entire game.
-- `./build/iknowwhatisaw --frames 600 --shot 300 out.bmp` runs headless-ish
-  for CI and saves a screenshot of any frame.
-- The core is deterministic (fixed timestep + own RNG): the same inputs
-  always replay the same game on every platform.
+## 🔬 Testing & debugging
 
-## ESP32
+- 🧠 **All state lives in one struct**, `G` ([game_internal.h](src/game/game_internal.h)).
+  Break anywhere, inspect the entire game.
+- 📸 `./build/iknowwhatisaw --frames 600 --shot 300 out.bmp` — run headless and screenshot
+  any frame. Works under `SDL_VIDEODRIVER=dummy` for CI.
+- 🎲 The core is **deterministic** (fixed timestep + its own RNG): the same inputs replay
+  the same game on every platform.
 
-A skeleton platform layer for ESP-IDF v5 lives in
-[platform/esp32/](platform/esp32/) and builds the *same* core sources.
-It supports **two wirings**, selected by the `BOARD_C3_SUPER_MINI` define
-at the top of `esp32_main.c` (full pin tables in the same comment):
+---
 
-- **ESP32-C3 Super Mini handheld** (the default): 1.69" ST7789 240x280
-  display, buttons on a PCF8574 I2C expander, sound through a MAX98357A
-  I2S amp. No START button — hold **A+B together** for START. Logs go
-  over the native USB port (the UART pins are repurposed for audio).
-- **Classic ESP32 devkit**: 320x240 ILI9341, one GPIO per button, no audio.
+## 🔌 The handheld (ESP32)
 
-```
+The same core, unchanged, on an **ESP32-C3 Super Mini**: ST7789 display, buttons on a
+PCF8574 I2C expander, sound through a MAX98357A I2S amp, saves in NVS. Pin tables are in
+the comment at the top of [esp32_main.c](platform/esp32/main/esp32_main.c).
+
+```sh
 cd platform/esp32 && idf.py set-target esp32c3 && idf.py build flash monitor
 ```
 
-(For the devkit wiring: set the define to 0 and `set-target esp32`.)
+Currently **~68% of the app partition free**. Audio drops to 4 voices at 22 kHz
+(see the `target_compile_definitions` in its `CMakeLists.txt`).
 
-Status: written but not yet run on hardware — expect to tweak pins,
-orientation, color order (`BGR`/`RGB`) and the ST7789's `invert_color`.
+⚠️ **Status: not yet run on hardware.** Expect to tweak pins, orientation, colour order
+(`BGR`/`RGB`), and the ST7789's `invert_color`.
 
-## Porting to a new machine (bare-metal Pi, RISC-V board, ...)
+---
 
-Copy `platform/desktop/main_sdl.c` as your template and replace its four
-duties: a 60 Hz loop, button reads, a framebuffer blit, an audio sink
-(optional — silence is fine). The core needs **~92 KB of RAM**
-(77 KB framebuffer + ~15 KB decoded art + game state) and no FPU.
+## 🧭 Porting to a new machine
 
-## Ideas wired and waiting
+Copy [main_sdl.c](platform/desktop/main_sdl.c) as your template and implement its four
+duties: a 60 Hz loop, button reads, a framebuffer blit, an audio sink (optional — silence
+is fine). Everything else — saving, the window, pads — is an *optional* protocol you can
+ignore.
 
-- Items/inventory: new scene (see the scene recipe), new battle menu entry
-- Battle & town music: compose in `audio.c` (the farm drone shows how),
-  pick per-map tracks in `overworld_enter_map()`
-- Species with unique art: the TALL ONE currently reuses the grey's
-  sprites drawn darker — draw it its own frames and point its
-  `species[]` row at them
-- Boss fights: a species with big stats + a scripted spawn is 90% there
-- Save games: serialize `G.player` — the platform layer owns storage
-  (a file on desktop, NVS on ESP32), keep the core clean of it
-- A second joystick button... you get it. The hooks are all labeled.
+The core needs **~92 KB of RAM** (77 KB framebuffer + decoded art + game state) and
+**no FPU**.
+
+---
+
+## 📋 Known gaps
+
+- 🪟 The Windows `.exe` cross-compiles and links cleanly, but **has not been run on an
+  actual Windows machine** yet.
+- 🎮 Gamepad support is written and the menus work, but **no physical pad has been
+  pressed** — it needs a human with an Xbox or Switch Pro controller.
+- 🔌 The ESP32 build has **never been flashed to real hardware**.
+- 🔊 The handheld doesn't persist its volume settings yet (its NVS store is right there).
+- 📖 Part 1 doesn't exist. `CONTINUE` at END OF PROLOGUE starts you over.
