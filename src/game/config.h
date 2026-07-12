@@ -212,6 +212,13 @@
  * all -- the message is drawn and gone inside two frames. */
 #define MSG_MIN_TICKS 26
 
+/* THE DEATH SCREEN. The four lines land at t = 30 / 90 / 150 / 200, so nothing
+ * may be pressed until after the last one has been up long enough to read.
+ * It used to accept input at t=30 and offer "PRESS START" at t=180 -- before
+ * the final line had even appeared. You could be back on the farm without ever
+ * learning what it cost you. */
+#define GAMEOVER_READ_TICKS 250
+
 /* ---- Buttons --------------------------------------------------------------
  * The abstract gamepad. The CORE only ever sees these bits; each platform
  * decides what physical key / GPIO pin produces them.

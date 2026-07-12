@@ -200,7 +200,12 @@ something for you, drawn at random when you walk in. You won't know who until yo
 to them. They still say **their own written line first** — a random gift never costs you
 a piece of the story. Resets on the day clock, so you can't farm it by door-scumming.
 
-**💀 Death costs you.** Lose 50% of your XP.
+**💀 Death costs you.** Lose 50% of your XP — and **you have to sit and read why.** The
+death screen accepts no input until all four lines are out (`GAMEOVER_READ_TICKS`); the
+PRESS START prompt appears at exactly the tick the button starts working, never before.
+And **THE TALL ONE is standing behind the words** — seven times life size, fading up so
+slowly you're not sure it's there until it is, flickering out for a frame now and then.
+It never gets anywhere near lit. You didn't see it in the fight. You're seeing it now.
 
 **🌅 The world resets.** Kill something and it *stays* dead — walk out, walk back, still
 gone. Then the sun comes up and they've dug their way back out. Bosses die once, forever.
@@ -307,6 +312,7 @@ in a browser), **the window**, **gamepads**, **rumble**. Each is a tiny protocol
 | 🔫 How many shells an enemy takes in the field | `ow_hits` in `species[]`, [assets.c](src/game/assets.c) |
 | 🐜 Ant-hill spawn rate, TNT damage, boss chase speed | [config.h](src/game/config.h) |
 | 📖 How long battle text must stay up before A works | `MSG_MIN_TICKS` in [config.h](src/game/config.h) |
+| 💀 How long the death screen holds you | `GAMEOVER_READ_TICKS` in [config.h](src/game/config.h) |
 | 🚐 How big the van is in the overworld | `VAN_SCALE` in [assets.h](src/game/assets.h) |
 | 👹 Add an enemy species / NPC look | recipe: "THE CAST" in [assets.h](src/game/assets.h) · tables in [assets.c](src/game/assets.c) |
 | 🎒 Add an item | recipe: "THE ITEMS" in [assets.h](src/game/assets.h) |

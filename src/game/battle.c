@@ -690,7 +690,8 @@ void battle_render(void)
 
 void gameover_update(void)
 {
-    if (G.t > 30 && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
+    /* You read it. All of it. See GAMEOVER_READ_TICKS. */
+    if (G.t > GAMEOVER_READ_TICKS && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
         /* You wake up in your own field. Hurt, but alive.
          *
          * THE PRICE: half the experience you'd banked toward your next
@@ -704,9 +705,76 @@ void gameover_update(void)
     }
 }
 
+/* Text with a black halo, so it reads over ANYTHING without needing a panel
+ * behind it. The death screen needs this: a solid plate behind the words
+ * would box a hole out of the shape standing behind them, which is the one
+ * thing on that screen worth looking at. */
+static void ghost_text(int x, int y, const char *s, uint16_t col)
+{
+    static const int off[8][2] = {
+        {-1,-1},{0,-1},{1,-1},{-1,0},{1,0},{-1,1},{0,1},{1,1}
+    };
+    for (int i = 0; i < 8; i++)
+        gfx_text(x + off[i][0], y + off[i][1], s, RGB565(4, 4, 6));
+    gfx_text(x, y, s, col);
+}
+
+/* the dead channel behind the death screen -- its own noise, so it can't
+ * disturb the game's rng (damage rolls must stay reproducible) */
+static uint32_t dead_seed = 0x7F4A7C15u;
+static uint32_t dead_noise(void)
+{
+    dead_seed ^= dead_seed << 13;
+    dead_seed ^= dead_seed >> 17;
+    dead_seed ^= dead_seed << 5;
+    return dead_seed;
+}
+
 void gameover_render(void)
 {
     gfx_clear(0);
+
+    /* ---- IT IS STANDING BEHIND THE WORDS ---------------------------------
+     * THE TALL ONE, drawn seven times life size in the dark. It fades up so
+     * slowly you are not sure it is there until it is -- and it never gets
+     * anywhere near lit, so you never get a good look at it. Every so often
+     * it simply isn't there for a frame.
+     *
+     * You didn't see it in the fight. You are seeing it now.
+     */
+    {
+        const int scale = 7;                       /* 16x16 art -> 112x112 */
+        int fx = (SCREEN_W - TILE * scale) / 2;
+        int fy = (SCREEN_H - TILE * scale) / 2 - 4;
+
+        /* creeps in, and stops well short of visible */
+        int b = (int)G.t / 5;
+        if (b > 40) b = 40;
+        b += (int)((G.t / 9) % 5);                 /* it breathes */
+
+        /* ...and it flickers out. Did it move? */
+        if (b > 0 && (dead_noise() & 63) != 0)
+            gfx_blit_ex(sprites[SPR_TALL_0].px, TILE, TILE, fx, fy,
+                        scale, b, 0);
+
+        /* THE EYES. They come up last, and they do not blink. The art puts
+         * them at columns 6 and 9 of row 2 (see SPR_ART_TALL_0). */
+        if (G.t > 140) {
+            int pulse = 45 + (int)((G.t / 4) % 45);
+            uint16_t glow = gfx_dim(RGB565(255, 40, 30), pulse);
+            gfx_fill_rect(fx + 6 * scale, fy + 2 * scale, scale, scale, glow);
+            gfx_fill_rect(fx + 9 * scale, fy + 2 * scale, scale, scale, glow);
+        }
+    }
+
+    /* the signal is bad and getting worse */
+    for (int i = 0; i < 26; i++) {
+        uint32_t r = dead_noise();
+        uint8_t v = (uint8_t)(r >> 20);
+        gfx_pixel((int)(r % SCREEN_W), (int)((r >> 9) % SCREEN_H),
+                  gfx_dim(RGB565(v, v, v), 90));
+    }
+
     uint16_t red  = RGB565(216, 40, 32);
     uint16_t gray = RGB565(120, 120, 120);
 
@@ -714,17 +782,23 @@ void gameover_render(void)
     const char *l2 = "YOU WOKE IN YOUR OWN FIELD.";
     const char *l3 = "SIX HOURS ARE MISSING.";
     const char *l4 = "SO IS HALF OF WHAT YOU KNEW.";
+
+    /* haloed, NOT plated -- the shape behind stays whole */
     if (G.t > 30)
-        gfx_text((SCREEN_W - gfx_text_width(l1, 1)) / 2, 48, l1, gray);
+        ghost_text((SCREEN_W - gfx_text_width(l1, 1)) / 2, 48, l1, gray);
     if (G.t > 90)
-        gfx_text((SCREEN_W - gfx_text_width(l2, 1)) / 2, 64, l2, gray);
+        ghost_text((SCREEN_W - gfx_text_width(l2, 1)) / 2, 64, l2, gray);
     if (G.t > 150)
-        gfx_text((SCREEN_W - gfx_text_width(l3, 1)) / 2, 80, l3, red);
+        ghost_text((SCREEN_W - gfx_text_width(l3, 1)) / 2, 80, l3, red);
     if (G.t > 200)
-        gfx_text((SCREEN_W - gfx_text_width(l4, 1)) / 2, 96, l4, red);
-    if (G.t > 180 && G.t % 60 < 40) {
+        ghost_text((SCREEN_W - gfx_text_width(l4, 1)) / 2, 96, l4, red);
+
+    /* The prompt appears EXACTLY when the button starts working -- not one
+     * tick before. The screen never invites you to leave while it is still
+     * talking to you. */
+    if (G.t > GAMEOVER_READ_TICKS && (G.t % 60) < 40) {
         const char *p = "PRESS START";
-        gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 120, p,
-                 RGB565(255, 255, 255));
+        ghost_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 120, p,
+                   RGB565(255, 255, 255));
     }
 }
