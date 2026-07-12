@@ -5,3 +5,12 @@ platform/android/local.properties
 platform/android/.gradle/
 platform/android/app/build/
 platform/android/app/jni/SDL
+
+# ---- build output. NEVER commit this. -------------------------------------
+# These were tracked once (189MB of .o/.elf/.a across 1400 files) and every
+# rebuild produced a megabyte of binary churn. gitignore does nothing for a
+# file that is already tracked -- they had to be `git rm --cached`'d out.
+platform/esp32/build/
+
+# local editor / tool state, not project state
+.claude/settings.local.json
