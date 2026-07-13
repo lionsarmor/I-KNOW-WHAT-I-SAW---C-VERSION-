@@ -135,9 +135,20 @@ enum {
     NUM_MUSIC
 };
 
+/* ---- AMBIENCE -------------------------------------------------------------
+ * A looping bed under the music: crickets after dark, wind on the ridge,
+ * the hum of the power lines downtown. It borrows the TOP music voice, and
+ * only when the current song isn't using it -- on the desktop (8 voices)
+ * that's always; on the ESP32 (4 voices) a three-track song fills the
+ * music channels and the ambience politely stays out. Same rule as song
+ * tracks: the small machine loses the sweetening, never the tune.
+ */
+enum { AMB_NONE, AMB_CRICKETS, AMB_WIND, AMB_HUM, NUM_AMB };
+
 void audio_init(void);
 void audio_sfx(int id);
-void audio_music(int id);   /* MUSIC_NONE to stop */
+void audio_music(int id);     /* MUSIC_NONE to stop */
+void audio_ambient(int id);   /* AMB_NONE to stop; safe to call every tick */
 
 /* Master volumes, 0..255 each. The music and the effects are separate
  * because people want them separate: the score can be too loud while the

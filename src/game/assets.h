@@ -192,6 +192,8 @@ typedef struct {
 } species_t;
 
 extern const species_t species[NUM_SPECIES];
+extern const char *species_lore[NUM_SPECIES];  /* one line each, for the
+                                                  journal (see assets.c) */
 
 enum {
     LOOK_WITNESS, LOOK_SKEPTIC, LOOK_PA, LOOK_MA,

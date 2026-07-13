@@ -36,6 +36,7 @@ typedef enum {
     ST_GAMEOVER,    /* you blacked out...            (battle.c)    */
     ST_CHURCH,      /* PART 1 opens at mass          (cutscene.c)  */
     ST_PART1END,    /* ...and closes in an apartment (cutscene.c)  */
+    ST_JOURNAL,     /* WHAT I SAW -- the bestiary    (intro.c)     */
 } state_t;
 
 enum { DIR_DOWN, DIR_UP, DIR_LEFT, DIR_RIGHT };
@@ -115,6 +116,11 @@ typedef struct {
     uint32_t seed;       /* the shape, deterministic per pool         */
 } blood_t;
 #define MAX_BLOOD 48
+
+/* species_seen (below) is one bit per species. If the bestiary ever
+ * outgrows the mask, this line stops compiling instead of the seventeenth
+ * creature silently never being seen. */
+typedef char journal_mask_fits[(NUM_SPECIES <= 16) ? 1 : -1];
 
 /* ---- everything, in one struct you can inspect in a debugger -------------*/
 typedef struct {
@@ -274,6 +280,16 @@ typedef struct {
     int toast_good;      /* 0 = bad (red), 1 = good (green),
                             2 = GOLD -- reserved for leveling up */
 
+    /* THE JOURNAL -- "WHAT I SAW". Nobody believes you, but you wrote it
+     * down. A species is SEEN once you've fought it or dropped it in the
+     * field (walking past a shape in the dark doesn't count -- you have to
+     * have LOOKED at it). Kills cap at 255 and the journal shows 99+.
+     * Both ride the save blob (v10). */
+    uint16_t species_seen;                  /* bitmask by SPECIES_*      */
+    uint8_t  species_kills[NUM_SPECIES];
+    int      journal_sel;                   /* which page you're on      */
+    state_t  journal_from;                  /* who opened it: title/pack */
+
     /* When the world last restocked its items. See ITEM_RESPAWN_TICKS. */
     uint32_t last_restock;
 
@@ -339,6 +355,12 @@ void prologue_update(void);   void prologue_render(void);
 void drive_start(void);       /* the van pulls out */
 void battle_update(void);     void battle_render(void);
 void gameover_update(void);   void gameover_render(void);
+void journal_update(void);    void journal_render(void);
+void journal_start(state_t from);  /* ST_TITLE or ST_PACK: where B goes  */
+void journal_saw(int kind);        /* you got a LOOK at it (battle/kill) */
+void journal_kill(int kind);       /* ...and you put it down             */
+void species_colors(int kind, uint16_t *edge, uint16_t *text);
+                                   /* the strength tiers (battle.c)      */
 void church_update(void);     void church_render(void);
 void part1_start(void);       /* new man, new city: begins at mass */
 void part1end_update(void);   void part1end_render(void);

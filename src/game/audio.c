@@ -463,6 +463,50 @@ static const sfx_step_t sx_talk1[]   = { { 494, 3, 85, W_PULSE25},
 static const sfx_step_t sx_talk2[]   = { { 440, 3, 85, W_PULSE25},
                                          { 523, 3, 60, W_PULSE25} };
 
+/* ===========================================================================
+ * THE AMBIENCE. Same step format as the sfx, but these LOOP -- the last
+ * step wraps back to the first and the bed just keeps breathing until
+ * audio_ambient() changes it. A freq of 0 is a rest. Volumes are LOW on
+ * purpose: this plays under whole songs for minutes at a time.
+ * ========================================================================= */
+/* CRICKETS: three uneven clusters of thin, reedy chirps around 4.3kHz,
+ * with long and DIFFERENT silences between them -- even gaps would tick
+ * like a clock, and a field at night does not tick. */
+static const sfx_step_t ax_crickets[] = {
+    {4300, 3, 55, W_PULSE12}, {0,  4,  0, W_PULSE12},
+    {4300, 3, 55, W_PULSE12}, {0,  4,  0, W_PULSE12},
+    {4400, 3, 50, W_PULSE12}, {0, 74,  0, W_PULSE12},
+    {4600, 3, 45, W_PULSE12}, {0,  4,  0, W_PULSE12},
+    {4600, 3, 45, W_PULSE12}, {0,112,  0, W_PULSE12},
+    {4200, 3, 55, W_PULSE12}, {0,  4,  0, W_PULSE12},
+    {4200, 3, 55, W_PULSE12}, {0,  4,  0, W_PULSE12},
+    {4250, 3, 50, W_PULSE12}, {0, 58,  0, W_PULSE12},
+};
+/* WIND: low, gritty noise that swells and dies in gusts that never quite
+ * repeat. The ridge is high ground; it never stops moving up there. */
+static const sfx_step_t ax_wind[]     = {
+    { 700, 80, 20, W_NOISE}, { 900, 90, 35, W_NOISE},
+    {1200, 70, 55, W_NOISE}, {1000, 90, 40, W_NOISE},
+    { 800,110, 25, W_NOISE}, {1100, 60, 45, W_NOISE},
+    {1400, 80, 60, W_NOISE}, { 900,120, 30, W_NOISE},
+};
+/* THE HUM. Brad says the hummin' is the power lines. The power is OUT
+ * downtown, and it's still humming: a low triangle wavering between
+ * neighbouring frequencies, flicking up an octave now and then like a
+ * transformer taking a breath. */
+static const sfx_step_t ax_hum[]      = {
+    {  55,100, 45, W_TRI},   { 110, 22, 28, W_TRI},
+    {  56,120, 45, W_TRI},   {  55, 90, 42, W_TRI},
+    { 111, 18, 26, W_TRI},   {  57,110, 46, W_TRI},
+};
+
+static const struct { const sfx_step_t *s; int n; } amb_table[NUM_AMB] = {
+    [AMB_NONE]     = { 0, 0 },
+    [AMB_CRICKETS] = { ax_crickets, sizeof ax_crickets / sizeof(sfx_step_t) },
+    [AMB_WIND]     = { ax_wind,     sizeof ax_wind     / sizeof(sfx_step_t) },
+    [AMB_HUM]      = { ax_hum,      sizeof ax_hum      / sizeof(sfx_step_t) },
+};
+
 static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
 #define SFXROW(id, arr) [id] = { arr, sizeof arr / sizeof(sfx_step_t) }
     SFXROW(SFX_BLIP,    sx_blip),
@@ -504,7 +548,7 @@ static uint32_t note_freq_q8(int note)      /* note: 1 = C0 */
     return semitone_q8[n % 12] << (n / 12);
 }
 
-enum { CH_IDLE, CH_SONG, CH_SFX };
+enum { CH_IDLE, CH_SONG, CH_SFX, CH_AMB };   /* AMB = a looping sfx */
 enum { ENV_ATTACK, ENV_DECAY, ENV_SUSTAIN, ENV_RELEASE, ENV_OFF };
 
 typedef struct {
@@ -532,6 +576,11 @@ typedef struct {
 
 static chan_t chans[AUDIO_CHANS];
 static int    tick_acc;
+
+/* the ambient bed (see amb_apply below): what's playing, and how many
+ * music voices the current song claims */
+static int cur_amb         = AMB_NONE;
+static int cur_song_tracks = 0;
 
 /* master volumes, 0..255. Full by default so a platform that never calls
  * audio_volume() still makes a noise. */
@@ -593,9 +642,12 @@ static void chan_tick(chan_t *c)
                 else                 chan_note_on(c, e->note, e->instr);
             }
         }
-    } else if (c->mode == CH_SFX) {
+    } else if (c->mode == CH_SFX || c->mode == CH_AMB) {
         if (--c->step_ticks <= 0) {
             c->stepi++;
+            if (c->stepi >= c->nsteps && c->mode == CH_AMB)
+                c->stepi = 0;              /* ambience LOOPS: the crickets
+                                              do not run out of night */
             if (c->stepi >= c->nsteps) {
                 c->mode = CH_IDLE;
                 chan_note_off(c);
@@ -612,7 +664,7 @@ static void chan_tick(chan_t *c)
         }
     }
 
-    if (!c->ins && c->mode != CH_SFX)
+    if (!c->ins && c->mode != CH_SFX && c->mode != CH_AMB)
         return;
 
     c->age++;
@@ -684,7 +736,7 @@ static int chan_sample(chan_t *c)
     if (!c->level)
         return 0;
 
-    int wave = (c->mode == CH_SFX) ? c->sfx_wave
+    int wave = (c->mode == CH_SFX || c->mode == CH_AMB) ? c->sfx_wave
              : (c->ins ? c->ins->wave : W_PULSE50);
 
     c->phase += c->phase_inc;
@@ -710,11 +762,13 @@ static int chan_sample(chan_t *c)
         s = ((c->phase & 0xFFFFu) < duty) ? 110 : -110;
     }
 
-    int vol = (c->mode == CH_SFX)
+    int vol = (c->mode == CH_SFX || c->mode == CH_AMB)
             ? c->sfx_vol
             : (c->ins ? c->ins->vol : 0);
 
-    /* the player's master, applied last */
+    /* the player's master, applied last. Ambience rides the MUSIC master:
+     * it's a bed, not an event -- turn the score down and the crickets
+     * hush with it. */
     vol = vol * ((c->mode == CH_SFX) ? vol_sfx : vol_music) / 255;
 
     /* sample * envelope * instrument volume, then MASTER_GAIN.
@@ -740,19 +794,16 @@ void audio_init(void)
         c->lfsr = 0xACE1u + (uint32_t)i * 7u;
     }
     tick_acc = 0;
+    cur_amb = AMB_NONE;
+    cur_song_tracks = 0;
 }
 
-void audio_sfx(int id)
+/* point a channel at a step sequence (sfx and ambience both start here) */
+static void chan_start_steps(chan_t *c, const sfx_step_t *s, int n, int mode)
 {
-    if (id < 0 || id >= NUM_SFX || !sfx_table[id].n)
-        return;
-    /* SFX live on the top channels, so a gunshot never eats the bassline */
-    chan_t *c = &chans[MUSIC_CHANS];
-    const sfx_step_t *s = sfx_table[id].s;
-
-    c->mode       = CH_SFX;
+    c->mode       = mode;
     c->steps      = s;
-    c->nsteps     = sfx_table[id].n;
+    c->nsteps     = n;
     c->stepi      = 0;
     c->step_ticks = s[0].ticks;
     c->sfx_vol    = s[0].vol;
@@ -767,12 +818,58 @@ void audio_sfx(int id)
     c->phase_inc  = (uint32_t)(((uint64_t)c->freq_q8 * 256u) / AUDIO_RATE);
 }
 
+void audio_sfx(int id)
+{
+    if (id < 0 || id >= NUM_SFX || !sfx_table[id].n)
+        return;
+    /* SFX live on the top channels, so a gunshot never eats the bassline */
+    chan_start_steps(&chans[MUSIC_CHANS], sfx_table[id].s, sfx_table[id].n,
+                     CH_SFX);
+}
+
+/* ---- the ambient bed ------------------------------------------------------
+ * What's playing, and how many music voices the current song claims. The
+ * bed lives on the TOP music voice, chans[MUSIC_CHANS-1], and only exists
+ * when the song doesn't reach that far (see the note in audio.h). Both
+ * audio_ambient() and audio_music() call amb_apply(), because either side
+ * changing can create or destroy the free voice. */
+static void amb_apply(void)
+{
+    chan_t *c = &chans[MUSIC_CHANS - 1];
+    if (cur_amb == AMB_NONE || !amb_table[cur_amb].n
+        || cur_song_tracks >= MUSIC_CHANS) {
+        /* nothing to play, or the song needs the voice more than we do */
+        if (c->mode == CH_AMB) {
+            c->mode = CH_IDLE;
+            chan_note_off(c);
+        }
+        return;
+    }
+    chan_start_steps(c, amb_table[cur_amb].s, amb_table[cur_amb].n, CH_AMB);
+}
+
+void audio_ambient(int id)
+{
+    if (id < 0 || id >= NUM_AMB || id == cur_amb)
+        return;              /* cheap: the overworld calls this every tick */
+    cur_amb = id;
+    amb_apply();
+}
+
 void audio_music(int id)
 {
     if (id < 0 || id >= NUM_MUSIC)
         return;
 
     const song_t *sg = &song_table[id];
+
+    /* how many voices this song actually claims -- the ambience gets the
+     * top one back if the new song is smaller than the old one (and loses
+     * it, mid-cricket, if the new song is bigger; the loop below stomps
+     * the channel either way, so amb_apply() re-decides at the bottom) */
+    cur_song_tracks = sg->tracks ? sg->ntracks : 0;
+    if (cur_song_tracks > MUSIC_CHANS)
+        cur_song_tracks = MUSIC_CHANS;
 
     for (int i = 0; i < MUSIC_CHANS; i++) {
         chan_t *c = &chans[i];
@@ -804,6 +901,8 @@ void audio_music(int id)
             chan_note_on(c, t->ev[0].note, t->ev[0].instr);
         }
     }
+
+    amb_apply();   /* the bed comes back if this song left it a voice */
 }
 
 void game_audio_fill(int16_t *out, int nsamples)

@@ -68,6 +68,7 @@ void render_scene(int s)
     case ST_PROLOGUE:  prologue_render();  break;
     case ST_BATTLE:    battle_render();    break;
     case ST_GAMEOVER:  gameover_render();  break;
+    case ST_JOURNAL:   journal_render();   break;
     case ST_PAUSE:     pause_render();     break;
     case ST_CONTROLS:  controls_render();  break;
     case ST_CHURCH:    church_render();    break;
@@ -94,6 +95,7 @@ void game_update(uint16_t buttons_held)
     case ST_PROLOGUE:  prologue_update();  break;
     case ST_BATTLE:    battle_update();    break;
     case ST_GAMEOVER:  gameover_update();  break;
+    case ST_JOURNAL:   journal_update();   break;
     case ST_PAUSE:     pause_update();     break;
     case ST_CONTROLS:  controls_update();  break;
     case ST_CHURCH:    church_update();    break;
@@ -127,12 +129,13 @@ const uint16_t *game_framebuffer(void)
  * rather than being misread.
  * ==========================================================================*/
 #define SAVE_MAGIC   0x494B5753u   /* "IKWS" */
-#define SAVE_VERSION 9             /* v9: the SOUTH SIDE, the diner and the
-                                      walk-up join the maps (blob grows by
-                                      NUM_MAPS again). v8 added holy water
-                                      and the worn rosary; v7 the pistol
-                                      and the city. Old saves fail the
-                                      check and are ignored, as designed. */
+#define SAVE_VERSION 10            /* v10: THE JOURNAL -- species_seen and
+                                      one kill-count byte per species.
+                                      v9 added the South Side maps; v8
+                                      holy water and the worn rosary; v7
+                                      the pistol and the city. Old saves
+                                      fail the check and are ignored, as
+                                      designed. */
 
 /* Exactly how many bytes game_save_write() lays down. Kept next to the
  * writer so the two can't drift apart, and checked at COMPILE TIME below:
@@ -146,6 +149,7 @@ const uint16_t *game_framebuffer(void)
                   + 4 /*seen*/ + 4 /*flags*/ + 4 /*rng*/                       \
                   + 4 /*boons_done*/                                         \
                   + NUM_MAPS * 4                                             \
+                  + 4 /*species_seen*/ + NUM_SPECIES /*kills, a byte each*/  \
                   + 4 /*checksum*/)
 
 /* If this line won't compile, the save blob outgrew GAME_SAVE_SIZE.
@@ -217,6 +221,11 @@ void game_save_write(uint8_t *buf)
     for (int m = 0; m < NUM_MAPS; m++)
         w32(&c, (uint32_t)G.spawns_gone[m]);
 
+    /* the journal: what you saw, and how many you put down */
+    w32(&c, (uint32_t)G.species_seen);
+    for (int i = 0; i < NUM_SPECIES; i++)
+        buf[c.n++] = G.species_kills[i];
+
     /* checksum goes last, over everything written so far */
     w32(&c, save_sum(buf, c.n));
 }
@@ -261,6 +270,11 @@ int game_save_load(const uint8_t *buf, int len)
     for (int m = 0; m < NUM_MAPS; m++)
         gone[m] = r32(&c);
 
+    uint16_t seen_sp = (uint16_t)r32(&c);   /* the journal */
+    uint8_t  kills[NUM_SPECIES];
+    for (int i = 0; i < NUM_SPECIES; i++)
+        kills[i] = buf[c.n++];
+
     if (r32(&c) != save_sum(buf, c.n - 4))
         return 0;                       /* corrupt / truncated */
 
@@ -281,6 +295,9 @@ int game_save_load(const uint8_t *buf, int len)
     G.boons_done = boons;
     for (int m = 0; m < NUM_MAPS; m++)
         G.spawns_gone[m] = gone[m];
+    G.species_seen = seen_sp;
+    for (int i = 0; i < NUM_SPECIES; i++)
+        G.species_kills[i] = kills[i];
 
     /* Blood is NOT in the blob (see blood_t): a loaded game starts with
      * clean ground. This doubles as the array's init -- a zeroed G would

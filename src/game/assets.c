@@ -506,6 +506,43 @@ const species_t species[NUM_SPECIES] = {
         2, 0, 0 },
 };
 
+/* ---- THE LEGENDS, FOR THE JOURNAL ------------------------------------------
+ * One line each, the way you'd write it down by flashlight. The journal
+ * (intro.c) prints these under the sprite once you've seen the thing.
+ * Kept apart from species[] so the stat rows stay positional. */
+const char *species_lore[NUM_SPECIES] = {
+    [SPECIES_ANT]        = "THEY CAME UP OUT OF THE FIELDS. THE HILLS ARE "
+                           "STILL PRODUCING.",
+    [SPECIES_SOLDIER]    = "THE BIG ONES. THEY LOCK ON AND THEY DO NOT "
+                           "LET GO.",
+    [SPECIES_GOBLIN]     = "KELLY, KENTUCKY, 1955. THEY SHOT AT IT ALL "
+                           "NIGHT. IT KEPT COMING.",
+    [SPECIES_DOVER]      = "DOVER, MASSACHUSETTS, 1977. TWO ORANGE EYES, "
+                           "AND IT JUST STARES.",
+    [SPECIES_MOTHMAN]    = "POINT PLEASANT, 1966. IT SHOWS UP BEFORE THE "
+                           "BRIDGE COMES DOWN.",
+    [SPECIES_CHUPACABRA] = "IT DRAINS WHAT IT CATCHES, AND LEAVES THE "
+                           "REST.",
+    [SPECIES_GREY]       = "THE CLASSIC. YOU LOSE TIME AROUND THEM AND "
+                           "YOU NEVER GET IT BACK.",
+    [SPECIES_REPTOID]    = "IT SHEDS, AND WHAT'S UNDERNEATH IS FINE.",
+    [SPECIES_NESSIE]     = "MOST OF IT IS UNDER THE WATER.",
+    [SPECIES_SASQUATCH]  = "EIGHT FEET OF SHOULDERS. IT THROWS WHAT'S "
+                           "LYING AROUND.",
+    [SPECIES_DOGMAN]     = "SOME NIGHTS THE RIDGE HOWLS. SOME NIGHTS THE "
+                           "RIDGE HOWLS BACK.",
+    [SPECIES_ANTHILL]    = "THE MOUND IS NOT DIRT. THE MOUND IS A DOOR.",
+    [SPECIES_QUEEN]      = "WHERE THE ANTS COME FROM. SHE IS FASTER THAN "
+                           "YOU ARE.",
+    [SPECIES_TALL]       = "EVERY STORY AGREES ON THE HEIGHT, AND ON THE "
+                           "ARMS. IT IS CLOSER EVERY TIME YOU LOOK UP.",
+    [SPECIES_CHUPA_BOSS] = "IT HAS BEEN EATING WELL SINCE THE LIGHTS "
+                           "CAME. IT HUNTS UNDER THE STREET LIGHTS NOW.",
+    [SPECIES_GREY_BOSS]  = "THE STARLIGHT DINER. IT HAS BEEN STANDING "
+                           "THERE SINCE MIDNIGHT. THE COFFEE IS STILL "
+                           "WARM.",
+};
+
 const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_WITNESS]   = { SPR_NPC,       SPR_NPC_1       },
     [LOOK_SKEPTIC]   = { SPR_SKEPTIC,   SPR_SKEPTIC_1   },

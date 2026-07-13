@@ -289,6 +289,9 @@ void overworld_start_game(void)
     G.boons_done = 0;                      /* nobody has helped you yet */
     G.boon_ent = -1;
     G.boom_t = 0;
+    G.species_seen = 0;                    /* an empty journal... */
+    for (int i = 0; i < NUM_SPECIES; i++)
+        G.species_kills[i] = 0;            /* ...and nothing put down yet */
     blood_clear();                         /* the ground starts clean */
     overworld_enter_map(MAP_FARM, 5, 6);   /* on the path by the door */
 }
@@ -475,6 +478,32 @@ static int world_brightness(void)
     return day_brightness() * weather_dim() / 256;
 }
 
+/* ---- what the place SOUNDS like --------------------------------------------
+ * The bed under the music (see AMBIENCE in audio.h). Decided from where
+ * you're standing and what the sky is doing, every tick -- audio_ambient()
+ * no-ops until the answer changes, so dusk fading in brings the crickets
+ * up with it, mid-map, without anyone keeping track.
+ *
+ *   THE RIDGE      wind, day and night. It's high ground; it never stops.
+ *   THE CITY       the hum. Brad says it's the power lines. The power has
+ *                  been out since the office tower went dark. It hums.
+ *   anywhere else  crickets outdoors once the light drops past dusk's
+ *                  midpoint -- and indoors, nothing: walls work.
+ */
+static void ambient_refresh(void)
+{
+    int amb = AMB_NONE;
+    if (cur_map()->outdoor) {
+        if (G.map_id == MAP_RIDGE)
+            amb = AMB_WIND;
+        else if (G.map_id == MAP_CITY || G.map_id == MAP_SOUTH)
+            amb = AMB_HUM;
+        else if (day_brightness() < 200)
+            amb = AMB_CRICKETS;
+    }
+    audio_ambient(amb);
+}
+
 /* ============================ ZELDA MODE ====================================
  * Shooting things in the field. Press B with the shotgun and a shell in it:
  * a blast flies out the way you're facing. It staggers what it hits, and
@@ -618,6 +647,8 @@ static void kill_entity(int i)
 
     spray_gore(e->x, e->y, 14);
     add_blood(e->x + 8, e->y + 8, sp->boss);   /* where the body dropped */
+    journal_saw(e->kind);        /* you shot it. You definitely saw it. */
+    journal_kill(e->kind);
     audio_sfx(SFX_HIT);
 
     /* A field kill pays less than a proper fight -- see OVERWORLD_XP_PCT.
@@ -1316,6 +1347,7 @@ void overworld_update(void)
 {
     G.daytime++;                   /* the sun only moves while you walk */
     weather_update();              /* ...and so does the sky */
+    ambient_refresh();             /* ...and the sound of the place */
     if (G.banner > 0)
         G.banner--;
 
@@ -2437,8 +2469,9 @@ void pack_discover(int kind)
 /* Build the list of rows currently in the pack: every item you've found,
  * then SAVE and LOAD. Returns how many rows there are; `out` gets the
  * ITEM_* id of each, or ROW_SAVE / ROW_LOAD. */
-#define ROW_SAVE (-1)
-#define ROW_LOAD (-2)
+#define ROW_SAVE    (-1)
+#define ROW_LOAD    (-2)
+#define ROW_JOURNAL (-3)
 
 static int pack_rows(int *out)
 {
@@ -2446,6 +2479,7 @@ static int pack_rows(int *out)
     for (int i = 0; i < NUM_ITEMS; i++)
         if (G.items_seen & (1u << i))
             out[n++] = i;
+    out[n++] = ROW_JOURNAL;   /* WHAT I SAW -- the notes travel with you */
     out[n++] = ROW_SAVE;      /* always there */
     out[n++] = ROW_LOAD;      /* ...but only usable once a save exists */
     return n;
@@ -2453,8 +2487,7 @@ static int pack_rows(int *out)
 
 void pack_update(void)
 {
-    int rows[NUM_ITEMS + 2];  /* every item + SAVE + LOAD -- it was
-                                 one short before BULLETS arrived */
+    int rows[NUM_ITEMS + 3];  /* every item + JOURNAL + SAVE + LOAD */
     int n = pack_rows(rows);
 
     if (PRESSED(BTN_START) || PRESSED(BTN_B)) {
@@ -2487,6 +2520,12 @@ void pack_update(void)
         return;
 
     int kind = rows[G.pack_sel];
+
+    if (kind == ROW_JOURNAL) {
+        journal_start(ST_PACK);      /* B brings you back here */
+        audio_sfx(SFX_CONFIRM);
+        return;
+    }
 
     if (kind == ROW_SAVE) {
         /* We can't write it ourselves -- the core has no idea what a file
@@ -2558,8 +2597,7 @@ void pack_render(void)
 {
     overworld_render();            /* the world stays visible behind it */
 
-    int rows[NUM_ITEMS + 2];  /* every item + SAVE + LOAD -- it was
-                                 one short before BULLETS arrived */
+    int rows[NUM_ITEMS + 3];  /* every item + JOURNAL + SAVE + LOAD */
     int n = pack_rows(rows);
     int shown = (n < PACK_ROWS) ? n : PACK_ROWS;
 
@@ -2579,6 +2617,10 @@ void pack_render(void)
         char row[20];
         int  p    = 0;
 
+        if (kind == ROW_JOURNAL) {
+            gfx_text(x + 20, ry, "WHAT I SAW", RGB565(180, 200, 255));
+            continue;
+        }
         if (kind == ROW_SAVE) {
             gfx_text(x + 20, ry, "SAVE GAME", RGB565(255, 236, 150));
             continue;

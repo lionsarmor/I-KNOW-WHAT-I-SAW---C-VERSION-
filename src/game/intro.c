@@ -205,7 +205,7 @@ void intro_render(void)
  * rows are built at run time rather than hard-coded -- ROW_* are what the
  * chosen index MEANS, which is the only thing the rest of the code cares
  * about. */
-enum { ROW_CONTINUE, ROW_NEWGAME, ROW_OPTIONS };
+enum { ROW_CONTINUE, ROW_NEWGAME, ROW_JOURNAL, ROW_OPTIONS };
 
 static int title_rows(int *out)
 {
@@ -213,6 +213,9 @@ static int title_rows(int *out)
     if (G.has_save)
         out[n++] = ROW_CONTINUE;
     out[n++] = ROW_NEWGAME;
+    out[n++] = ROW_JOURNAL;   /* the book reads whatever save is loaded --
+                                 and with no save it's sixteen dark pages,
+                                 which is its own kind of invitation */
     out[n++] = ROW_OPTIONS;
     return n;
 }
@@ -222,13 +225,14 @@ static const char *title_row_label(int row)
     switch (row) {
     case ROW_CONTINUE: return "CONTINUE";
     case ROW_NEWGAME:  return "NEW GAME";
+    case ROW_JOURNAL:  return "WHAT I SAW";
     default:           return "OPTIONS";
     }
 }
 
 void title_update(void)
 {
-    int rows[3];
+    int rows[4];
     int n = title_rows(rows);
 
     if (G.title_sel >= n)
@@ -250,6 +254,10 @@ void title_update(void)
     switch (rows[G.title_sel]) {
     case ROW_CONTINUE:
         overworld_resume();          /* the save is already loaded into G */
+        return;
+
+    case ROW_JOURNAL:
+        journal_start(ST_TITLE);
         return;
 
     case ROW_OPTIONS:
@@ -994,9 +1002,9 @@ void title_render(void)
     gfx_text_ex((SCREEN_W - gfx_text_width(l1, 2)) / 2, 44, l1, red, 2);
     gfx_text_ex((SCREEN_W - gfx_text_width(l2, 2)) / 2, 64, l2, red, 2);
 
-    /* the menu: CONTINUE (only if there's a save), NEW GAME, OPTIONS.
-     * Bottom-aligned so it doesn't jump when CONTINUE appears. */
-    int rows[3];
+    /* the menu: CONTINUE (only if there's a save), NEW GAME, WHAT I SAW,
+     * OPTIONS. Bottom-aligned so it doesn't jump when CONTINUE appears. */
+    int rows[4];
     int n = title_rows(rows);
     int top = 132 - n * 14;
     for (int i = 0; i < n; i++) {
@@ -1016,4 +1024,176 @@ void title_render(void)
              RGB565(90, 90, 90));
 
     draw_static(12, 120);   /* the static never fully goes away */
+}
+
+/* ============================ THE JOURNAL ===================================
+ * "WHAT I SAW" -- the bestiary. One page per species, in the order the
+ * enum tells them. A creature is in the book once you've FOUGHT it or
+ * dropped it in the field; until then its page shows a black shape and
+ * five question marks, because you know something is out there and that
+ * is all you know. The name and the page border wear the same strength
+ * colors as the battle box (species_colors) -- white, yellow, orange,
+ * boss red -- so the book doubles as a warning.
+ *
+ * Reachable from the TITLE (reads whatever save is loaded) and from the
+ * PACK. B closes it back to whichever one opened it.
+ * ==========================================================================*/
+
+void journal_saw(int kind)
+{
+    if (kind >= 0 && kind < NUM_SPECIES)
+        G.species_seen |= (uint16_t)(1u << kind);
+}
+
+void journal_kill(int kind)
+{
+    if (kind >= 0 && kind < NUM_SPECIES && G.species_kills[kind] < 255)
+        G.species_kills[kind]++;
+}
+
+void journal_start(state_t from)
+{
+    G.journal_from = from;
+    G.journal_sel  = 0;
+    G.state = ST_JOURNAL;
+    G.t = 0;
+}
+
+void journal_update(void)
+{
+    if (PRESSED(BTN_LEFT)) {
+        G.journal_sel = (G.journal_sel + NUM_SPECIES - 1) % NUM_SPECIES;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_RIGHT) || PRESSED(BTN_A)) {
+        G.journal_sel = (G.journal_sel + 1) % NUM_SPECIES;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_B) || PRESSED(BTN_START)) {
+        audio_sfx(SFX_BLIP);
+        G.state = G.journal_from;   /* back to the title, or the pack */
+        G.t = 0;
+    }
+}
+
+/* greedy word-wrap in the small font -- which is fixed-width, so wrapping
+ * is just counting characters (the advance comes from measuring one) */
+static void journal_wrap(int x, int y, int cols, const char *s, uint16_t col)
+{
+    char line[64];
+    int p = 0;
+    if (cols > 62) cols = 62;
+    while (*s) {
+        while (*s == ' ')
+            s++;
+        int wl = 0;
+        while (s[wl] && s[wl] != ' ')
+            wl++;
+        if (wl > cols) wl = cols;          /* a word wider than the page */
+        if (p && p + 1 + wl > cols) {      /* doesn't fit: flush the line */
+            line[p] = '\0';
+            gfx_text_small(x, y, line, col);
+            y += 9;
+            p = 0;
+        }
+        if (p)
+            line[p++] = ' ';
+        for (int i = 0; i < wl; i++)
+            line[p++] = s[i];
+        s += wl;
+    }
+    if (p) {
+        line[p] = '\0';
+        gfx_text_small(x, y, line, col);
+    }
+}
+
+void journal_render(void)
+{
+    gfx_clear(RGB565(8, 8, 18));
+
+    int kind = G.journal_sel;
+    const species_t *sp = &species[kind];
+    int seen = (G.species_seen >> kind) & 1;
+
+    /* unseen pages are grey; seen pages wear the creature's class */
+    uint16_t edge = RGB565(90, 90, 100), text = RGB565(130, 130, 140);
+    if (seen)
+        species_colors(kind, &edge, &text);
+
+    gfx_rect(4, 4, SCREEN_W - 8, SCREEN_H - 8, edge);
+
+    /* header: the book, and how much of it you've filled in */
+    gfx_text(12, 10, "WHAT I SAW", RGB565(255, 255, 255));
+    {
+        int total = 0;
+        for (int i = 0; i < NUM_SPECIES; i++)
+            total += (G.species_seen >> i) & 1;
+        char hdr[8];
+        int p = 0;
+        if (total > 9) hdr[p++] = (char)('0' + total / 10);
+        hdr[p++] = (char)('0' + total % 10);
+        hdr[p++] = '/';
+        if (NUM_SPECIES > 9) hdr[p++] = (char)('0' + NUM_SPECIES / 10);
+        hdr[p++] = (char)('0' + NUM_SPECIES % 10);
+        hdr[p]   = '\0';
+        gfx_text(SCREEN_W - 12 - gfx_text_width(hdr, 1), 10, hdr,
+                 RGB565(150, 150, 158));
+    }
+    gfx_text_small(12, 24, "NOBODY BELIEVES US. WRITE IT DOWN.",
+                   RGB565(110, 110, 120));
+
+    /* the creature, big, breathing between its two frames. Unseen = the
+     * same art at brightness ZERO: a shape in the dark, nothing more. */
+    int frame = ((G.frame / 20) % 2) ? sp->spr1 : sp->spr0;
+    if (!seen)
+        frame = sp->spr0;                  /* the dark doesn't animate */
+    gfx_blit_ex(sprites[frame].px, TILE, TILE, 14, 44, 4,
+                seen ? sp->bright : 0, 0);
+
+    if (seen) {
+        gfx_text(88, 48, sp->name, text);
+        int cy = 62;
+        if (sp->boss) {
+            gfx_text_small(88, cy, "BOSS", edge);
+            cy += 12;
+        }
+        char row[16];
+        int p = 0;
+        for (const char *q = "PUT DOWN: "; *q; q++)
+            row[p++] = *q;
+        int k = G.species_kills[kind];
+        if (k > 99) { row[p++] = '9'; row[p++] = '9'; row[p++] = '+'; }
+        else {
+            if (k > 9) row[p++] = (char)('0' + k / 10);
+            row[p++] = (char)('0' + k % 10);
+        }
+        row[p] = '\0';
+        gfx_text_small(88, cy, row, RGB565(220, 220, 228));
+
+        /* what the legends say, by flashlight */
+        if (species_lore[kind])
+            journal_wrap(14, 114,
+                         (SCREEN_W - 28) / gfx_text_small_width("A"),
+                         species_lore[kind], RGB565(190, 190, 200));
+    } else {
+        gfx_text(88, 48, "?????", text);
+        gfx_text_small(88, 62, "YOU HAVEN'T SEEN IT. YET.",
+                       RGB565(130, 130, 140));
+    }
+
+    /* page corner + controls */
+    {
+        char pg[8];
+        int p = 0;
+        int n = kind + 1;
+        if (n > 9) pg[p++] = (char)('0' + n / 10);
+        pg[p++] = (char)('0' + n % 10);
+        pg[p]   = '\0';
+        gfx_text_small(12, SCREEN_H - 14, pg, RGB565(110, 110, 120));
+    }
+    gfx_text_small(SCREEN_W - 12 -
+                   gfx_text_small_width("< > TURN PAGE   B CLOSE"),
+                   SCREEN_H - 14, "< > TURN PAGE   B CLOSE",
+                   RGB565(110, 110, 120));
 }

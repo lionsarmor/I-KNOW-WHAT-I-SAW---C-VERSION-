@@ -117,6 +117,7 @@ void battle_start(int ent_index)
 {
     entity_t *e = &G.ents[ent_index];
     const species_t *sp = &species[e->kind];
+    journal_saw(e->kind);        /* it's filling the screen. You SAW it. */
     G.battle.ent       = ent_index;
     G.battle.kind      = e->kind;
     G.battle.enemy_max = sp->base_hp + rng_range(0, 4)
@@ -400,6 +401,7 @@ static void win_battle(void)
      * the next day's restock; a boss never is. (mark_dead lives in
      * overworld.c, next to the field kill, so both routes agree.) */
     int kind = G.battle.kind;
+    journal_kill(kind);          /* it goes in the book */
     /* It vanishes in light -- but the ground where it stood keeps the
      * stain. A boss leaves a big one. (The pool lands on the CURRENT map,
      * which is the map the fight started on: battles never change maps.) */
@@ -724,10 +726,11 @@ static void hp_bar(int x, int y, int hp, int max, const char *label,
  * way: the border and name are colored by the creature's class, judged by
  * the xp it pays -- the one number that already ranks every entry in the
  * bestiary. White you can hit with a spade. Yellow will hurt you. Orange
- * is why you carry the gun. Red is a BOSS, and red means bring everything. */
-static void foe_colors(uint16_t *edge, uint16_t *text)
+ * is why you carry the gun. Red is a BOSS, and red means bring everything.
+ * (Public: the JOURNAL paints its pages with the same tiers.) */
+void species_colors(int kind, uint16_t *edge, uint16_t *text)
 {
-    const species_t *f = foe();
+    const species_t *f = &species[kind];
     if (f->boss)         { *edge = RGB565(210,  50,  40);
                            *text = RGB565(255, 100,  90); }
     else if (f->xp > 45) { *edge = RGB565(220, 130,  40);
@@ -778,7 +781,7 @@ void battle_render(void)
      * in that order. */
     {
         uint16_t edge, text;
-        foe_colors(&edge, &text);
+        species_colors(G.battle.kind, &edge, &text);
         hp_bar(6, 6, G.battle.enemy_hp, G.battle.enemy_max, foe()->name,
                edge, text);
     }
