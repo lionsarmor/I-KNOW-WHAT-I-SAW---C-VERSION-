@@ -71,6 +71,7 @@ void render_scene(int s)
     case ST_PAUSE:     pause_render();     break;
     case ST_CONTROLS:  controls_render();  break;
     case ST_CHURCH:    church_render();    break;
+    case ST_PART1END:  part1end_render();  break;
     }
 }
 
@@ -96,6 +97,7 @@ void game_update(uint16_t buttons_held)
     case ST_PAUSE:     pause_update();     break;
     case ST_CONTROLS:  controls_update();  break;
     case ST_CHURCH:    church_update();    break;
+    case ST_PART1END:  part1end_update();  break;
     }
 
     if (G.shake_t > 0)
@@ -125,12 +127,12 @@ const uint16_t *game_framebuffer(void)
  * rather than being misread.
  * ==========================================================================*/
 #define SAVE_MAGIC   0x494B5753u   /* "IKWS" */
-#define SAVE_VERSION 8             /* v8: holy water + the rosary join the
-                                      items, and whether the rosary is WORN
-                                      is part of the player now. (v7 added
-                                      the pistol, its bullets, and the
-                                      city.) Old saves fail the check and
-                                      are ignored, as designed. */
+#define SAVE_VERSION 9             /* v9: the SOUTH SIDE, the diner and the
+                                      walk-up join the maps (blob grows by
+                                      NUM_MAPS again). v8 added holy water
+                                      and the worn rosary; v7 the pistol
+                                      and the city. Old saves fail the
+                                      check and are ignored, as designed. */
 
 /* Exactly how many bytes game_save_write() lays down. Kept next to the
  * writer so the two can't drift apart, and checked at COMPILE TIME below:

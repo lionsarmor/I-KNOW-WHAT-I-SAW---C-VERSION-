@@ -35,6 +35,7 @@ typedef enum {
     ST_BATTLE,      /* turn-based fight              (battle.c)    */
     ST_GAMEOVER,    /* you blacked out...            (battle.c)    */
     ST_CHURCH,      /* PART 1 opens at mass          (cutscene.c)  */
+    ST_PART1END,    /* ...and closes in an apartment (cutscene.c)  */
 } state_t;
 
 enum { DIR_DOWN, DIR_UP, DIR_LEFT, DIR_RIGHT };
@@ -133,6 +134,17 @@ typedef struct {
     /* THE SIZZLING MIST holy water leaves behind. Counts down from
      * MIST_TICKS; drawn (and glowing in the dark) while nonzero. */
     int      mist_t, mist_x, mist_y;
+
+    /* The reunion played; when HER dialog closes, the END OF PART 1 card
+     * comes up (see try_talk and dialog_update). Not saved. */
+    int      part1end_after;
+
+    /* Ticks before a WALK-ON warp may fire after arriving on a map. Without
+     * this, a doorway whose arrival tile sits beside the exit mat ping-pongs
+     * anyone who keeps holding the direction they entered with -- in one
+     * door, straight back out, forever. Doors you BUMP are exempt: pushing
+     * into a door is already deliberate. */
+    int      warp_cd;
 
     /* SCREEN SHAKE. shake_t counts down; the displacement decays with it. */
     int      shake_t, shake_len, shake_mag;
@@ -308,6 +320,8 @@ void battle_update(void);     void battle_render(void);
 void gameover_update(void);   void gameover_render(void);
 void church_update(void);     void church_render(void);
 void part1_start(void);       /* new man, new city: begins at mass */
+void part1end_update(void);   void part1end_render(void);
+void part1end_start(void);    /* he found them. roll the card.     */
 
 /* scene transitions */
 void overworld_start_game(void);              /* fresh game from title  */

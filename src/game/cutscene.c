@@ -533,10 +533,16 @@ void part1_start(void)
     p->rosary = 0;
     G.items_seen = 0;
     G.pack_sel = G.pack_top = 0;
-    G.spawns_gone[MAP_CITY]   = 0;     /* Part 1's maps start fresh; the
+    G.spawns_gone[MAP_CITY]      = 0;  /* Part 1's maps start fresh; the
                                           farm keeps its scars */
-    G.spawns_gone[MAP_OFFICE] = 0;
-    G.boons_done &= (uint16_t)~((1u << MAP_CITY) | (1u << MAP_OFFICE));
+    G.spawns_gone[MAP_OFFICE]    = 0;
+    G.spawns_gone[MAP_SOUTH]     = 0;
+    G.spawns_gone[MAP_DINER]     = 0;
+    G.spawns_gone[MAP_APARTMENT] = 0;
+    G.boons_done &= (uint16_t)~((1u << MAP_CITY) | (1u << MAP_OFFICE) |
+                                (1u << MAP_SOUTH) | (1u << MAP_DINER) |
+                                (1u << MAP_APARTMENT));
+    G.part1end_after = 0;
     G.flags |= FLAG_PART1;
 
     /* Sundown, on purpose: the street should go dark while you're on it --
@@ -734,4 +740,104 @@ void church_render(void)
         if (d < 0) d = 0;
         gfx_night(d, 0, 0);
     }
+}
+
+/* ============================ END OF PART 1 =================================
+ * He found them. The card comes up over the apartment: the three of them
+ * by the window, the things still hanging in the sky outside it, and the
+ * game writes its checkpoint while you look. START hands the night back --
+ * the world stays open, the family stays where you left them.
+ * ==========================================================================*/
+
+#define P1END_HOLD 320    /* how long before START works -- read it all */
+
+void part1end_start(void)
+{
+    G.state = ST_PART1END;
+    G.t     = 0;
+    audio_music(MUSIC_PROLOGUE);
+    G.save_pending = 1;    /* the checkpoint that matters most */
+}
+
+void part1end_update(void)
+{
+    if (G.t > P1END_HOLD && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
+        audio_sfx(SFX_CONFIRM);
+        G.state  = ST_OVERWORLD;      /* the apartment, the family, the
+                                         rest of the night -- still yours */
+        G.t      = 0;
+        G.banner = 0;
+        G.battle_grace = 60;
+        audio_music(map_music(G.map_id));
+    }
+}
+
+void part1end_render(void)
+{
+    gfx_clear(RGB565(8, 8, 16));
+
+    /* THE WINDOW. Night outside it, and the objects still up there,
+     * holding their formation like they have all the time there is. */
+    {
+        int wx = SCREEN_W / 2 - 34, wy = 14, ww = 68, wh = 44;
+        gfx_fill_rect(wx - 3, wy - 3, ww + 6, wh + 6, RGB565(60, 44, 34));
+        gfx_fill_rect(wx, wy, ww, wh, RGB565(10, 12, 30));
+        /* stars */
+        for (int i = 0; i < 14; i++) {
+            uint32_t h = (uint32_t)i * 2654435761u;
+            gfx_pixel(wx + 2 + (int)(h % (uint32_t)(ww - 4)),
+                      wy + 2 + (int)((h >> 9) % (uint32_t)(wh - 4)),
+                      RGB565(120, 120, 150));
+        }
+        /* the three of THEM, drifting a pixel and back */
+        for (int i = 0; i < 3; i++) {
+            int drift = (int)((G.frame / (40 + (uint32_t)i * 9)) % 2);
+            int ox = wx + 12 + i * 20 + drift;
+            int oy = wy + 8 + (i % 2) * 6;
+            int pulse = 140 + (int)((G.frame / (7 + i)) % 2) * 80;
+            gfx_fill_rect(ox, oy, 3, 2, gfx_dim(RGB565(255, 214, 120), pulse));
+            gfx_pixel(ox - 1, oy + 1, gfx_dim(RGB565(255, 214, 120), 70));
+            gfx_pixel(ox + 3, oy + 1, gfx_dim(RGB565(255, 214, 120), 70));
+        }
+        /* the cross-frame of the window */
+        gfx_fill_rect(wx + ww / 2 - 1, wy, 2, wh, RGB565(60, 44, 34));
+        gfx_fill_rect(wx, wy + wh / 2 - 1, ww, 2, RGB565(60, 44, 34));
+    }
+
+    /* THE THREE OF THEM, under it, close enough to touch. They breathe. */
+    {
+        int bob = (int)((G.frame / 40) % 2);
+        int cx  = SCREEN_W / 2;
+        gfx_blit_ex(sprites[SPR_LAWYER_DOWN_0].px, TILE, TILE,
+                    cx - 26, 66 + bob, 2, 256, 0);
+        gfx_blit_ex(sprites[(G.frame / 50) % 2 ? SPR_WIFE_1 : SPR_WIFE].px,
+                    TILE, TILE, cx - 4, 66 + ((bob + 1) % 2), 2, 256, 1);
+        gfx_blit_ex(sprites[(G.frame / 35) % 2 ? SPR_BOY_1 : SPR_BOY].px,
+                    TILE, TILE, cx - 15, 76 + bob, 2, 256, 0);
+    }
+
+    /* the words, in the order they land */
+    if (G.t > 60) {
+        const char *l = "SCARED. ALIVE. YOURS.";
+        gfx_text((SCREEN_W - gfx_text_width(l, 1)) / 2, 108, l,
+                 RGB565(200, 200, 210));
+    }
+    if (G.t > 140) {
+        const char *e = "END OF PART 1";
+        uint16_t red = (G.t % 240 < 3) ? RGB565(90, 16, 12)
+                                       : RGB565(216, 40, 32);
+        gfx_text_ex((SCREEN_W - gfx_text_width(e, 2)) / 2, 122, e, red, 2);
+    }
+    if (G.t > 220) {
+        const char *l = "PART 2: WHEN THE SKY COMES DOWN.";
+        gfx_text_small((SCREEN_W - gfx_text_small_width(l)) / 2, 144, l,
+                       RGB565(130, 130, 145));
+    }
+    if (G.t > P1END_HOLD && (G.t % 60) < 40) {
+        const char *p = "START: STAY THE NIGHT";
+        gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 152, p,
+                 RGB565(255, 255, 255));
+    }
+
+    draw_toast();          /* SAVED. lands right on the card */
 }

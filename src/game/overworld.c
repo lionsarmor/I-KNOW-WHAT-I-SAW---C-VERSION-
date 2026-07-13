@@ -167,9 +167,11 @@ int map_music(int map)
     case MAP_VANLOT: return MUSIC_TOWN;
     case MAP_RIDGE:  return MUSIC_BOSS;    /* you should not be up here    */
     case MAP_CITY:   return MUSIC_TOWN;    /* more people, same pulse      */
+    case MAP_SOUTH:  return MUSIC_TOWN;    /* same city, deeper in         */
     default:         return MUSIC_NONE;    /* indoors: just the room --
                                               and the OFFICE stays silent
-                                              on purpose. listen.          */
+                                              on purpose. So does the
+                                              DINER. Listen.               */
     }
 }
 
@@ -258,6 +260,9 @@ void overworld_enter_map(int map, int tx, int ty)
     G.state  = ST_OVERWORLD;
     G.t      = 0;
     G.banner = 90;          /* name the place -- ONCE, on the way in */
+    G.warp_cd = 10;         /* no walk-on warp fires the instant you arrive:
+                               a held direction key must not bounce you
+                               straight back through the door you used */
 
     audio_music(map_music(map));
 }
@@ -394,7 +399,8 @@ static void weather_roll(void)
     /* NO TORNADOES DOWNTOWN. The city gets rain and searchlights; a funnel
      * walking between the towers would be a different game. A tornado roll
      * here just falls through and becomes rain. */
-    if (r <= WX_TORNADO_PCT && G.map_id == MAP_CITY)
+    if (r <= WX_TORNADO_PCT &&
+        (G.map_id == MAP_CITY || G.map_id == MAP_SOUTH))
         r = WX_TORNADO_PCT + 1;
 
     if (r <= WX_TORNADO_PCT) {
@@ -957,6 +963,8 @@ static void move_player(void)
 
 static void check_warps(void)
 {
+    if (G.warp_cd > 0)      /* just arrived -- see overworld_enter_map */
+        return;
     const map_t *m = cur_map();
     int tx = (G.player.x + TILE / 2) / TILE;   /* tile under player center */
     int ty = (G.player.y + FEET_Y1) / TILE;    /* ...at their feet */
@@ -1195,6 +1203,22 @@ static void try_talk(void)
                 drive_start();
                 return;
             }
+
+            /* MARIE. The first conversation is the reunion, and when it
+             * closes, Part 1 closes with it (dialog_update raises the
+             * card). After that she's herself again -- the `after` line,
+             * for as long as you want to stay. */
+            if (e->kind == LOOK_WIFE) {
+                audio_sfx(SFX_CONFIRM);
+                if (!(G.flags & FLAG_FAMILY)) {
+                    G.flags |= FLAG_FAMILY;
+                    G.part1end_after = 1;
+                    dialog_start(e->dialog);
+                } else {
+                    dialog_start(e->after ? e->after : e->dialog);
+                }
+                return;
+            }
             audio_sfx(SFX_CONFIRM);
             {
                 const char *line = (e->gift && e->after) ? e->after
@@ -1226,10 +1250,21 @@ void overworld_update(void)
             monologue_start(
                 "CREATURES. THAT'S WHAT EVERY TV IN THE SHOP WINDOW SAID, "
                 "AND THEN THE CHANNELS STOPPED SAYING ANYTHING.\n"
-                "MARIE IS HOME. THE KIDS ARE HOME. HOME IS TWENTY BLOCKS "
+                "MARIE AND DANNY ARE OUT THERE. HOME IS TWENTY BLOCKS "
                 "SOUTH AND I'M STANDING HERE IN A SUIT.\n"
                 "THINK, COUNSELOR. DARK IS COMING. THE FIRM KEEPS A "
                 "FLASHLIGHT IN MAINTENANCE. START THERE.");
+            return;
+        }
+        if (G.map_id == MAP_SOUTH && !(G.flags & FLAG_M_SOUTH) && G.t > 40) {
+            G.flags |= FLAG_M_SOUTH;
+            monologue_start(
+                "THE SOUTH SIDE. EVERY WINDOW DARK, AND NOBODY ON THE "
+                "STREET WILL LOOK UP. I LOOKED UP. I WISH I HADN'T.\n"
+                "THE HOUSE IS EMPTY -- I KNOW IT'S EMPTY, MARIE ISN'T "
+                "STUPID. IF SHE RAN ANYWHERE SHE RAN TO ROSA'S WALK-UP, "
+                "OFF THE LOW STREET.\n"
+                "FIND THE LOW STREET. FIND THE DOOR. BRING THE GUN.");
             return;
         }
         if (G.map_id == MAP_OFFICE && !(G.flags & FLAG_M_OFFICE) && G.t > 20) {
@@ -1263,6 +1298,8 @@ void overworld_update(void)
         G.battle_grace--;
     if (locked_cd > 0)
         locked_cd--;
+    if (G.warp_cd > 0)
+        G.warp_cd--;
 
     move_player();
     check_warps();
@@ -1551,6 +1588,38 @@ static void draw_tornado(int cx)
         int dx = (ang < 32 ? ang - 16 : 48 - ang) * spread / 16;
         int dy = (int)((h >> 11) % 22);
         gfx_blend_pixel(sx + dx, foot - dy, RGB565(122, 100, 74), 190);
+    }
+}
+
+/* THE OBJECTS. Over the South Side they aren't a rumour any more: a loose
+ * formation of lights that drifts, holds, and drifts again, too high to
+ * matter and too low to be stars. Drawn in SCREEN space -- they're miles
+ * up, so they don't parallax with the street -- and every so often all of
+ * them blink out together for a few seconds, which is worse than any of
+ * the things they do while visible. */
+static void draw_sky_objects(void)
+{
+    /* the blink. all at once. nobody talks about the blink. */
+    if (G.frame % 1100 < 45)
+        return;
+
+    for (int i = 0; i < 3; i++) {
+        int ox = 34 + i * 78
+               + tri_wave(G.frame / 5 + (uint32_t)i * 90, 260) / 4;
+        int oy = 10 + (i % 2) * 9
+               + tri_wave(G.frame / 7 + (uint32_t)i * 40, 200) / 16;
+        int pulse = 120 + (int)((G.frame / (7 + i)) % 2) * 70;
+
+        for (int ring = 3; ring >= 1; ring--) {
+            int rr = ring * 3;
+            int a  = pulse / (ring * ring + 1);
+            for (int y = -rr; y <= rr; y++)
+                for (int x = -rr * 2; x <= rr * 2; x++)
+                    if (x * x / 4 + y * y <= rr * rr)
+                        gfx_add_pixel(ox + x, oy + y,
+                                      RGB565(200, 190, 255), a);
+        }
+        gfx_fill_rect(ox - 1, oy, 3, 1, RGB565(255, 244, 220));
     }
 }
 
@@ -1858,7 +1927,8 @@ void overworld_render(void)
          * The CITY gets them too. Downtown, you get to decide whether
          * they're a police helicopter. The cops on the street haven't
          * mentioned a helicopter. */
-        if (G.map_id == MAP_VANLOT || G.map_id == MAP_CITY)
+        if (G.map_id == MAP_VANLOT || G.map_id == MAP_CITY ||
+            G.map_id == MAP_SOUTH)
             draw_searchlights(cx, cy, lights, &n);
 
         /* the TNT, for as long as it burns, lights the whole field */
@@ -1924,6 +1994,11 @@ void overworld_render(void)
                 for (int x = 0; x < SCREEN_W; x++)
                     gfx_add_pixel(x, y, RGB565(200, 210, 255), a);
         }
+
+        /* ...and over the South Side, THEM. After the night pass, so
+         * darkness never dims them -- they are not lit BY anything. */
+        if (G.map_id == MAP_SOUTH)
+            draw_sky_objects();
     } else if (m->dark) {
         /* THE POWER IS OUT. An interior with no sun, no lamps, no weather:
          * flat DARK_BRIGHT black, and the only light in the building is
@@ -2098,6 +2173,10 @@ void dialog_update(void)
         G.dialog_page  = next;         /* turn the page */
         G.dialog_shown = 0;
         audio_sfx(SFX_BLIP);
+    } else if (G.part1end_after) {
+        /* that was HER last page. Roll the card. */
+        G.part1end_after = 0;
+        part1end_start();
     } else {
         G.state = ST_OVERWORLD;        /* that was the last page */
         G.t = 0;

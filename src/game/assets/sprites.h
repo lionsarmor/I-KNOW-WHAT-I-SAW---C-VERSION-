@@ -2185,6 +2185,87 @@ static const char *SPR_ART_DEADLADY[16] = {
     "................",
 };
 
+/* MARIE. She took Danny and ran to her sister's walk-up, barricaded the
+ * door, and has been watching the window since. Frame 1: her hands come
+ * up -- she saw somebody coming, and then she saw who it was. */
+static const char *SPR_ART_WIFE[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0h0ss0sh0....",
+    "....0sssSs0.....",
+    "....0h0ss0h0....",
+    ".....0ss0.......",
+    "...0gggggg0.....",
+    "..0sggggggs0....",
+    "...0gGggGg0.....",
+    "...0gggggg0.....",
+    "....0s0.0s0.....",
+    "...000..000.....",
+    "................",
+};
+
+static const char *SPR_ART_WIFE_1[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0h0ss0sh0....",
+    "....0sssSs0.....",
+    "....0h0ss0h0....",
+    ".....0ss0.......",
+    ".0s0gggggg0s0...",
+    "..00gggggg00....",
+    "...0gGggGg0.....",
+    "...0gggggg0.....",
+    "....0s0.0s0.....",
+    "...000..000.....",
+    "................",
+};
+
+/* DANNY. Eight years old, red shirt, and he was NOT scared (he was a
+ * little scared). Shorter than everyone -- the top rows stay empty. */
+static const char *SPR_ART_BOY[16] = {
+    "................",
+    "................",
+    "................",
+    "......0000......",
+    ".....0hhhh0.....",
+    "....0hhhhhh0....",
+    "....0ssssss0....",
+    "....0s0ss0s0....",
+    ".....0sssS0.....",
+    "......0ss0......",
+    "....0rrrrrr0....",
+    "...0srrRRrrs0...",
+    "....0rrrrrr0....",
+    ".....0B00B0.....",
+    "....0DD00DD0....",
+    "................",
+};
+
+static const char *SPR_ART_BOY_1[16] = {
+    "................",
+    "................",
+    "................",
+    "......0000......",
+    ".....0hhhh0.....",
+    "....0hhhhhh0....",
+    "....0ssssss0....",
+    "....0s0ss0s0....",
+    ".....0sssS0.....",
+    "......0ss0......",
+    "..0s0rrrrrr0....",
+    "...00rrRRrrs0...",
+    "....0rrrrrr0....",
+    ".....0B00B0.....",
+    "....0DD00DD0....",
+    "................",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */

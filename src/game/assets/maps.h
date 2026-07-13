@@ -613,12 +613,10 @@ static const warp_t MAP_WARPS_CITY[] = {
       "SHUTTERED. THE SIGN SAYS BACK IN FIVE MINUTES. THE SIGN HAS BEEN "
       "SAYING THAT SINCE THIS MORNING." },
 
-    /* THE PATH HOME. South, past the park, past the thing standing in it.
-     * This is where Part 1 stops -- for now. */
-    { 11, 19, MAP_CITY, 0, 0, 0, FLAG_NEVER,
-      "SOUTH. HOME. MILES OF STREETS BETWEEN HERE AND THE HOUSE, AND "
-      "EVERY ONE OF THEM SOUNDS LIKE THIS ONE.\nYOU'LL GET THERE. NOT "
-      "TONIGHT. (PART 1 ENDS HERE -- FOR NOW.)" },
+    /* THE PATH HOME. South, past the park, past the thing that WAS
+     * standing in it. The road is open now -- the South Side is where
+     * the rest of Part 1 lives. */
+    { 11, 19, MAP_SOUTH, 11, 1 },
 };
 
 /* ============================ THE DARK OFFICE ==============================
@@ -671,6 +669,234 @@ static const warp_t MAP_WARPS_OFFICE[] = {
     { 1, 6, MAP_CITY, 11, 2 },   /* the mat by the service door -> alley */
 };
 
+/* ============================ THE SOUTH SIDE ===============================
+ * Forty tiles of city between Main Street and home. Two boulevards, an
+ * avenue down the middle, a park with a pond, a service alley with things
+ * in it, the STARLIGHT DINER -- and along the bottom, THE LOW STREET: a
+ * row of walk-up apartment doors that all look the same. One of them has
+ * a lamp still burning beside it. That one.
+ *
+ * Everybody out here has stopped looking up ON PURPOSE. Ask them why.
+ */
+static const char *const MAP_ROWS_SOUTH[30] = {
+    "zzzzzzzzzzzazzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    "zSSSSSSSSSaaaSSSSSSSSSSSSSSSSSSSSSSSSSSz",
+    "zSSSSSSSSSaaaSSSSSSSSSSSSSSSSSSSSSSSSSSz",
+    "zSSSSSSSSSaaaSSSSSSSSSSSSSSSSSSSSSSSSSSz",
+    "zSSSDSSSSSaaaSSSSSSSSSSSGSSSSSSSSDSSSSSz",
+    "zpppppppppaaappppppppppppppppppppppppppz",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "z=aa=aa=aa=aa=aa=aa=aa=aa=aa=aa=aa=aa=az",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "zppppppppppppppppppaaaappppppppppppppppz",
+    "z.T...*..........T.a-aaSSSSaaSSSSSSSSSSz",
+    "z...*..ww..T...T...aaaaSSSSaaSSSSSSSSSSz",
+    "zT.....ww..........a-aaSSSSaaSSSSSSSSSSz",
+    "z..RRRRRRRR........aaaaSSSSaaSSSSSSSSSSz",
+    "z..RRRRRRRR..T..*..a-aaSSSSaaSSSSSSSSSSz",
+    "z..HHHHHHHH........aaaaSSSSaaSSSSSSSSSSz",
+    "z..HHHDHHHH........a-aaSSSSaaSGSSSSSSSSz",
+    "zppppppppppppppppppaaaappppaappppppppppz",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "z=aa=aa=aa=aa=aa=aa=aa=aa=aa=aa=aa=aa=az",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "zaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+    "zppppppppppppppppppppppppppppppppppppppz",
+    "zSSSSDSSSSSSSSSSDSSSSSSSSSSSSLDSSSSSSDSz",
+    "zSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSz",
+    "zSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSz",
+    "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+};
+
+static const spawn_t MAP_SPAWNS_SOUTH[] = {
+    /* ---- THE LAW, what's left of it. All three of them have seen the
+     * things in the sky, and none of them will say the word. ---- */
+    { ENT_NPC,   13,  7, LOOK_COP,
+      "EYES OFF THE SKY AND KEEP WALKING, COUNSELOR.\nTHREE OF THEM OVER "
+      "THE GASWORKS, IN A TRIANGLE. THEY'VE HELD THAT TRIANGLE FOR SIX "
+      "HOURS. NOTHING HOLDS A TRIANGLE FOR SIX HOURS." },
+    { ENT_NPC,   24, 23, LOOK_COP,
+      "FAMILIES ARE HOLED UP IN THE WALK-UPS ON THE LOW STREET -- CHAINED "
+      "DOORS, NOBODY ANSWERING.\nIF YOURS IS DOWN HERE, LOOK FOR THE DOOR "
+      "WITH THE LAMP STILL BURNING BESIDE IT. AND DON'T LOOK UP ON YOUR "
+      "WAY. IT ENCOURAGES THEM." },
+    { ENT_NPC,   35, 11, LOOK_COP,
+      "I EMPTIED MY REVOLVER AT THE LOW ONE. SIX ROUNDS.\nIT DIDN'T "
+      "BLINK. IT DOESN'T HAVE ANYTHING TO BLINK. GO HOME, AND GO INSIDE, "
+      "AND DON'T BE UNDER IT." },
+
+    /* the cruisers. The light bars turn; nobody is coming. */
+    { ENT_NPC,   14,  9, LOOK_COPCAR,
+      "THE RADIO: 'ALL UNITS, DO NOT ENGAGE THE LIGHTS. DO NOT LOOK "
+      "DIRECTLY AT--' AND THEN THE DISPATCHER STOPS TALKING, AND THE "
+      "CHANNEL STAYS OPEN, AND YOU CAN HEAR HER BREATHING." },
+    { ENT_NPC,   25, 21, LOOK_COPCAR,
+      "THE WINDSHIELD IS CRACKED IN A SPIDERWEB, FROM THE INSIDE. "
+      "SOMEBODY WANTED OUT OF THIS CAR VERY BADLY." },
+
+    /* ---- THE PEOPLE. Every one of them, scared of the same sky. ---- */
+    { ENT_NPC,    8, 11, LOOK_CITYWOMAN,
+      "IT HUNG OVER THE BRIDGE ALL NIGHT. NO SOUND. A CITY BLOCK OF NO "
+      "SOUND.\nTHE BIRDS WON'T CROSS THE RIVER ANY MORE. I'M WITH THE "
+      "BIRDS." },
+    { ENT_NPC,   32,  5, LOOK_SKEPTIC,
+      "WEATHER BALLOONS. SWAMP GAS OFF THE RIVER. VENUS.\n...VENUS "
+      "DOESN'T HOLD A FORMATION, DOES IT. FRIEND? TELL ME VENUS HOLDS "
+      "A FORMATION." },
+    { ENT_NPC,    3, 19, LOOK_WITNESS,
+      "A RING OF LIGHTS, TURNING, SLOW AS A CLOCK. I WATCHED IT TILL MY "
+      "NECK LOCKED.\nHERE'S THE PART I DON'T SAY OUT LOUD: IT WAS "
+      "TURNING TO LOOK AT US." },
+    { ENT_NPC,   13, 13, LOOK_MA,
+      "I COUNTED NINE OF THEM OVER THE PARK, DEAR. THEN EIGHT. THEN "
+      "NINE AGAIN.\nIT'S THE COUNTING BACK UP THAT BOTHERS ME. WHERE "
+      "DOES THE NINTH ONE GO?" },
+    { ENT_NPC,   25, 19, LOOK_DOG,
+      "WOOF! WOOF WOOF WOOF! HE IS BARKING STRAIGHT UP, AT THE SKY, "
+      "AND HE WILL NOT STOP, AND NOBODY TELLS HIM TO." },
+    { ENT_NPC,   34, 25, LOOK_CITYWOMAN,
+      "DON'T KNOCK ON DOORS DOWN HERE UNLESS YOU MEAN IT. FOLKS ARE "
+      "PAST FRIGHTENED.\n...YOU MEAN IT, DON'T YOU. GOD KEEP YOU, "
+      "MISTER. THIRD LAMP'S STILL LIT." },
+
+    /* ---- WHAT HUNTS HERE. Chupacabras own the boulevards; the dogmen
+     * keep the alley. Ordinary spawns: kill them and the night restocks
+     * them, which is what the levels are for. ---- */
+    { ENT_ALIEN, 16,  9, SPECIES_CHUPACABRA, 0 },
+    { ENT_ALIEN, 30, 23, SPECIES_CHUPACABRA, 0 },
+    { ENT_ALIEN, 27, 13, SPECIES_DOGMAN, 0 },   /* the alley, top    */
+    { ENT_ALIEN, 28, 16, SPECIES_DOGMAN, 0 },   /* the alley, bottom */
+    { ENT_ALIEN, 36, 20, SPECIES_DOGMAN, 0 },   /* street two, east  */
+
+    /* ---- what the South Side has to offer ---- */
+    { ENT_ITEM,  27, 12, ITEM_BULLETS, 0 },     /* top of the alley. earn it */
+    { ENT_ITEM,  19,  5, ITEM_BULLETS, 0 },
+    { ENT_ITEM,   6, 13, ITEM_MEDKIT,  0 },     /* by the pond               */
+    { ENT_ITEM,  17, 16, ITEM_HERB,    0 },
+    { ENT_ITEM,   1, 25, ITEM_TNT,     0 },     /* the low street corner     */
+};
+
+static const warp_t MAP_WARPS_SOUTH[] = {
+    { 11,  0, MAP_CITY, 11, 18 },        /* back north to Main Street  */
+    {  6, 18, MAP_DINER, 7, 9 },         /* the Starlight's front door */
+    { 30, 26, MAP_APARTMENT, 7, 1 },     /* THE ONE WITH THE LAMP      */
+
+    /* every other door on the strip is somebody else's fear */
+    {  4,  4, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "CHAINED FROM THE INSIDE. WHEN YOU KNOCK, A DOG GOES QUIET." },
+    { 24,  4, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "A LOBBY FULL OF DARK. THE FERNS ARE OVER. THE FERNS ARE ALWAYS "
+      "OVER." },
+    { 33,  4, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "SOMEBODY'S NAILED IT SHUT AND WRITTEN 'GOD SEES' ACROSS THE "
+      "BOARDS IN HOUSE PAINT." },
+    { 30, 18, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "THROUGH THE GLASS, A SECURITY DESK, AND A COFFEE CUP STILL "
+      "STEAMING. NOBODY." },
+    {  5, 26, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "YOU KNOCK. A VOICE, VERY CLOSE TO THE WOOD: 'WE GAVE ALREADY. "
+      "WE GAVE EVERYTHING ALREADY.'" },
+    { 16, 26, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "A WOMAN'S VOICE THROUGH THE DOOR: 'WE'RE FULL. GOD FORGIVE ME, "
+      "WE'RE FULL.'" },
+    { 37, 26, MAP_SOUTH, 0, 0, 0, FLAG_NEVER,
+      "NO ANSWER. UNDER THE DOOR, A LINE OF SALT, AND A PLAYING CARD "
+      "FACE DOWN." },
+};
+
+/* ============================ THE STARLIGHT DINER ==========================
+ * Booths, a counter, cold coffee -- and THE VISITOR, standing in the
+ * middle of the floor with its hands at its sides. It has been standing
+ * there since midnight. The cook is under the back booth and he is not
+ * coming out.
+ */
+static const char *const MAP_ROWS_DINER[11] = {
+    "HHHHHHHHHHHHHHHH",
+    "H_tt__tt__tt___H",
+    "H______________H",
+    "H_tt__tt__tt___H",
+    "H______________H",
+    "H_tttttttttt___H",
+    "H______________H",
+    "H_x__________x_H",
+    "H______________H",
+    "H______________H",
+    "HHHHHHHMHHHHHHHH",
+};
+
+static const spawn_t MAP_SPAWNS_DINER[] = {
+    /* THE BOSS. It waits. That is the worst part. */
+    { ENT_ALIEN,  8,  6, SPECIES_GREY_BOSS, 0 },
+
+    { ENT_NPC,   13,  6, LOOK_STOREKEEP,
+      "(FROM UNDER THE BOOTH) IT CAME IN AT MIDNIGHT AND STOOD. NO "
+      "ORDER. NO WORDS. IT JUST STOOD.\nTHE ONES IN THE SKY PUT IT "
+      "HERE -- I WATCHED THE LIGHT SET IT DOWN LIKE A CHESS PIECE.\n"
+      "DON'T LOOK AT ITS EYES, MISTER. THE TRUCKER LOOKED AT ITS EYES "
+      "AND NOW HE'S SITTING IN BOOTH THREE, SMILING." },
+
+    { ENT_ITEM,  13,  1, ITEM_MEDKIT,  0 },
+    { ENT_ITEM,  13,  8, ITEM_TNT,     0 },
+    { ENT_ITEM,   2,  8, ITEM_BULLETS, 0 },
+};
+
+static const warp_t MAP_WARPS_DINER[] = {
+    { 7, 10, MAP_SOUTH, 6, 19 },   /* the doormat -> the sidewalk */
+};
+
+/* ============================ ROSA'S WALK-UP ================================
+ * Marie's sister's place, off the Low Street. Table shoved at the door,
+ * beds dragged together, and the two people the whole part has been
+ * about. Talking to MARIE ends Part 1 (see try_talk).
+ */
+/* NOTE THE DOORMAT IS ON THE TOP WALL: you come DOWN into this building
+ * off the street, so the way out has to be behind you, not in front --
+ * an exit mat in your path would bounce a held key straight back outside
+ * (that, plus warp_cd, is the whole doorway-ping-pong fix). */
+static const char *const MAP_ROWS_APARTMENT[10] = {
+    "HHHHHHHMHHHHHHH",
+    "H_____________H",
+    "H__t__________H",
+    "H_____________H",
+    "H_____________H",
+    "H_________t___H",
+    "H_____________H",
+    "HBB________tt_H",
+    "HBB___________H",
+    "HHHHHHHHHHHHHHH",
+};
+
+static const spawn_t MAP_SPAWNS_APARTMENT[] = {
+    /* MARIE. Scared, alive, and looking at the door the exact second it
+     * opens, because she never stopped watching it. */
+    { ENT_NPC,    4,  7, LOOK_WIFE,
+      "~! OH GOD -- ~!\n"
+      "SHE GRABS YOUR COAT WITH BOTH HANDS LIKE THE FLOOR IS TILTING. "
+      "DANNY! DANNY, IT'S DAD!\n"
+      "WE HEARD IT ON THE RADIO AND THEN THE RADIO STOPPED, AND I TOOK "
+      "DANNY AND RAN TO ROSA'S, AND -- YOU'RE HERE. YOU FOUND US.\n"
+      "THE THINGS IN THE SKY ARE STILL UP THERE, ~. ...BUT SO ARE THE "
+      "STARS. STAY. STAY UNTIL MORNING.",
+      0,
+      "STAY WHERE I CAN SEE YOU, ~. WE'LL FIGURE OUT MORNING WHEN IT "
+      "COMES." },
+
+    { ENT_NPC,    2,  6, LOOK_BOY,
+      "DAD! DAD DAD DAD--\n"
+      "HE HITS YOU AT FULL SPEED AND HUGS YOUR LEGS LIKE A TACKLE.\n"
+      "I WASN'T SCARED. MOM WAS SCARED. ...I WAS A LITTLE SCARED. DID "
+      "YOU SEE THE LIGHTS, DAD? THEY MAKE YOUR TEETH HUM." },
+
+    { ENT_ITEM,  12,  5, ITEM_MEDKIT, 0 },
+};
+
+static const warp_t MAP_WARPS_APARTMENT[] = {
+    { 7, 0, MAP_SOUTH, 30, 25 },   /* the doormat -> under the lamp */
+};
+
 /* ============================ THE MAP TABLE ===============================*/
 #define N(a) (int)(sizeof(a) / sizeof((a)[0]))
 
@@ -708,6 +934,15 @@ const map_t maps[NUM_MAPS] = {                       /* outdoor? (night) */
     [MAP_OFFICE] = { "HALLORAN AND WEEKS", MAP_ROWS_OFFICE, 18, 12,
                     MAP_SPAWNS_OFFICE, N(MAP_SPAWNS_OFFICE),
                     MAP_WARPS_OFFICE,  N(MAP_WARPS_OFFICE), 0, 1 },
+    [MAP_SOUTH] = { "THE SOUTH SIDE", MAP_ROWS_SOUTH, 40, 30,
+                    MAP_SPAWNS_SOUTH, N(MAP_SPAWNS_SOUTH),
+                    MAP_WARPS_SOUTH,  N(MAP_WARPS_SOUTH),  1 },
+    [MAP_DINER] = { "THE STARLIGHT DINER", MAP_ROWS_DINER, 16, 11,
+                    MAP_SPAWNS_DINER, N(MAP_SPAWNS_DINER),
+                    MAP_WARPS_DINER,  N(MAP_WARPS_DINER),  0 },
+    [MAP_APARTMENT] = { "ROSA'S WALK-UP", MAP_ROWS_APARTMENT, 15, 10,
+                    MAP_SPAWNS_APARTMENT, N(MAP_SPAWNS_APARTMENT),
+                    MAP_WARPS_APARTMENT,  N(MAP_WARPS_APARTMENT), 0 },
 };
 
 #undef N

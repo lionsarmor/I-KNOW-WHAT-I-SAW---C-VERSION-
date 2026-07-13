@@ -87,6 +87,8 @@ enum {
     SPR_ITEM_ROSARY,                      /* Mrs. Abernathy's beads        */
     SPR_DEACON,    SPR_DEACON_1,          /* Deacon Charlie (well, almost) */
     SPR_DEADLADY,  SPR_DEADLADY_1,        /* the librarian, by the pond    */
+    SPR_WIFE,      SPR_WIFE_1,            /* MARIE. The whole point.       */
+    SPR_BOY,       SPR_BOY_1,             /* DANNY, who was a little scared */
     NUM_SPRITES
 };
 
@@ -135,6 +137,9 @@ enum {
     SPECIES_QUEEN,        /* the MUTANT QUEEN -- big, fast, winged, wrong   */
     SPECIES_TALL,         /* THE TALL ONE -- grey, red-eyed, arms too long  */
     SPECIES_CHUPA_BOSS,   /* LE CHUPACABRA -- the thing in the city park    */
+    SPECIES_GREY_BOSS,    /* THE VISITOR -- the grey that stands in the
+                             Starlight Diner and has not moved since it
+                             chose to stand there                           */
     NUM_SPECIES
 };
 
@@ -202,6 +207,8 @@ enum {
     LOOK_DEACON,         /* Deacon Charlie, keeper of the last holy water */
     LOOK_DEADLADY,       /* what's left of the librarian. She still has
                             her rosary, and you still say a prayer.      */
+    LOOK_WIFE,           /* Marie. Talking to her ENDS PART 1 (try_talk). */
+    LOOK_BOY,            /* Danny. He wasn't scared. He was a little scared. */
     NUM_LOOKS
 };
 
@@ -322,6 +329,14 @@ enum {
     /* ---- PART 1 ---- */
     MAP_CITY,           /* main street. everyone out here is scared.      */
     MAP_OFFICE,         /* the dark office tower. the lights are OFF.     */
+    MAP_SOUTH,          /* THE SOUTH SIDE: forty tiles of scared city.
+                           Chupacabras on the streets, dogmen in the
+                           alleys, and the things everyone keeps not
+                           looking at, hanging in the sky.                */
+    MAP_DINER,          /* the Starlight Diner. Something is standing in
+                           it, and it has been standing there since it
+                           decided to.                                    */
+    MAP_APARTMENT,      /* the walk-up off the Low Street. THEM.          */
     NUM_MAPS
 };
 
@@ -363,6 +378,8 @@ typedef struct {          /* something living (or lying) on a map */
 #define FLAG_M_OFFICE    (1u << 3)   /* stepping into the dark office       */
 #define FLAG_M_ARMED     (1u << 4)   /* light in one hand, gun in the other */
 #define FLAG_CHUPA_DEAD  (1u << 5)   /* the thing in the park is down       */
+#define FLAG_FAMILY      (1u << 6)   /* HE FOUND THEM. Part 1's whole job.  */
+#define FLAG_M_SOUTH     (1u << 7)   /* the south-side arrival monologue    */
 /* A flag NOBODY ever sets. A warp that requires it is a door that never
  * opens -- which is how a door gets a CUSTOM "locked" line instead of the
  * generic one (see check_door_bump). */

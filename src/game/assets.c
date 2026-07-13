@@ -277,6 +277,10 @@ int assets_init(void)
         /* the dead don't animate: both frames decode the same art */
         { SPR_DEADLADY,      SPR_ART_DEADLADY      },
         { SPR_DEADLADY_1,    SPR_ART_DEADLADY      },
+        { SPR_WIFE,          SPR_ART_WIFE          },
+        { SPR_WIFE_1,        SPR_ART_WIFE_1        },
+        { SPR_BOY,           SPR_ART_BOY           },
+        { SPR_BOY_1,         SPR_ART_BOY_1         },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -487,6 +491,17 @@ const species_t species[NUM_SPECIES] = {
         { { "EXSANGUINATE", MV_DRAIN, 12, 35 },
           { "THE SHRIEK", MV_STUN, 0, 22 } },
         2, 0, 0 },
+
+    /* --- THE VISITOR. A grey, alone, standing in the Starlight Diner with
+     * its hands at its sides. It has been standing there since midnight.
+     * The coffee is still warm. A BOSS: it does not wander, it does not
+     * blink first, and when it's gone it's gone. Brighter than the ridge
+     * greys -- it is not trying to hide. */
+    [SPECIES_GREY_BOSS] = { "THE VISITOR", 82, 10, 120,
+        SPR_GREY_0, SPR_GREY_1, 256, 1, 0, 9,
+        { { "MISSING TIME", MV_STUN, 0, 30 },
+          { "THE PROBE", MV_HEAVY, 13, 30 } },
+        2, 0, 0 },
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
@@ -510,6 +525,8 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_COPCAR]    = { SPR_VAN,        SPR_VAN_1        },
     [LOOK_DEACON]    = { SPR_DEACON,     SPR_DEACON_1     },
     [LOOK_DEADLADY]  = { SPR_DEADLADY,   SPR_DEADLADY_1   },
+    [LOOK_WIFE]      = { SPR_WIFE,       SPR_WIFE_1       },
+    [LOOK_BOY]       = { SPR_BOY,        SPR_BOY_1        },
 };
 
 /* ============================ THE ITEMS ====================================

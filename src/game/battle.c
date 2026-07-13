@@ -882,11 +882,16 @@ void gameover_update(void)
         G.player.xp /= 2;
 
         G.player.hp = G.player.max_hp;
-        /* the farmer wakes in his field; the lawyer on the church steps */
-        if (G.flags & FLAG_PART1)
-            overworld_enter_map(MAP_CITY, 3, 5);
-        else
+        /* the farmer wakes in his field; the lawyer wherever the night
+         * dropped him -- the church steps up north, or the mouth of the
+         * South Side if that's where it happened. Losing a fight deep in
+         * the walk-ups should not cost the whole walk south again. */
+        if (!(G.flags & FLAG_PART1))
             overworld_enter_map(MAP_FARM, 5, 6);
+        else if (G.map_id >= MAP_SOUTH)
+            overworld_enter_map(MAP_SOUTH, 11, 1);
+        else
+            overworld_enter_map(MAP_CITY, 3, 5);
     }
 }
 
