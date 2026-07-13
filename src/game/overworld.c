@@ -363,9 +363,14 @@ static void restock_items(void)
     G.boons_done = 0;
     roll_boon(G.map_id);        /* including the one you're standing in */
 
-    G.toast       = "THE FIELDS GREW BACK. SO DID THEY.";
+    /* Say it in the language of WHERE YOU'RE STANDING: fields grow back on
+     * a farm; a city just goes quiet for a while, and quiet isn't safe. */
+    G.toast = (G.map_id == MAP_CITY || G.map_id == MAP_OFFICE)
+        ? "THE CITY IS CALMER AFTER THE NIGHT. IT WON'T LAST."
+        : "THE FIELDS GREW BACK. SO DID THEY.";
     G.toast_good  = 1;
-    G.toast_ticks = 150;
+    G.toast_ticks = 120;   /* every toast lives 120 ticks -- draw_toast's
+                              slide-in is keyed to that number */
 }
 
 /* ---- day & night -----------------------------------------------------------
@@ -1421,16 +1426,40 @@ static void draw_hud(void)
         gfx_text_small_outlined(ix + 11, iy + 4, am, RGB565(255, 220, 80));
     }
 
-    /* SAVED. / LOADED. / NO SAVE FOUND / THE FIELDS HAVE GROWN BACK */
-    if (G.toast_ticks > 0 && G.toast) {
-        G.toast_ticks--;
-        int tw = gfx_text_width(G.toast, 1);
-        gfx_fill_rect((SCREEN_W - tw) / 2 - 6, 60, tw + 12, 14,
-                      RGB565(16, 16, 24));
-        gfx_text((SCREEN_W - tw) / 2, 63, G.toast,
-                 G.toast_good ? RGB565(150, 240, 150)
-                              : RGB565(240, 110, 100));
-    }
+    draw_toast();   /* SAVED. / LOADED. / the restock line -- corner popup */
+}
+
+/* ============================ THE TOAST =====================================
+ * SAVED. / LOADED. / NO SAVE FOUND / the overnight-restock line. It used to
+ * be a plate across the middle of the screen -- a status note dressed up as
+ * an event. Now it's a TOAST: a small popup in the bottom-right corner, in
+ * the HUD's small font, that slides up as it arrives and drops away as it
+ * leaves. Every scene that can show one calls this same function, so the
+ * pause screen, the prologue and the church all agree with the overworld.
+ */
+void draw_toast(void)
+{
+    if (G.toast_ticks <= 0 || !G.toast)
+        return;
+    G.toast_ticks--;
+
+    /* slide in over the first few ticks, sink away over the last few.
+     * toast_ticks counts DOWN from 120-150, so "young" means large. */
+    int slide = 0;
+    if (G.toast_ticks > 112)      slide = (G.toast_ticks - 112) * 2;
+    else if (G.toast_ticks < 6)   slide = (6 - G.toast_ticks) * 2;
+
+    int tw = gfx_text_small_width(G.toast);
+    int x  = SCREEN_W - tw - 10;
+    int y  = SCREEN_H - 14 + slide;
+
+    uint16_t edge = G.toast_good ? RGB565(90, 170, 90)
+                                 : RGB565(190, 80, 70);
+    gfx_fill_rect(x - 4, y - 3, tw + 8, 11, RGB565(10, 10, 16));
+    gfx_rect     (x - 4, y - 3, tw + 8, 11, edge);
+    gfx_text_small(x, y, G.toast,
+                   G.toast_good ? RGB565(150, 240, 150)
+                                : RGB565(240, 110, 100));
 }
 
 /* RAIN. Streaks, not dots -- a dot is a snowflake. Each drop's position is

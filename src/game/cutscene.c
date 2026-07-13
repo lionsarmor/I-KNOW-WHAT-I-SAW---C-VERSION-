@@ -492,17 +492,9 @@ void prologue_render(void)
             gfx_cursor(ox - 14, oy, G.frame);
     }
 
-    /* the toast (SAVED. / LOADED. / NO SAVE FOUND) -- the overworld HUD
-     * usually draws this, and we are very much not in the overworld */
-    if (G.toast_ticks > 0 && G.toast) {
-        G.toast_ticks--;
-        int tw = gfx_text_width(G.toast, 1);
-        gfx_fill_rect((SCREEN_W - tw) / 2 - 6, 74, tw + 12, 14,
-                      RGB565(16, 16, 24));
-        gfx_text((SCREEN_W - tw) / 2, 77, G.toast,
-                 G.toast_good ? RGB565(150, 240, 150)
-                              : RGB565(240, 110, 100));
-    }
+    /* the toast (SAVED. / LOADED. / NO SAVE FOUND) -- same corner popup
+     * as everywhere else (draw_toast, overworld.c) */
+    draw_toast();
 }
 
 /* ============================ PART 1: THE CHURCH ============================
@@ -732,16 +724,9 @@ void church_render(void)
                        RGB565(70, 70, 78));
     }
 
-    /* the SAVED. toast -- the Part 1 checkpoint lands during the service */
-    if (G.toast_ticks > 0 && G.toast) {
-        G.toast_ticks--;
-        int tw = gfx_text_width(G.toast, 1);
-        gfx_fill_rect((SCREEN_W - tw) / 2 - 6, 60, tw + 12, 14,
-                      RGB565(16, 16, 24));
-        gfx_text((SCREEN_W - tw) / 2, 63, G.toast,
-                 G.toast_good ? RGB565(150, 240, 150)
-                              : RGB565(240, 110, 100));
-    }
+    /* the SAVED. toast -- the Part 1 checkpoint lands during the service,
+     * as the same quiet corner popup it is everywhere else */
+    draw_toast();
 
     /* it goes dark before it goes loud */
     if (G.t > CHURCH_END - 40) {

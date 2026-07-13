@@ -315,6 +315,9 @@ void overworld_resume(void);                  /* CONTINUE from a save   */
 void overworld_enter_map(int map, int tx, int ty);
 void dialog_start(const char *text);
 void monologue_start(const char *text);       /* the voice in his head */
+void draw_toast(void);   /* the little corner popup (SAVED. and friends) --
+                            every scene that can show one calls this, so
+                            they all agree on where and how */
 
 /* does the player have SOMETHING that fires? (Part 1's pistol counts) */
 #define PLAYER_HAS_GUN() \
