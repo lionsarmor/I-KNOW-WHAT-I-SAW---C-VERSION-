@@ -290,6 +290,13 @@ typedef struct {
     int      journal_sel;                   /* which page you're on      */
     state_t  journal_from;                  /* who opened it: title/pack */
 
+    /* MA AT THE EAST GATE (overworld.c): the little scripted scene where
+     * she runs the length of Main Street to hand you the journal. Phases:
+     * 0 off, 1 she's running to you, 2 the dialog is up, 3 she's running
+     * home. Not saved: you can't save mid-scene (input is locked). */
+    int ma_scene;
+    int ma_ent;                             /* her runtime entity slot   */
+
     /* When the world last restocked its items. See ITEM_RESPAWN_TICKS. */
     uint32_t last_restock;
 

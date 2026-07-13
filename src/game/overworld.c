@@ -1071,6 +1071,98 @@ static void move_player(void)
         G.player.anim++;
 }
 
+/* ---- MA AT THE EAST GATE ---------------------------------------------------
+ * The first time you try to walk east out of town -- which can only happen
+ * once the thing in the north road is dead, because that's what opens the
+ * gate -- SHE IS ALREADY RUNNING. She crosses the whole of Main Street to
+ * catch you, hands over grandpa's field journal, tells you to be careful,
+ * and runs home. Then the gate lets you through, because you were already
+ * mid-step when she caught you.
+ *
+ * The world holds still for it: overworld_update sees ma_scene and skips
+ * input, creatures, everything. Phase 2 rides the ordinary dialog box --
+ * when the state comes back to ST_OVERWORLD the speech is over and the
+ * journal changes hands.
+ */
+static int ma_scene_start(void)
+{
+    const map_t *m = cur_map();
+    int slot = -1;
+    for (int i = m->nspawns; i < MAX_ENTITIES; i++)
+        if (G.ents[i].type == ENT_NONE) { slot = i; break; }
+    if (slot < 0)
+        return 0;                  /* no room -- fail open, just warp */
+
+    entity_t *e = &G.ents[slot];
+    e->type = ENT_NPC;
+    e->kind = LOOK_MA;
+    e->x    = 1 * TILE;            /* the west end of Main Street */
+    e->y    = G.player.y;          /* the road row you're standing on */
+    e->dir  = DIR_RIGHT;
+    e->cw   = e->ch = TILE;
+    e->dialog = 0;                 /* the scene speaks for her */
+    e->gift   = 0;
+    e->after  = 0;
+    e->stun = e->hurt = e->aggro = 0;
+
+    G.ma_ent    = slot;
+    G.ma_scene  = 1;
+    G.player.dir = DIR_LEFT;       /* you hear her before you see her */
+    return 1;
+}
+
+static void ma_scene_update(void)
+{
+    entity_t *e = &G.ents[G.ma_ent];
+
+    if (G.ma_scene == 1) {
+        /* she RUNS -- 2px a tick, faster than anything else on the street
+         * walks. Straight down the road, then square up beside you. */
+        int tx = G.player.x - TILE, ty = G.player.y;
+        if      (e->x < tx) { e->x += 2; if (e->x > tx) e->x = tx; }
+        else if (e->x > tx) { e->x -= 2; if (e->x < tx) e->x = tx; }
+        else if (e->y < ty) { e->y += 2; if (e->y > ty) e->y = ty; }
+        else if (e->y > ty) { e->y -= 2; if (e->y < ty) e->y = ty; }
+        else {
+            G.ma_scene = 2;
+            dialog_start(
+                "~! WAIT! *HUFF* WAIT RIGHT THERE!\n"
+                "I RAN ALL THE WAY FROM THE FARM. THE WHOLE TOWN IS "
+                "SAYING WHAT YOU DID TO THAT THING IN THE NORTH ROAD.\n"
+                "AND NOW YOU'RE WALKING EAST. OF COURSE YOU ARE.\n"
+                "HERE -- GRANDPA'S FIELD JOURNAL. HE WROTE DOWN EVERY "
+                "LAST THING HE SAW OUT THERE, AND NOBODY BELIEVED HIM "
+                "EITHER.\n"
+                "WRITE IT ALL DOWN, ~. AND YOU COME HOME.\n"
+                "...BE CAREFUL. IT ISN'T JUST LIGHTS ANYMORE.");
+        }
+        return;
+    }
+
+    if (G.ma_scene == 2) {
+        /* the dialog just closed: the journal changes hands */
+        G.flags |= FLAG_JOURNAL;
+        journal_saw(SPECIES_GOBLIN);   /* she watched you do it; it's the
+                                          first thing you write down */
+        audio_sfx(SFX_PICKUP);
+        G.toast       = "GRANDPA'S JOURNAL IS IN THE PACK.";
+        G.toast_good  = 1;
+        G.toast_ticks = 120;
+        G.ma_scene = 3;
+        e->dir = DIR_LEFT;             /* and she heads home */
+        return;
+    }
+
+    /* phase 3: she runs back the way she came, and the street lets her go */
+    e->x -= 2;
+    if (e->x <= 2) {
+        e->type = ENT_NONE;
+        G.ma_scene = 0;                /* the world starts moving again --
+                                          you're still standing on the
+                                          warp, so east happens NOW */
+    }
+}
+
 static void check_warps(void)
 {
     if (G.warp_cd > 0)      /* just arrived -- see overworld_enter_map */
@@ -1090,6 +1182,15 @@ static void check_warps(void)
             locked_cd = 40;
             return;
         }
+
+        /* THE EAST GATE, the first time it's open (the goblin is down --
+         * this warp's needs_flag just said so): Ma catches you before
+         * you're through it. See ma_scene_start above. */
+        if (G.map_id == MAP_TOWN && w->dest_map == MAP_VANLOT &&
+            !(G.flags & FLAG_JOURNAL) && !(G.flags & FLAG_PART1) &&
+            ma_scene_start())
+            return;
+
         overworld_enter_map(w->dest_map, w->dest_tx, w->dest_ty);
         return;
     }
@@ -1411,6 +1512,13 @@ void overworld_update(void)
         locked_cd--;
     if (G.warp_cd > 0)
         G.warp_cd--;
+
+    /* Ma has the street: no input, no creatures, no warps -- the whole
+     * town holds still until she's said her piece and gone home */
+    if (G.ma_scene) {
+        ma_scene_update();
+        return;
+    }
 
     move_player();
     check_warps();
@@ -2479,7 +2587,9 @@ static int pack_rows(int *out)
     for (int i = 0; i < NUM_ITEMS; i++)
         if (G.items_seen & (1u << i))
             out[n++] = i;
-    out[n++] = ROW_JOURNAL;   /* WHAT I SAW -- the notes travel with you */
+    if (G.flags & FLAG_JOURNAL)
+        out[n++] = ROW_JOURNAL;   /* grandpa's journal, once Ma catches
+                                     you at the east gate */
     out[n++] = ROW_SAVE;      /* always there */
     out[n++] = ROW_LOAD;      /* ...but only usable once a save exists */
     return n;

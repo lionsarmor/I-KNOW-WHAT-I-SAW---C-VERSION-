@@ -387,6 +387,9 @@ typedef struct {          /* something living (or lying) on a map */
 #define FLAG_CHUPA_DEAD  (1u << 5)   /* the thing in the park is down       */
 #define FLAG_FAMILY      (1u << 6)   /* HE FOUND THEM. Part 1's whole job.  */
 #define FLAG_M_SOUTH     (1u << 7)   /* the south-side arrival monologue    */
+#define FLAG_JOURNAL     (1u << 8)   /* Ma handed over grandpa's journal at
+                                        the east gate -- WHAT I SAW opens
+                                        in the pack and on the title       */
 /* A flag NOBODY ever sets. A warp that requires it is a door that never
  * opens -- which is how a door gets a CUSTOM "locked" line instead of the
  * generic one (see check_door_bump). */

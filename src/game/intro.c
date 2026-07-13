@@ -213,9 +213,10 @@ static int title_rows(int *out)
     if (G.has_save)
         out[n++] = ROW_CONTINUE;
     out[n++] = ROW_NEWGAME;
-    out[n++] = ROW_JOURNAL;   /* the book reads whatever save is loaded --
-                                 and with no save it's sixteen dark pages,
-                                 which is its own kind of invitation */
+    if (G.has_save && (G.flags & FLAG_JOURNAL))
+        out[n++] = ROW_JOURNAL;   /* the book reads the loaded save -- and
+                                     it only exists at all once Ma has
+                                     handed it over at the east gate */
     out[n++] = ROW_OPTIONS;
     return n;
 }
