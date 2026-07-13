@@ -282,6 +282,11 @@ int game_save_load(const uint8_t *buf, int len)
     for (int m = 0; m < NUM_MAPS; m++)
         G.spawns_gone[m] = gone[m];
 
+    /* Blood is NOT in the blob (see blood_t): a loaded game starts with
+     * clean ground. This doubles as the array's init -- a zeroed G would
+     * otherwise claim a pool at (0,0) of map 0. */
+    blood_clear();
+
     G.has_save = 1;
 
     /* WHERE we were called from decides what happens next:

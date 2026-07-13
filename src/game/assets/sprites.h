@@ -2266,6 +2266,49 @@ static const char *SPR_ART_BOY_1[16] = {
     "................",
 };
 
+/* BRAD, THE TOWN DRUNK. The fu manchu (the dark band under the nose, tails
+ * hanging past the chin), the stained tank top, the jeans, and the FORTY --
+ * brown glass, held at his hip in frame 0 and TIPPED BACK in frame 1, so
+ * his idle animation is just him drinking, forever. He has seen the lights
+ * over the ridge same as everybody. He is not impressed. */
+static const char *SPR_ART_BRAD[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0s0ss0s0.....",
+    "....0HHsHH0.....",
+    "....0H0ss0H0....",
+    ".....0s1s0......",
+    "....0s111s0.d...",
+    "...0s11k11s0D...",
+    "...0s11111ssD...",
+    "....0b11b0..D...",
+    "....0b00b0......",
+    "....0b00b0......",
+    "....00..00......",
+};
+
+static const char *SPR_ART_BRAD_1[16] = {
+    "................",
+    ".....00000......",
+    "....0hhhhh0.....",
+    "...0hhhhhhh0....",
+    "...0hsssssh0....",
+    "...0s0ss0s0.d...",
+    "....0HHsHH0.D...",
+    "....0H0ss0H0D...",
+    ".....0s1s0..D...",
+    "....0s111sss....",
+    "...0s11k11s0....",
+    "...0s11111s0....",
+    "....0b11b0......",
+    "....0b00b0......",
+    "....0b00b0......",
+    "....00..00......",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */

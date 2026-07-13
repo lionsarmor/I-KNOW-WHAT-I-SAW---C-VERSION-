@@ -176,6 +176,16 @@ static const spawn_t MAP_SPAWNS_TOWN[] = {
     { ENT_NPC,   18, 13, LOOK_DOG,
       "WOOF! A TOWN DOG. HE IS DELIGHTED TO SEE YOU AND HAS NO NEWS." },
 
+    /* THE TOWN DRUNK, loitering outside the general store, where the beer
+     * comes from. Half this town saw the lights and won't sleep. Brad saw
+     * them too. Brad has a DIFFERENT take. */
+    { ENT_NPC,    9, 18, LOOK_BRAD,
+      "NAME'S BRAD. *HHRK* Y'ALL STILL ON ABOUT THE ALIENS? MAN, THEM "
+      "THINGS IS FAKE AND GAY. FAKE. AND. GAY. THAT LIGHT OVER THE RIDGE "
+      "IS VENUS, THE HUMMIN' IS THE POWER LINES, AND THAT THING IN THE "
+      "NORTH ROAD IS A LITTLE GUY IN A SUIT. ...I AIN'T WALKIN' PAST IT "
+      "THOUGH." },
+
     /* IT STANDS IN THE ROAD. You cannot leave north until it is dealt
      * with -- walk into it and the fight starts. It never wanders, and
      * once it's down it stays down (see the `boss` flag in assets.c). */

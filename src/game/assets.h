@@ -89,6 +89,7 @@ enum {
     SPR_DEADLADY,  SPR_DEADLADY_1,        /* the librarian, by the pond    */
     SPR_WIFE,      SPR_WIFE_1,            /* MARIE. The whole point.       */
     SPR_BOY,       SPR_BOY_1,             /* DANNY, who was a little scared */
+    SPR_BRAD,      SPR_BRAD_1,            /* BRAD. He has opinions and a 40. */
     NUM_SPRITES
 };
 
@@ -209,6 +210,10 @@ enum {
                             her rosary, and you still say a prayer.      */
     LOOK_WIFE,           /* Marie. Talking to her ENDS PART 1 (try_talk). */
     LOOK_BOY,            /* Danny. He wasn't scared. He was a little scared. */
+    LOOK_BRAD,           /* the town drunk. Fu manchu, a 40, and a THEORY.
+                            (Down here past LOOK_STOREKEEP on purpose:
+                            roll_boon never picks him. Brad gives you
+                            nothing but his opinion.) */
     NUM_LOOKS
 };
 

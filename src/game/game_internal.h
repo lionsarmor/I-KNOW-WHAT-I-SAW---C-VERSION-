@@ -102,6 +102,20 @@ typedef struct {
     uint16_t col;
 } gore_t;
 
+/* A POOL OF BLOOD -- the part that doesn't fly away. Every kill leaves
+ * one where the body dropped (a boss, or YOU, leaves a big one), and it
+ * stays there, chunky and drying, across map exits and re-entries, until
+ * the day/night cycle completes and the world restocks -- the same clock
+ * that regrows the herbs washes the streets (see restock_items).
+ * Not saved: a loaded game starts with clean ground. */
+typedef struct {
+    int map;             /* which map it soaked into; -1 = free slot  */
+    int x, y;            /* map pixels, center of the pool            */
+    int big;             /* boss/player pools spread wider            */
+    uint32_t seed;       /* the shape, deterministic per pool         */
+} blood_t;
+#define MAX_BLOOD 48
+
 /* ---- everything, in one struct you can inspect in a debugger -------------*/
 typedef struct {
     state_t  state;
@@ -118,6 +132,9 @@ typedef struct {
     /* ZELDA MODE */
     shot_t   shots[MAX_SHOTS];
     gore_t   gore[MAX_GORE];
+    blood_t  blood[MAX_BLOOD];   /* the pools. see blood_t above     */
+    int      blood_head;         /* ring cursor: oldest pool goes first
+                                    when all the slots are wet       */
     int      shoot_cd;       /* ticks until you can fire again   */
     int      recoil;         /* ticks of visible kick            */
 
@@ -254,7 +271,8 @@ typedef struct {
     /* the little banner that says SAVED. / LOADED. / NO SAVE FOUND */
     const char *toast;
     int toast_ticks;
-    int toast_good;
+    int toast_good;      /* 0 = bad (red), 1 = good (green),
+                            2 = GOLD -- reserved for leveling up */
 
     /* When the world last restocked its items. See ITEM_RESPAWN_TICKS. */
     uint32_t last_restock;
@@ -273,7 +291,10 @@ typedef struct {
         int kind;                /* its SPECIES_* (stats + sprites)  */
         int enemy_hp, enemy_max;
         int menu;                /* 0 FIGHT  1 SHOOT  2 ITEM  3 RUN  */
-        int item_sel;            /* ITEM submenu: 0 herb, 1 medkit   */
+        int item_sel;            /* ITEM submenu: index into the list of
+                                    items you actually HAVE (battle.c) */
+        int item_top;            /* first visible row of that list --
+                                    it scrolls when the pockets do    */
         int phase;               /* see battle.c */
         int timer;
         int stunned;             /* a special move cost you your turn */
@@ -345,6 +366,9 @@ void draw_toast(void);   /* the little corner popup (SAVED. and friends) --
 void battle_start(int ent_index);
 void pack_discover(int item_kind);            /* it enters the pack     */
 void mark_dead(int ent_index);                /* it stays dead till dawn */
+void add_blood(int x, int y, int big);        /* a kill soaks the ground
+                                                 of the CURRENT map     */
+void blood_clear(void);                       /* the cycle washes it    */
 int  map_music(int map);                      /* the song a place plays  */
 void name_start(void);                        /* the name screen        */
 

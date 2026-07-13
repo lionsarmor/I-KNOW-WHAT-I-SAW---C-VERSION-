@@ -289,6 +289,7 @@ void overworld_start_game(void)
     G.boons_done = 0;                      /* nobody has helped you yet */
     G.boon_ent = -1;
     G.boom_t = 0;
+    blood_clear();                         /* the ground starts clean */
     overworld_enter_map(MAP_FARM, 5, 6);   /* on the path by the door */
 }
 
@@ -321,6 +322,8 @@ void overworld_resume(void)
  */
 static void restock_items(void)
 {
+    blood_clear();   /* the same clock washes the streets */
+
     for (int m = 0; m < NUM_MAPS; m++)
         for (int i = 0; i < maps[m].nspawns && i < MAX_ENTITIES; i++) {
             const spawn_t *s = &maps[m].spawns[i];
@@ -519,6 +522,38 @@ static void spray_gore(int x, int y, int n)
     }
 }
 
+/* A KILL SOAKS THE GROUND. The spray (above) flies and fades; this is the
+ * part that stays. One pool per body, on the map you're standing on, until
+ * the restock clock washes it (blood_clear, called from restock_items).
+ * When every slot is wet the oldest pool dries over and its slot is
+ * taken -- blood_head walks the array like a ring. */
+void add_blood(int x, int y, int big)
+{
+    int slot = -1;
+    for (int i = 0; i < MAX_BLOOD; i++)
+        if (G.blood[i].map < 0) { slot = i; break; }
+    if (slot < 0) {
+        slot = G.blood_head;
+        G.blood_head = (G.blood_head + 1) % MAX_BLOOD;
+    }
+    blood_t *b = &G.blood[slot];
+    b->map  = G.map_id;
+    b->x    = x;
+    b->y    = y;
+    b->big  = big;
+    b->seed = rng_next();
+}
+
+/* ...and the cycle washes it. Also the ONLY thing that makes the array
+ * sane: a zeroed G would mean a pool at (0,0) of map 0, so anything that
+ * starts a game -- fresh or loaded -- has to call this first. */
+void blood_clear(void)
+{
+    for (int i = 0; i < MAX_BLOOD; i++)
+        G.blood[i].map = -1;
+    G.blood_head = 0;
+}
+
 /* DEAD IS DEAD -- until tomorrow.
  *
  * Mark a creature's spawn slot so it does not come back the moment you step
@@ -535,17 +570,60 @@ void mark_dead(int i)
         G.spawns_gone[G.map_id] |= (1u << i);
 }
 
+/* THE FIELD LEVELS YOU TOO. Battle has its own version of this check (see
+ * PH_WIN in battle.c -- same math, same +5, or the two routes would grow
+ * two different farmers), but field kills used to bank the xp and never
+ * look at it: the bar sat there full and nothing happened. Now it happens
+ * here, and instead of battle's full-screen message you get the corner
+ * toast, in GOLD -- the only news that earns that color.
+ *
+ * A while, not an if: field xp arrives in dribs, but a boss field kill
+ * lands a lump that can clear two bars at once. */
+static void field_level_up(void)
+{
+    int rose = 0;
+    while (G.player.xp >= G.player.level * XP_PER_LEVEL) {
+        G.player.xp -= G.player.level * XP_PER_LEVEL;
+        G.player.level++;
+        G.player.max_hp += 5;
+        G.player.hp = G.player.max_hp;   /* full heal on level */
+        rose = 1;
+    }
+    if (!rose)
+        return;
+
+    audio_sfx(SFX_LEVELUP);
+
+    /* the toast wants a string, and the core has no sprintf -- build it
+     * the way msgb does (battle.c). Static: G.toast keeps pointing here. */
+    static char msg[32];
+    int p = 0;
+    for (const char *s = "YOU FEEL TOUGHER! LEVEL "; *s; s++)
+        msg[p++] = *s;
+    if (G.player.level >= 10)
+        msg[p++] = (char)('0' + (G.player.level / 10) % 10);
+    msg[p++] = (char)('0' + G.player.level % 10);
+    msg[p++] = '!';
+    msg[p]   = '\0';
+
+    G.toast       = msg;
+    G.toast_good  = 2;      /* gold */
+    G.toast_ticks = 120;
+}
+
 static void kill_entity(int i)
 {
     entity_t *e = &G.ents[i];
     const species_t *sp = &species[e->kind];
 
     spray_gore(e->x, e->y, 14);
+    add_blood(e->x + 8, e->y + 8, sp->boss);   /* where the body dropped */
     audio_sfx(SFX_HIT);
 
     /* A field kill pays less than a proper fight -- see OVERWORLD_XP_PCT.
      * You took the quick way out, and the quick way pays worse. */
     G.player.xp += sp->xp * OVERWORLD_XP_PCT / 100;
+    field_level_up();                  /* ...but it still counts */
 
     mark_dead(i);
     /* Each boss's death sets ITS flag -- a field kill has to count for
@@ -601,7 +679,7 @@ static void tnt_boom(int bx, int by)
     G.boom_x = bx;
     G.boom_y = by;
     G.boom_t = TNT_BOOM_TICKS;
-    audio_sfx(SFX_STING);            /* the crash, falling into a low drone */
+    audio_sfx(SFX_BOOM);             /* the crack, and then the THUMP */
     rumble(255);                     /* it is DYNAMITE */
     shake(SHAKE_TNT_MAG, SHAKE_TNT_TICKS);
 
@@ -635,7 +713,8 @@ static void holy_mist(int bx, int by)
     G.mist_x = bx;
     G.mist_y = by;
     G.mist_t = MIST_TICKS;
-    audio_sfx(SFX_HEAL);             /* it sounds like relief */
+    audio_sfx(SFX_SIZZLE);           /* the vial breaks, the light climbs
+                                        out, and it hisses like a griddle */
     shake(1, 12);
 
     for (int i = 0; i < MAX_ENTITIES; i++) {
@@ -1490,13 +1569,19 @@ void draw_toast(void)
     int x  = SCREEN_W - tw - 10;
     int y  = SCREEN_H - 14 + slide;
 
-    uint16_t edge = G.toast_good ? RGB565(90, 170, 90)
-                                 : RGB565(190, 80, 70);
+    /* three moods: red for bad news, green for good news, and GOLD for the
+     * one piece of news that's about YOU getting stronger (see toast_good
+     * in game_internal.h) */
+    uint16_t edge, text;
+    if (G.toast_good == 2) { edge = RGB565(210, 165, 40);
+                             text = RGB565(255, 225, 120); }
+    else if (G.toast_good) { edge = RGB565(90, 170, 90);
+                             text = RGB565(150, 240, 150); }
+    else                   { edge = RGB565(190, 80, 70);
+                             text = RGB565(240, 110, 100); }
     gfx_fill_rect(x - 4, y - 3, tw + 8, 11, RGB565(10, 10, 16));
     gfx_rect     (x - 4, y - 3, tw + 8, 11, edge);
-    gfx_text_small(x, y, G.toast,
-                   G.toast_good ? RGB565(150, 240, 150)
-                                : RGB565(240, 110, 100));
+    gfx_text_small(x, y, G.toast, text);
 }
 
 /* RAIN. Streaks, not dots -- a dot is a snowflake. Each drop's position is
@@ -1700,6 +1785,43 @@ void overworld_render(void)
             gfx_blit(tiles[id].px, TILE, TILE,
                      tx * TILE - cx, ty * TILE - cy);
         }
+
+    /* THE POOLS -- what soaked in. Painted straight over the tiles, under
+     * everything that still moves. Each pool re-rolls its shape from its
+     * own stored seed every frame -- a private xorshift, NOT the game rng,
+     * which must never advance from inside a render -- so it holds
+     * perfectly still, and no pixels are stored anywhere. Two draws summed
+     * per axis piles the splats up in the middle: a pool, not confetti. */
+    for (int i = 0; i < MAX_BLOOD; i++) {
+        const blood_t *b = &G.blood[i];
+        if (b->map != G.map_id)
+            continue;
+        int px = b->x - cx, py = b->y - cy;
+        int r  = b->big ? 11 : 6;              /* how far it spread */
+        if (px < -2 * r || px >= SCREEN_W + 2 * r ||
+            py < -2 * r || py >= SCREEN_H + 2 * r)
+            continue;
+        uint32_t s = b->seed ? b->seed : 0x2545F491u;
+        int n = b->big ? 30 : 12;              /* how much there was */
+        for (int k = 0; k < n; k++) {
+            int dx, dy, sz;
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            dx = (int)(s % (uint32_t)(r + 1));
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            dx += (int)(s % (uint32_t)(r + 1)) - r;
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            dy = (int)(s % (uint32_t)(r + 1));
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            dy += (int)(s % (uint32_t)(r + 1)) - r;
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            /* fat in the middle, flecks at the rim */
+            sz = (dx * dx + dy * dy < r * r / 4) ? 3 : 1 + (int)(s % 2u);
+            /* dried past the bright of the spray -- see spray_gore */
+            gfx_fill_rect(px + dx, py + dy, sz, sz,
+                          (s & 4) ? RGB565(96, 12, 10)
+                                  : RGB565(130, 22, 16));
+        }
+    }
 
     /* entities: sprites + animation come from the cast tables in
      * assets.c, so new species/looks show up here automatically */
@@ -2144,6 +2266,25 @@ static int page_visible(char out[DIALOG_ROWS][DIALOG_COLS + 1], int rows)
     return n;
 }
 
+/* Is the idx-th printed character of this page the FIRST letter of a word?
+ * Walks the wrapped rows the same way the typewriter reveals them. Column
+ * zero of any row counts as a word start too -- the wrap already ate the
+ * space that used to prove it. */
+static int word_starts_at(char out[DIALOG_ROWS][DIALOG_COLS + 1], int rows,
+                          int idx)
+{
+    for (int r = 0; r < rows; r++) {
+        int len = 0;
+        while (out[r][len])
+            len++;
+        if (idx < len)
+            return out[r][idx] != ' '
+                && (idx == 0 || out[r][idx - 1] == ' ');
+        idx -= len;
+    }
+    return 0;
+}
+
 void dialog_update(void)
 {
     char lines[DIALOG_ROWS][DIALOG_COLS + 1];
@@ -2153,8 +2294,19 @@ void dialog_update(void)
     int  more  = (G.dialog_text[next] != '\0');   /* another page after this */
 
     /* typewriter, one char every other tick */
-    if (G.t % 2 == 0 && G.dialog_shown < total)
+    if (G.t % 2 == 0 && G.dialog_shown < total) {
         G.dialog_shown++;
+        /* THE BABBLE. One little syllable per WORD as it lands, hopping
+         * between three pitches (the hash keeps a sentence from ticking
+         * like a metronome, and the same line always burbles the same
+         * way). Only for the SPOKEN box: the internal monologue stays
+         * silent, because nobody can hear you think. */
+        if (G.dialog_style == 0 &&
+            word_starts_at(lines, rows, G.dialog_shown - 1)) {
+            static const int talk[3] = { SFX_TALK0, SFX_TALK1, SFX_TALK2 };
+            audio_sfx(talk[(G.dialog_shown * 13 + G.dialog_page * 7) % 3]);
+        }
+    }
 
     /* YOU CANNOT RUSH IT.
      *

@@ -115,6 +115,9 @@ typedef struct {
 enum {
     SFX_BLIP, SFX_CONFIRM, SFX_HIT, SFX_HURT, SFX_STING, SFX_VICTORY,
     SFX_RUN, SFX_LEVELUP, SFX_SHOTGUN, SFX_PICKUP, SFX_HEAL,
+    SFX_BOOM,       /* PA'S TNT going off -- crack, THUMP, rubble       */
+    SFX_SIZZLE,     /* holy water landing -- shatter, shine, long hiss  */
+    SFX_TALK0, SFX_TALK1, SFX_TALK2,   /* dialog babble, three pitches  */
     NUM_SFX
 };
 

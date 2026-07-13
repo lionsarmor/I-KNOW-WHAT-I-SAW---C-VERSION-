@@ -281,6 +281,8 @@ int assets_init(void)
         { SPR_WIFE_1,        SPR_ART_WIFE_1        },
         { SPR_BOY,           SPR_ART_BOY           },
         { SPR_BOY_1,         SPR_ART_BOY_1         },
+        { SPR_BRAD,          SPR_ART_BRAD          },
+        { SPR_BRAD_1,        SPR_ART_BRAD_1        },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -527,6 +529,7 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_DEADLADY]  = { SPR_DEADLADY,   SPR_DEADLADY_1   },
     [LOOK_WIFE]      = { SPR_WIFE,       SPR_WIFE_1       },
     [LOOK_BOY]       = { SPR_BOY,        SPR_BOY_1        },
+    [LOOK_BRAD]      = { SPR_BRAD,       SPR_BRAD_1       },
 };
 
 /* ============================ THE ITEMS ====================================

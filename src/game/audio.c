@@ -422,6 +422,46 @@ static const sfx_step_t sx_pickup[]  = { { 880, 5,130, W_PULSE25},
 static const sfx_step_t sx_heal[]    = { { 523, 8,110, W_TRI},
                                          { 659, 8,120, W_TRI},
                                          { 784,20,130, W_TRI} };
+/* PA'S TNT. The crack arrives at FULL volume -- no ramp, the first sample
+ * is the loudest thing the speaker has done all day -- then the THUMP: two
+ * long sub-bass triangles you feel more than hear (65Hz is still over the
+ * 30Hz pitch floor), and the rubble hisses down after. Compare sx_sting,
+ * which this used to borrow: sting is a wasp. This is a demolition. */
+static const sfx_step_t sx_boom[]    = { {3400, 4,255, W_NOISE},
+                                         {1500, 8,245, W_NOISE},
+                                         { 400,12,230, W_NOISE},
+                                         {  65,26,220, W_TRI},
+                                         {  48,34,180, W_TRI},
+                                         { 220,22, 90, W_NOISE},
+                                         { 140,30, 50, W_NOISE} };
+/* HOLY WATER. Three acts: the vial SHATTERS (one hard tick of noise),
+ * something bright climbs OUT of it -- four thin pulses walking up over
+ * two octaves -- and then the long sizzle: fine, high hiss that flutters
+ * between two brightnesses as it dies, steam off a griddle. It used to
+ * borrow sx_heal, which is a man drinking medicine. This is the reason
+ * there are only three vials. */
+static const sfx_step_t sx_sizzle[]  = { {2800, 3,220, W_NOISE},
+                                         {1046, 3,150, W_PULSE12},
+                                         {1568, 4,165, W_PULSE12},
+                                         {2093, 5,180, W_PULSE12},
+                                         {3136, 7,190, W_PULSE12},
+                                         {4500, 8,170, W_NOISE},
+                                         {3700,10,150, W_NOISE},
+                                         {4800,12,120, W_NOISE},
+                                         {3900,14, 90, W_NOISE},
+                                         {5000,18, 60, W_NOISE},
+                                         {4200,22, 35, W_NOISE} };
+/* THE BABBLE: one soft syllable, spoken-voice register, a quick step down
+ * (or up -- talk2 rises, like a question). The dialog box fires one of
+ * these per WORD as the typewriter lays it down, hopping between the three
+ * pitches so a sentence burbles like speech instead of ticking like a
+ * clock. Quiet on purpose: it plays under every line in the game. */
+static const sfx_step_t sx_talk0[]   = { { 392, 3, 85, W_PULSE25},
+                                         { 330, 3, 60, W_PULSE25} };
+static const sfx_step_t sx_talk1[]   = { { 494, 3, 85, W_PULSE25},
+                                         { 415, 3, 60, W_PULSE25} };
+static const sfx_step_t sx_talk2[]   = { { 440, 3, 85, W_PULSE25},
+                                         { 523, 3, 60, W_PULSE25} };
 
 static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
 #define SFXROW(id, arr) [id] = { arr, sizeof arr / sizeof(sfx_step_t) }
@@ -436,6 +476,11 @@ static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
     SFXROW(SFX_SHOTGUN, sx_shotgun),
     SFXROW(SFX_PICKUP,  sx_pickup),
     SFXROW(SFX_HEAL,    sx_heal),
+    SFXROW(SFX_BOOM,    sx_boom),
+    SFXROW(SFX_SIZZLE,  sx_sizzle),
+    SFXROW(SFX_TALK0,   sx_talk0),
+    SFXROW(SFX_TALK1,   sx_talk1),
+    SFXROW(SFX_TALK2,   sx_talk2),
 #undef SFXROW
 };
 

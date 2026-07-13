@@ -328,6 +328,23 @@ static const int battle_items[N_BATTLE_ITEMS] = {
     ITEM_HERB, ITEM_MEDKIT, ITEM_TNT, ITEM_HOLYWATER
 };
 
+/* the panel shows this many rows at once; a longer list SCROLLS */
+#define ITEM_MENU_ROWS 4
+
+/* The menu only lists what you're actually carrying -- an empty pocket is
+ * not a menu entry, it's nothing (it used to sit there greyed out, four
+ * rows of things you don't have). Rebuilt every frame it's needed, because
+ * using the last herb has to pull HERB off the list on the spot.
+ * Fills `out` with item kinds, returns how many. */
+static int avail_items(int *out)
+{
+    int n = 0;
+    for (int i = 0; i < N_BATTLE_ITEMS; i++)
+        if (G.player.items[battle_items[i]] > 0)
+            out[n++] = battle_items[i];
+    return n;
+}
+
 static void use_item(int kind)
 {
     if (G.player.items[kind] <= 0) {
@@ -383,6 +400,11 @@ static void win_battle(void)
      * the next day's restock; a boss never is. (mark_dead lives in
      * overworld.c, next to the field kill, so both routes agree.) */
     int kind = G.battle.kind;
+    /* It vanishes in light -- but the ground where it stood keeps the
+     * stain. A boss leaves a big one. (The pool lands on the CURRENT map,
+     * which is the map the fight started on: battles never change maps.) */
+    add_blood(G.ents[G.battle.ent].x + 8, G.ents[G.battle.ent].y + 8,
+              foe()->boss);
     G.ents[G.battle.ent].type = ENT_NONE;   /* gone from the map */
     mark_dead(G.battle.ent);
     if (kind == SPECIES_GOBLIN)
@@ -449,7 +471,20 @@ void battle_update(void)
             switch (G.battle.menu) {
             case 0: player_attacks(); break;
             case 1: try_shoot();      break;
-            case 2: G.battle.item_sel = 0; set_phase(PH_ITEMS); break;
+            case 2: {
+                /* nothing to list? say so and bounce -- an empty menu is
+                 * worse than no menu */
+                int list[N_BATTLE_ITEMS];
+                if (avail_items(list) == 0) {
+                    msgb("YOUR POCKETS ARE EMPTY.", "", -1, "");
+                    set_phase(PH_NOPE);
+                } else {
+                    G.battle.item_sel = 0;
+                    G.battle.item_top = 0;
+                    set_phase(PH_ITEMS);
+                }
+                break;
+            }
             case 3: try_run();        break;
             }
         }
@@ -476,21 +511,37 @@ void battle_update(void)
         if (msg_done()) set_phase(PH_MENU);
         break;
 
-    case PH_ITEMS:
+    case PH_ITEMS: {
+        /* the list is what you HAVE, re-taken every frame: using the last
+         * of something shortens it under the cursor */
+        int list[N_BATTLE_ITEMS];
+        int n = avail_items(list);
+        if (n == 0) {                  /* threw the last thing you had */
+            set_phase(PH_MENU);
+            break;
+        }
+        if (G.battle.item_sel >= n)
+            G.battle.item_sel = n - 1;
         if (PRESSED(BTN_UP)) {
-            G.battle.item_sel = (G.battle.item_sel + N_BATTLE_ITEMS - 1)
-                              % N_BATTLE_ITEMS;
+            G.battle.item_sel = (G.battle.item_sel + n - 1) % n;
             audio_sfx(SFX_BLIP);
         }
         if (PRESSED(BTN_DOWN)) {
-            G.battle.item_sel = (G.battle.item_sel + 1) % N_BATTLE_ITEMS;
+            G.battle.item_sel = (G.battle.item_sel + 1) % n;
             audio_sfx(SFX_BLIP);
         }
+        /* keep the cursor on a visible row -- the window slides, the
+         * cursor never leaves it (wrap included: top snaps to the end) */
+        if (G.battle.item_sel < G.battle.item_top)
+            G.battle.item_top = G.battle.item_sel;
+        if (G.battle.item_sel >= G.battle.item_top + ITEM_MENU_ROWS)
+            G.battle.item_top = G.battle.item_sel - (ITEM_MENU_ROWS - 1);
         if (PRESSED(BTN_B))
             set_phase(PH_MENU);
         else if (PRESSED(BTN_A))
-            use_item(battle_items[G.battle.item_sel]);
+            use_item(list[G.battle.item_sel]);
         break;
+    }
 
     case PH_LOB:
         /* the throw is in the air; the impact is a single, exact tick */
@@ -499,8 +550,8 @@ void battle_update(void)
                 G.battle.enemy_hp -= TNT_DMG;
                 if (G.battle.enemy_hp < 0)
                     G.battle.enemy_hp = 0;
-                audio_sfx(SFX_STING);
-                rumble(220);
+                audio_sfx(SFX_BOOM);         /* the real thing. see audio.c */
+                rumble(255);                 /* it is STILL dynamite */
                 shake(SHAKE_TNT_MAG - 2, 18);
                 msgb("THE BLAST TEARS AT IT! ", "", TNT_DMG, " DMG!");
             } else {
@@ -508,7 +559,7 @@ void battle_update(void)
                  * whatever it is, it is OVER. That is what one of three
                  * vials in the whole game buys. */
                 G.battle.enemy_hp = 0;
-                audio_sfx(SFX_HEAL);
+                audio_sfx(SFX_SIZZLE);       /* shatter, shine, the hiss */
                 msgb("IT SIZZLES. IT SCREAMS. IT COMES APART!", "", -1, "");
             }
         }
@@ -544,6 +595,11 @@ void battle_update(void)
     case PH_ENEMY_HIT:
         if (msg_done()) {
             if (G.player.hp <= 0) {     /* lights out */
+                /* YOU leave a big one, right where you were standing when
+                 * it happened. You wake up somewhere safe (gameover_update)
+                 * -- and if you walk back before the next restock, there
+                 * it is. Proof. You told them you were out here. */
+                add_blood(G.player.x + 8, G.player.y + 8, 1);
                 audio_music(MUSIC_NONE);   /* dead silence */
                 G.state = ST_GAMEOVER;
                 G.t = 0;
@@ -643,17 +699,43 @@ static void draw_msg(const char *s, int x, int y)
     }
 }
 
-static void hp_bar(int x, int y, int hp, int max, const char *label)
+static void hp_bar(int x, int y, int hp, int max, const char *label,
+                   uint16_t edge, uint16_t text)
 {
-    gfx_fill_rect(x, y, 88, 26, RGB565(16, 16, 24));
-    gfx_rect     (x, y, 88, 26, RGB565(200, 200, 200));
-    gfx_text(x + 4, y + 3, label, RGB565(255, 255, 255));
+    /* The NAME decides how wide the box is: "HOPKINSVILLE GOBLIN" is more
+     * than twice the old fixed 88, and it used to hang naked past the
+     * border. The box never shrinks below 88 -- the HP bar needs the room. */
+    int bw = gfx_text_width(label, 1) + 8;
+    if (bw < 88) bw = 88;
+    gfx_fill_rect(x, y, bw, 26, RGB565(16, 16, 24));
+    gfx_rect     (x, y, bw, 26, edge);
+    gfx_text(x + 4, y + 3, label, text);
+    /* the bar itself stays 80 wide no matter what the box does: a health
+     * bar has to mean the same amount of life on every creature */
     int w = (max > 0) ? 80 * hp / max : 0;
     uint16_t col = (hp * 4 > max) ? RGB565(80, 200, 80)
                                   : RGB565(220, 60, 50);
     gfx_fill_rect(x + 4, y + 15, 80, 6, RGB565(50, 50, 58));
     if (w > 0)
         gfx_fill_rect(x + 4, y + 15, w, 6, col);
+}
+
+/* HOW BAD IS THIS? The box wears it so you don't have to learn it the hard
+ * way: the border and name are colored by the creature's class, judged by
+ * the xp it pays -- the one number that already ranks every entry in the
+ * bestiary. White you can hit with a spade. Yellow will hurt you. Orange
+ * is why you carry the gun. Red is a BOSS, and red means bring everything. */
+static void foe_colors(uint16_t *edge, uint16_t *text)
+{
+    const species_t *f = foe();
+    if (f->boss)         { *edge = RGB565(210,  50,  40);
+                           *text = RGB565(255, 100,  90); }
+    else if (f->xp > 45) { *edge = RGB565(220, 130,  40);
+                           *text = RGB565(255, 175,  95); }
+    else if (f->xp > 15) { *edge = RGB565(200, 185,  60);
+                           *text = RGB565(255, 240, 130); }
+    else                 { *edge = RGB565(200, 200, 200);
+                           *text = RGB565(255, 255, 255); }
 }
 
 void battle_render(void)
@@ -688,6 +770,19 @@ void battle_render(void)
     int escale = foe()->boss ? 4 : 3;
     int ex     = foe()->boss ? 138 : 150;
     int ey     = foe()->boss ? 10  : 22;
+
+    /* ITS BOX GOES DOWN FIRST. A long name (the goblin's reaches most of
+     * the way across the screen) widens the box far enough to run under
+     * the sprite -- so the creature stands ON the box, and the attack
+     * effects below land on the creature. Box, monster, muzzle fire:
+     * in that order. */
+    {
+        uint16_t edge, text;
+        foe_colors(&edge, &text);
+        hp_bar(6, 6, G.battle.enemy_hp, G.battle.enemy_max, foe()->name,
+               edge, text);
+    }
+
     gfx_blit_ex(sprites[espr].px, TILE, TILE,
                 ex + shake, ey + bob, escale, foe()->bright, 0);
 
@@ -810,8 +905,10 @@ void battle_render(void)
         plabel[p++] = (char)('0' + lv % 10);
         plabel[p] = '\0';
     }
-    hp_bar(6, 6, G.battle.enemy_hp, G.battle.enemy_max, foe()->name);
-    hp_bar(SCREEN_W - 94, 78, G.player.hp, G.player.max_hp, plabel);
+    /* (the enemy's box was drawn back at the top, UNDER the creature --
+     * yours has no monster standing on it, so it draws here as ever) */
+    hp_bar(SCREEN_W - 94, 78, G.player.hp, G.player.max_hp, plabel,
+           RGB565(200, 200, 200), RGB565(255, 255, 255));
 
     /* Message / menu box along the bottom. The ITEM list is FOUR rows deep
      * now, which does NOT fit the 30px box the 2x2 menu uses -- so that one
@@ -836,32 +933,46 @@ void battle_render(void)
         gfx_cursor(19 + (G.battle.menu & 1) * 80,
                    SCREEN_H - 30 + (G.battle.menu >> 1) * 12, G.frame);
     } else if (G.battle.phase == PH_ITEMS) {
-        /* the pockets: herb, medkit, pa's TNT and the holy water, with
-         * counts. B backs out. Rows hang off the top of the (taller)
-         * panel, so they stay inside it however the panel is sized. */
+        /* the pockets: ONLY what you're carrying, with counts. No greyed
+         * ghosts of things you don't have -- an empty pocket isn't a row.
+         * The panel shows ITEM_MENU_ROWS at a time and the list slides
+         * under it (item_top); arrows at the edge say there's more. */
         const int top = panel_y + 4;
-        for (int i = 0; i < N_BATTLE_ITEMS; i++) {
-            int kind = battle_items[i];
-            int n = G.player.items[kind];
+        int list[N_BATTLE_ITEMS];
+        int n = avail_items(list);
+        int sel = (G.battle.item_sel < n) ? G.battle.item_sel
+                                          : (n ? n - 1 : 0);
+        for (int r = 0; r < ITEM_MENU_ROWS; r++) {
+            int i = G.battle.item_top + r;
+            if (i >= n)
+                break;
+            int kind  = list[i];
+            int count = G.player.items[kind];
             char row[16];
             int p = 0;
             for (const char *nm = item_info[kind].name; *nm; nm++)
                 row[p++] = *nm;
             row[p++] = ' ';
             row[p++] = 'X';
-            if (n > 9) row[p++] = (char)('0' + (n / 10) % 10);
-            row[p++] = (char)('0' + n % 10);
+            if (count > 9) row[p++] = (char)('0' + (count / 10) % 10);
+            row[p++] = (char)('0' + count % 10);
             row[p] = '\0';
-            /* TNT reads hot when you have it -- it's the panic button.
-             * Holy water reads COLD, because it's the other one. */
-            uint16_t col = !n ? RGB565(110, 110, 110)
-                         : (kind == ITEM_TNT)       ? RGB565(255, 140, 80)
+            /* TNT reads hot -- it's the panic button. Holy water reads
+             * COLD, because it's the other one. */
+            uint16_t col = (kind == ITEM_TNT)       ? RGB565(255, 140, 80)
                          : (kind == ITEM_HOLYWATER) ? RGB565(160, 215, 255)
                                                     : RGB565(255, 255, 255);
-            gfx_text(30, top + i * 12, row, col);
+            gfx_text(30, top + r * 12, row, col);
         }
+        /* more list than panel: a nub of an arrow at whichever edge
+         * still has rows hiding past it */
+        if (G.battle.item_top > 0)
+            gfx_text(SCREEN_W - 78, top, "^", RGB565(200, 200, 200));
+        if (G.battle.item_top + ITEM_MENU_ROWS < n)
+            gfx_text(SCREEN_W - 78, top + (ITEM_MENU_ROWS - 1) * 12, "V",
+                     RGB565(200, 200, 200));
         gfx_text(SCREEN_W - 64, top + 36, "B:BACK", RGB565(110, 110, 110));
-        gfx_cursor(19, top + G.battle.item_sel * 12, G.frame);
+        gfx_cursor(19, top + (sel - G.battle.item_top) * 12, G.frame);
     } else {
         draw_msg(G.battle.msg, 12, SCREEN_H - 28);
     }
