@@ -118,6 +118,8 @@ enum {
     SFX_BOOM,       /* PA'S TNT going off -- crack, THUMP, rubble       */
     SFX_SIZZLE,     /* holy water landing -- shatter, shine, long hiss  */
     SFX_TALK0, SFX_TALK1, SFX_TALK2,   /* dialog babble, three pitches  */
+    SFX_KNOCK,      /* it has reached the glass (STAY THE NIGHT)        */
+    SFX_BREACH,     /* the glass didn't hold                            */
     NUM_SFX
 };
 
@@ -132,6 +134,8 @@ enum {
     MUSIC_DRIVE,      /* the highway at night                       */
     MUSIC_BEAM,       /* THE BEAM. it has you. it is not a siren.   */
     MUSIC_PROLOGUE,   /* END OF PROLOGUE                            */
+    MUSIC_NIGHT,      /* STAY THE NIGHT: the unsolved-mysteries wail
+                         over a heartbeat. They are at the windows.  */
     NUM_MUSIC
 };
 

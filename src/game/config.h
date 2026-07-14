@@ -162,6 +162,17 @@
 #define LOB_TICKS         22   /* flight time, field and battle alike  */
 #define LOB_ARC           18   /* how high the arc rises, in pixels    */
 
+/* ---- STAY THE NIGHT ---------------------------------------------------------
+ * The Part 1 minigame: the walk-up, the family, five windows and a door,
+ * and everything outside wants in. Survive until dawn. See cutscene.c. */
+#define NIGHT_TICKS      4200  /* seventy seconds of night             */
+#define NIGHT_SLOTS         6  /* five windows and the door            */
+#define NIGHT_BREACHES      3  /* break-ins the family survives        */
+#define NIGHT_SHOT_CD      14  /* ticks between shots (pump it)        */
+#define NIGHT_SHINY_PCT    16  /* percent of arrivals that GLITTER --
+                                  shoot those, they drop things        */
+#define NIGHT_BREAKIN     360  /* base ticks from arriving to breaching */
+
 /* ---- DAN --------------------------------------------------------------------
  * The drunk in the town north road. Stand in his range and he puts a BOTTLE
  * the air; it flies like the lob and lands where you WERE. Adjacent is

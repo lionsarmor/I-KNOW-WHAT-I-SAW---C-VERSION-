@@ -366,6 +366,41 @@ static const track_t prologue_tracks[] = {
     { prologue_bass, sizeof prologue_bass / sizeof(ev_t) },
 };
 
+/* ---- STAY THE NIGHT --------------------------------------------------------
+ * The minigame's score, and it has one job: make a living room at 3 A.M.
+ * feel like an unsolved-mysteries rerun you're trapped inside. The WARBLE
+ * carries it -- a sawtooth with a huge slow vibrato, wailing a five-note
+ * phrase in D minor that leans on the flat second and never resolves.
+ * Under it, a drone walking D / Bb / A, and a KICK drum playing nothing
+ * but a heartbeat: lub-dub, four to the loop. 64 rows, eight seconds,
+ * around and around until dawn. */
+static const ev_t night_lead[] = {
+    { NOTE(N_D,5),  INS_WARBLE, 6 }, { NOTE(N_D,5),  INS_WARBLE, 2 },
+    { NOTE(N_A,4),  INS_WARBLE, 8 }, { NOTE(N_GS,4), INS_WARBLE, 8 },
+    { NOTE(N_A,4),  INS_WARBLE, 8 }, { NOTE(N_F,4),  INS_WARBLE, 8 },
+    { REST,         INS_WARBLE, 8 }, { NOTE(N_DS,4), INS_WARBLE, 8 },
+    { REST,         INS_WARBLE, 8 },
+};
+static const ev_t night_bass[] = {
+    { NOTE(N_D,2),  INS_DRONE, 16 }, { NOTE(N_D,2),  INS_DRONE, 16 },
+    { NOTE(N_AS,1), INS_DRONE, 16 }, { NOTE(N_A,1),  INS_DRONE, 16 },
+};
+static const ev_t night_heart[] = {
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 2 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 10 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 2 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 10 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 2 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 10 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 2 },
+    { NOTE(N_D,2), INS_KICK, 2 }, { REST, INS_KICK, 10 },
+};
+static const track_t night_tracks[] = {
+    { night_lead,  sizeof night_lead  / sizeof(ev_t) },
+    { night_bass,  sizeof night_bass  / sizeof(ev_t) },
+    { night_heart, sizeof night_heart / sizeof(ev_t) },
+};
+
 /* rowticks = ENGINE ticks per row. 240 = one second, so 30 is a lively
  * eighth-note and 60 is a slow, sad one. */
 static const song_t song_table[NUM_MUSIC] = {
@@ -379,6 +414,7 @@ static const song_t song_table[NUM_MUSIC] = {
     [MUSIC_DRIVE]    = { drive_tracks,    3, 24, 1 },
     [MUSIC_BEAM]     = { beam_tracks,     3, 26, 1 },
     [MUSIC_PROLOGUE] = { prologue_tracks, 2, 55, 1 },
+    [MUSIC_NIGHT]    = { night_tracks,    3, 30, 1 },   /* eight-second loop */
 };
 
 /* ===========================================================================
@@ -462,6 +498,18 @@ static const sfx_step_t sx_talk1[]   = { { 494, 3, 85, W_PULSE25},
                                          { 415, 3, 60, W_PULSE25} };
 static const sfx_step_t sx_talk2[]   = { { 440, 3, 85, W_PULSE25},
                                          { 523, 3, 60, W_PULSE25} };
+/* something heavy testing the glass: two low thuds, a beat apart */
+static const sfx_step_t sx_knock[]   = { { 130, 6,150, W_NOISE},
+                                         {   0, 8,  0, W_NOISE},
+                                         {  95,10,170, W_NOISE} };
+/* the glass didn't hold: a shatter falling into an ugly descending saw --
+ * that second half is the part that means it's INSIDE */
+static const sfx_step_t sx_breach[]  = { {2600, 4,235, W_NOISE},
+                                         {1100, 8,210, W_NOISE},
+                                         { 420,10,190, W_SAW},
+                                         { 260,14,170, W_SAW},
+                                         { 150,22,130, W_SAW},
+                                         {  90,18, 80, W_SAW} };
 
 /* ===========================================================================
  * THE AMBIENCE. Same step format as the sfx, but these LOOP -- the last
@@ -553,6 +601,8 @@ static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
     SFXROW(SFX_TALK0,   sx_talk0),
     SFXROW(SFX_TALK1,   sx_talk1),
     SFXROW(SFX_TALK2,   sx_talk2),
+    SFXROW(SFX_KNOCK,   sx_knock),
+    SFXROW(SFX_BREACH,  sx_breach),
 #undef SFXROW
 };
 

@@ -1546,6 +1546,11 @@ static void try_talk(void)
                     G.flags |= FLAG_FAMILY;
                     G.part1end_after = 1;
                     dialog_start(e->dialog);
+                } else if (!(G.flags & FLAG_NIGHT)) {
+                    /* the night hasn't been survived yet -- either it got
+                     * in last time, or an old save landed here. She's been
+                     * watching the window. It starts again. */
+                    night_start();
                 } else {
                     dialog_start(e->after ? e->after : e->dialog);
                 }

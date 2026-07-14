@@ -763,6 +763,14 @@ void part1end_update(void)
 {
     if (G.t > P1END_HOLD && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
         audio_sfx(SFX_CONFIRM);
+        /* The card has been promising "STAY THE NIGHT" all along -- and
+         * here it is: the second half of Part 1, the minigame. (If the
+         * night's somehow already survived, fall through to the ordinary
+         * morning instead.) */
+        if (!(G.flags & FLAG_NIGHT)) {
+            night_start();
+            return;
+        }
         G.state  = ST_OVERWORLD;      /* the apartment, the family, the
                                          rest of the night -- still yours */
         G.t      = 0;
@@ -840,4 +848,445 @@ void part1end_render(void)
     }
 
     draw_toast();          /* SAVED. lands right on the card */
+}
+
+/* ============================================================================
+ * STAY THE NIGHT -- the second half of Part 1, and the game's first
+ * minigame, so it gets the full treatment: its own score (MUSIC_NIGHT,
+ * the unsolved-mysteries wail over a heartbeat), its own sounds, and
+ * loot.
+ *
+ * THE SHAPE OF IT: the walk-up, seen from inside. Five windows and the
+ * door. Things come out of the dark behind the glass -- you watch them
+ * FADE IN as they approach, and when one starts rattling the frame it is
+ * almost through. LEFT/RIGHT walks your aim around the room (UP snaps to
+ * the middle window, DOWN to the door), B fires. Marie and Danny are
+ * huddled behind you, and NIGHT_BREACHES break-ins is all they can take.
+ *
+ * SOME OF THEM GLITTER. Shoot the glittering ones: they drop shells,
+ * bullets, herbs, medkits -- straight into the pack, keeps the night
+ * sustainable and gives your trigger finger a reason to prioritize.
+ *
+ * Survive NIGHT_TICKS and the windows turn orange: DAWN, the flag, the
+ * checkpoint. Lose and it's the ordinary game over -- and Marie will be
+ * waiting to try the night again.
+ * ==========================================================================*/
+
+/* the five windows and the door: frame rectangles, and where a shot lands */
+static const struct { int x, y, w, h; } np[NIGHT_SLOTS] = {
+    {  10, 58, 26, 34 },        /* west window                */
+    {  42, 12, 30, 36 },        /* the three street windows   */
+    { 105, 12, 30, 36 },
+    { 168, 12, 30, 36 },
+    { 204, 58, 26, 34 },        /* east window                */
+    { 104,118, 32, 36 },        /* THE DOOR                   */
+};
+#define NP_CX(i) (np[i].x + np[i].w / 2)
+#define NP_CY(i) (np[i].y + np[i].h / 2)
+
+/* where the shooter stands (sprite is drawn at 2x, so 32x32) */
+#define NIGHT_PX 104
+#define NIGHT_PY 62
+
+void night_start(void)
+{
+    G.night.phase    = 0;
+    G.night.t        = 0;
+    G.night.aim      = 2;              /* the middle window. watch it. */
+    G.night.breaches = NIGHT_BREACHES;
+    G.night.kills    = 0;
+    G.night.shot_cd  = G.night.recoil = G.night.flash = G.night.red_t = 0;
+    G.night.spawn_t  = 90;             /* a breath before the first one */
+    for (int i = 0; i < NIGHT_SLOTS; i++)
+        G.night.slot[i].kind = -1;
+    G.state = ST_NIGHT;
+    G.t     = 0;
+    audio_music(MUSIC_NONE);           /* the card sits in silence */
+}
+
+/* what the dark sends, by thirds of the night */
+static const int night_waves[3][4] = {
+    { SPECIES_ANT,    SPECIES_ANT,  SPECIES_DOVER,      SPECIES_DOVER },
+    { SPECIES_DOVER,  SPECIES_GREY, SPECIES_CHUPACABRA, SPECIES_ANT   },
+    { SPECIES_DOGMAN, SPECIES_GREY, SPECIES_CHUPACABRA, SPECIES_TALL  },
+};
+
+static void night_spawn(void)
+{
+    int wave = G.night.t / (NIGHT_TICKS / 3);
+    if (wave > 2) wave = 2;
+
+    /* an empty pane, if there is one */
+    int slot = -1, start = rng_range(0, NIGHT_SLOTS - 1);
+    for (int k = 0; k < NIGHT_SLOTS; k++)
+        if (G.night.slot[(start + k) % NIGHT_SLOTS].kind < 0) {
+            slot = (start + k) % NIGHT_SLOTS;
+            break;
+        }
+    if (slot < 0)
+        return;                        /* every window is busy. good luck. */
+
+    int kind = night_waves[wave][rng_range(0, 3)];
+    G.night.slot[slot].kind    = kind;
+    G.night.slot[slot].hp      = species[kind].ow_hits;
+    G.night.slot[slot].t_in    = 0;
+    G.night.slot[slot].t_max   = NIGHT_BREAKIN - wave * 70
+                               + (kind == SPECIES_TALL ? 160 : 0)
+                               - (kind == SPECIES_ANT  ?  60 : 0);
+    G.night.slot[slot].shiny   = (rng_range(1, 100) <= NIGHT_SHINY_PCT);
+    G.night.slot[slot].hurt    = 0;
+    G.night.slot[slot].knocked = 0;
+    journal_saw(kind);                 /* you saw it. through your OWN glass. */
+}
+
+/* a glittering one came apart: something falls out of it */
+static void night_drop(void)
+{
+    static const struct { int kind, n; const char *say; } table[4] = {
+        { ITEM_SHELLS,  SHELLS_PER_BOX,  "IT WAS CARRYING SHELLS." },
+        { ITEM_BULLETS, BULLETS_PER_BOX, "IT WAS CARRYING BULLETS." },
+        { ITEM_HERB,    1,               "AN HERB, STILL GROWING ON IT." },
+        { ITEM_MEDKIT,  1,               "A MEDKIT. DON'T ASK WHOSE." },
+    };
+    int r = rng_range(0, 3);
+    G.player.items[table[r].kind] += table[r].n;
+    pack_discover(table[r].kind);
+    audio_sfx(SFX_PICKUP);
+    G.toast       = table[r].say;
+    G.toast_good  = 1;
+    G.toast_ticks = 120;
+}
+
+static void night_fire(void)
+{
+    G.night.shot_cd = NIGHT_SHOT_CD;
+    G.night.recoil  = 6;
+    G.night.flash   = 6;
+    audio_sfx(SFX_SHOTGUN);
+    rumble(120);
+
+    int a = G.night.aim;
+    if (G.night.slot[a].kind < 0)
+        return;                        /* glass and night air */
+    G.night.slot[a].hurt = 8;
+    if (--G.night.slot[a].hp > 0) {
+        audio_sfx(SFX_HURT);
+        return;
+    }
+    /* down it goes, back into the dark */
+    G.night.kills++;
+    journal_kill(G.night.slot[a].kind);
+    audio_sfx(SFX_HIT);
+    if (G.night.slot[a].shiny)
+        night_drop();
+    G.night.slot[a].kind = -1;
+}
+
+void night_update(void)
+{
+    G.night.t++;
+
+    /* ---- the card ------------------------------------------------------ */
+    if (G.night.phase == 0) {
+        if (G.night.t > 30 && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
+            G.night.phase = 1;
+            G.night.t     = 0;
+            audio_sfx(SFX_CONFIRM);
+            audio_music(MUSIC_NIGHT);  /* and the heartbeat starts */
+        }
+        return;
+    }
+
+    /* ---- DAWN ----------------------------------------------------------- */
+    if (G.night.phase == 2) {
+        if (G.night.t > 200 && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
+            audio_sfx(SFX_CONFIRM);
+            gfx_origin(0, 0);
+            G.state  = ST_OVERWORLD;   /* the apartment. the morning. */
+            G.t      = 0;
+            G.banner = 0;
+            G.battle_grace = 60;
+            audio_music(map_music(G.map_id));
+            G.toast       = "YOU STAYED THE NIGHT.";
+            G.toast_good  = 1;
+            G.toast_ticks = 150;
+        }
+        return;
+    }
+
+    /* ---- the night itself ------------------------------------------------*/
+    if (G.night.shot_cd > 0) G.night.shot_cd--;
+    if (G.night.recoil  > 0) G.night.recoil--;
+    if (G.night.flash   > 0) G.night.flash--;
+    if (G.night.red_t   > 0) G.night.red_t--;
+
+    if (PRESSED(BTN_LEFT)) {
+        G.night.aim = (G.night.aim + NIGHT_SLOTS - 1) % NIGHT_SLOTS;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_RIGHT)) {
+        G.night.aim = (G.night.aim + 1) % NIGHT_SLOTS;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_UP))   { G.night.aim = 2; audio_sfx(SFX_BLIP); }
+    if (PRESSED(BTN_DOWN)) { G.night.aim = 5; audio_sfx(SFX_BLIP); }
+    if ((PRESSED(BTN_B) || PRESSED(BTN_A)) && G.night.shot_cd == 0)
+        night_fire();
+
+    /* the ones at the glass keep coming */
+    for (int i = 0; i < NIGHT_SLOTS; i++) {
+        if (G.night.slot[i].kind < 0)
+            continue;
+        if (G.night.slot[i].hurt > 0)
+            G.night.slot[i].hurt--;
+        G.night.slot[i].t_in++;
+        /* the KNOCK: it has reached the glass. Once per visitor. */
+        if (!G.night.slot[i].knocked &&
+            G.night.slot[i].t_in >= G.night.slot[i].t_max * 3 / 5) {
+            G.night.slot[i].knocked = 1;
+            audio_sfx(SFX_KNOCK);
+            shake(1, 8);
+        }
+        if (G.night.slot[i].t_in < G.night.slot[i].t_max)
+            continue;
+
+        /* THE GLASS DIDN'T HOLD. */
+        G.night.slot[i].kind = -1;
+        G.night.breaches--;
+        G.night.red_t = 14;
+        audio_sfx(SFX_BREACH);
+        rumble(255);
+        shake(5, 22);
+        if (G.night.breaches <= 0) {   /* they got in. all the way in. */
+            gfx_origin(0, 0);
+            audio_music(MUSIC_NONE);
+            G.state = ST_GAMEOVER;
+            G.t = 0;
+            return;
+        }
+        G.toast       = "IT GOT AN ARM IN! YOU BEAT IT BACK!";
+        G.toast_good  = 0;
+        G.toast_ticks = 120;
+    }
+
+    /* the dark keeps sending them, faster as the night wears on */
+    if (--G.night.spawn_t <= 0) {
+        night_spawn();
+        int wave = G.night.t / (NIGHT_TICKS / 3);
+        if (wave > 2) wave = 2;
+        G.night.spawn_t = 150 - wave * 38 + rng_range(0, 40);
+    }
+
+    /* ...until it can't: DAWN */
+    if (G.night.t >= NIGHT_TICKS) {
+        G.night.phase = 2;
+        G.night.t     = 0;
+        for (int i = 0; i < NIGHT_SLOTS; i++)
+            G.night.slot[i].kind = -1;   /* they turn, and they GO */
+        G.flags |= FLAG_NIGHT;
+        G.save_pending = 1;              /* dawn is a checkpoint */
+        audio_music(MUSIC_NONE);
+        audio_sfx(SFX_VICTORY);
+    }
+}
+
+void night_render(void)
+{
+    /* every hit rattles the whole room, same trick as the battle */
+    {
+        int sx, sy;
+        shake_offset(&sx, &sy);
+        gfx_origin(sx, sy);
+    }
+
+    /* ---- the card -------------------------------------------------------*/
+    if (G.night.phase == 0) {
+        gfx_clear(RGB565(6, 6, 14));
+        gfx_text_ex((SCREEN_W - gfx_text_width("STAY THE NIGHT", 2)) / 2, 26,
+                    "STAY THE NIGHT", RGB565(200, 60, 50), 2);
+        const char *l1 = "MARIE: THE LIGHTS ARE CIRCLING THE BLOCK.";
+        const char *l2 = "DANNY SAW THEM FROM THE STAIRS. THEY KNOW";
+        const char *l3 = "SOMEBODY'S HOME.";
+        gfx_text_small((SCREEN_W - gfx_text_small_width(l1)) / 2, 58, l1,
+                       RGB565(200, 200, 210));
+        gfx_text_small((SCREEN_W - gfx_text_small_width(l2)) / 2, 68, l2,
+                       RGB565(200, 200, 210));
+        gfx_text_small((SCREEN_W - gfx_text_small_width(l3)) / 2, 78, l3,
+                       RGB565(200, 200, 210));
+        const char *c1 = "LEFT-RIGHT: AIM   UP: WINDOW   DOWN: DOOR";
+        const char *c2 = "B: FIRE   THE GLITTERING ONES DROP THINGS";
+        gfx_text_small((SCREEN_W - gfx_text_small_width(c1)) / 2, 100, c1,
+                       RGB565(140, 140, 155));
+        gfx_text_small((SCREEN_W - gfx_text_small_width(c2)) / 2, 110, c2,
+                       RGB565(255, 220, 120));
+        if (G.night.t > 30 && (G.t % 50) < 32) {
+            const char *p = "START: HOLD THE LINE UNTIL DAWN";
+            gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 136, p,
+                     RGB565(255, 255, 255));
+        }
+        return;
+    }
+
+    /* ---- the room --------------------------------------------------------*/
+    gfx_clear(RGB565(24, 20, 30));                       /* the walls   */
+    gfx_fill_rect(6, 52, SCREEN_W - 12, 100, RGB565(54, 40, 32)); /* floor */
+    gfx_fill_rect(70, 82, 100, 44, RGB565(66, 26, 26));  /* the rug     */
+    gfx_rect     (70, 82, 100, 44, RGB565(90, 40, 36));
+
+    /* what color is outside the glass? Night -- until it isn't. */
+    uint16_t sky = RGB565(8, 10, 26);
+    if (G.night.phase == 2) {
+        int f = G.night.t;                                /* dawn fades up */
+        if (f > 180) f = 180;
+        sky = RGB565(8 + 150 * f / 180, 10 + 80 * f / 180, 26 + 20 * f / 180);
+    }
+
+    for (int i = 0; i < NIGHT_SLOTS; i++) {
+        int x = np[i].x, y = np[i].y, w = np[i].w, h = np[i].h;
+        /* frame, glass, and (for the door) its panels */
+        gfx_fill_rect(x - 3, y - 3, w + 6, h + 6, RGB565(96, 70, 44));
+        gfx_fill_rect(x, y, w, h, sky);
+        if (i == 5) {
+            gfx_fill_rect(x, y + 12, w, 2, RGB565(70, 50, 30));
+            gfx_fill_rect(x + w / 2 - 1, y, 2, h, RGB565(70, 50, 30));
+        } else {
+            /* stars behind the glass (they go out at dawn) */
+            if (G.night.phase == 1) {
+                uint32_t hs = (uint32_t)(i + 3) * 2654435761u;
+                gfx_pixel(x + 2 + (int)(hs % (uint32_t)(w - 4)),
+                          y + 2 + (int)((hs >> 7) % (uint32_t)(h - 4)),
+                          RGB565(120, 120, 150));
+                gfx_pixel(x + 2 + (int)((hs >> 13) % (uint32_t)(w - 4)),
+                          y + 2 + (int)((hs >> 19) % (uint32_t)(h - 4)),
+                          RGB565(90, 90, 120));
+            }
+            gfx_fill_rect(x, y + h / 2 - 1, w, 2, RGB565(70, 50, 30));
+        }
+
+        const int kind = G.night.slot[i].kind;
+        if (kind >= 0) {
+            /* IT FADES IN OUT OF THE DARK: brightness tracks approach.
+             * Rattling the frame means it's nearly through. */
+            int ti = G.night.slot[i].t_in, tm = G.night.slot[i].t_max;
+            int bright = 40 + 216 * ti / tm;
+            if (bright > 256) bright = 256;
+            int crit = (ti > tm * 3 / 4);
+            int jx = crit ? (((int)G.frame >> 1) & 1 ? 1 : -1) : 0;
+            if (G.night.slot[i].hurt)
+                jx = (G.night.slot[i].hurt & 1) ? 2 : -2;
+            int ef  = (int)((G.frame / 12) % 2);
+            int spr = ef ? species[kind].spr1 : species[kind].spr0;
+            gfx_blit_ex(sprites[spr].px, TILE, TILE,
+                        x + (w - TILE) / 2 + jx, y + (h - TILE) / 2 + 2,
+                        1, bright, 0);
+            if (G.night.slot[i].hurt) {          /* it bleeds on the sill */
+                gfx_pixel(x + w / 2 + jx, y + h - 4, RGB565(200, 40, 32));
+                gfx_pixel(x + w / 2 - 2,  y + h - 3, RGB565(140, 24, 20));
+            }
+            if (crit && ((G.frame / 4) % 2))     /* the frame screams red */
+                gfx_rect(x - 3, y - 3, w + 6, h + 6, RGB565(220, 50, 40));
+            if (G.night.slot[i].shiny) {         /* IT GLITTERS. shoot it. */
+                uint32_t g = G.frame * 37u + (uint32_t)i * 101u;
+                for (int k = 0; k < 3; k++) {
+                    uint32_t hh = g + (uint32_t)k * 977u;
+                    gfx_add_pixel(x + (int)(hh % (uint32_t)w),
+                                  y + (int)((hh >> 8) % (uint32_t)h),
+                                  RGB565(255, 220, 100), 200);
+                }
+            }
+        }
+
+        /* the aim brackets live on whichever opening you're covering */
+        if (i == G.night.aim) {
+            uint16_t rc = ((G.frame / 8) % 2) ? RGB565(255, 255, 255)
+                                              : RGB565(170, 170, 180);
+            gfx_fill_rect(x - 5, y - 5, 7, 2, rc);
+            gfx_fill_rect(x - 5, y - 5, 2, 7, rc);
+            gfx_fill_rect(x + w - 2, y - 5, 7, 2, rc);
+            gfx_fill_rect(x + w + 3, y - 5, 2, 7, rc);
+            gfx_fill_rect(x - 5, y + h + 3, 7, 2, rc);
+            gfx_fill_rect(x - 5, y + h - 2, 2, 7, rc);
+            gfx_fill_rect(x + w - 2, y + h + 3, 7, 2, rc);
+            gfx_fill_rect(x + w + 3, y + h - 2, 2, 7, rc);
+        }
+    }
+
+    /* ---- the family, huddled on the rug behind you ----------------------*/
+    {
+        int tr = ((G.frame / 30) % 2);           /* they can't stop shaking */
+        gfx_blit_ex(sprites[SPR_WIFE].px, TILE, TILE, 76, 92 + tr, 2, 256, 0);
+        gfx_blit_ex(sprites[SPR_BOY].px,  TILE, TILE, 104, 98 - tr, 2, 256, 1);
+    }
+
+    /* ---- you, and the gun ------------------------------------------------*/
+    {
+        int a  = G.night.aim;
+        int px = NIGHT_PX, py = NIGHT_PY + (G.night.recoil ? 2 : 0);
+        int spr  = SPR_LAWYER_UP_0, flip = 0;
+        if      (a == 0) { spr = SPR_LAWYER_SIDE_0; }
+        else if (a == 4) { spr = SPR_LAWYER_SIDE_0; flip = 1; }
+        else if (a == 5) { spr = SPR_LAWYER_DOWN_0; }
+        gfx_blit_ex(sprites[spr].px, TILE, TILE, px, py, 2, 256, flip);
+        /* the shot: a muzzle star and pellets racing up the line */
+        if (G.night.flash > 0) {
+            int tx = NP_CX(a), ty = NP_CY(a);
+            int gx = px + 16, gy = py + 12;
+            gfx_fill_rect(gx + (tx - gx) / 6 - 3, gy + (ty - gy) / 6 - 3,
+                          6, 6, RGB565(255, 244, 180));
+            int f = 6 - G.night.flash;               /* 0..5 out the barrel */
+            for (int k = 0; k < 3; k++) {
+                int num = f * 3 + k + 3, den = 21;
+                if (num > den) num = den;
+                gfx_fill_rect(gx + (tx - gx) * num / den,
+                              gy + (ty - gy) * num / den, 2, 2,
+                              RGB565(255, 255, 220));
+            }
+        }
+    }
+
+    /* ---- the HUD: how far to dawn, and what's left of the door -----------*/
+    {
+        gfx_text_small(8, 4, "DAWN", RGB565(150, 150, 158));
+        gfx_fill_rect(30, 5, 120, 4, RGB565(40, 40, 52));
+        int w = (G.night.phase == 2) ? 120 : 120 * G.night.t / NIGHT_TICKS;
+        gfx_fill_rect(30, 5, w, 4, RGB565(230, 160, 70));
+        for (int i = 0; i < NIGHT_BREACHES; i++)
+            gfx_fill_rect(SCREEN_W - 12 - i * 10, 4, 7, 7,
+                          (i < G.night.breaches) ? RGB565(200, 60, 50)
+                                                 : RGB565(50, 40, 44));
+        char row[16];
+        int p = 0;
+        for (const char *q = "PUT DOWN: "; *q; q++) row[p++] = *q;
+        int k = G.night.kills;
+        if (k > 99) k = 99;
+        if (k > 9) row[p++] = (char)('0' + k / 10);
+        row[p++] = (char)('0' + k % 10);
+        row[p] = '\0';
+        gfx_text_small(8, SCREEN_H - 10, row, RGB565(150, 150, 158));
+    }
+
+    /* a break-in floods the edges red for a few frames */
+    if (G.night.red_t > 0) {
+        uint16_t rr = RGB565(190, 30, 24);
+        gfx_fill_rect(0, 0, SCREEN_W, 4, rr);
+        gfx_fill_rect(0, SCREEN_H - 4, SCREEN_W, 4, rr);
+        gfx_fill_rect(0, 0, 4, SCREEN_H, rr);
+        gfx_fill_rect(SCREEN_W - 4, 0, 4, SCREEN_H, rr);
+    }
+
+    /* ---- DAWN, spelled out ------------------------------------------------*/
+    if (G.night.phase == 2) {
+        gfx_text_ex((SCREEN_W - gfx_text_width("DAWN.", 2)) / 2, 60,
+                    "DAWN.", RGB565(255, 220, 140), 2);
+        const char *l = "THEY STOPPED COMING. ALL AT ONCE. LIKE A SHIFT BELL.";
+        gfx_text_small((SCREEN_W - gfx_text_small_width(l)) / 2, 84, l,
+                       RGB565(210, 210, 220));
+        if (G.night.t > 200 && (G.t % 50) < 32) {
+            const char *pp = "START: GO SEE THE MORNING";
+            gfx_text((SCREEN_W - gfx_text_width(pp, 1)) / 2, 130, pp,
+                     RGB565(255, 255, 255));
+        }
+    }
+
+    draw_toast();     /* the loot announcements land here too */
 }

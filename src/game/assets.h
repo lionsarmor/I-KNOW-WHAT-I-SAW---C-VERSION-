@@ -401,6 +401,8 @@ typedef struct {          /* something living (or lying) on a map */
 #define FLAG_JOURNAL     (1u << 8)   /* Ma handed over grandpa's journal at
                                         the east gate -- WHAT I SAW opens
                                         in the pack and on the title       */
+#define FLAG_NIGHT       (1u << 9)   /* STAY THE NIGHT survived: talking to
+                                        Marie again won't restart it       */
 /* A flag NOBODY ever sets. A warp that requires it is a door that never
  * opens -- which is how a door gets a CUSTOM "locked" line instead of the
  * generic one (see check_door_bump). */

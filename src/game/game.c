@@ -69,6 +69,7 @@ void render_scene(int s)
     case ST_BATTLE:    battle_render();    break;
     case ST_GAMEOVER:  gameover_render();  break;
     case ST_JOURNAL:   journal_render();   break;
+    case ST_NIGHT:     night_render();     break;
     case ST_PAUSE:     pause_render();     break;
     case ST_CONTROLS:  controls_render();  break;
     case ST_CHURCH:    church_render();    break;
@@ -111,6 +112,7 @@ void game_update(uint16_t buttons_held)
     case ST_BATTLE:    battle_update();    break;
     case ST_GAMEOVER:  gameover_update();  break;
     case ST_JOURNAL:   journal_update();   break;
+    case ST_NIGHT:     night_update();     break;
     case ST_PAUSE:     pause_update();     break;
     case ST_CONTROLS:  controls_update();  break;
     case ST_CHURCH:    church_update();    break;

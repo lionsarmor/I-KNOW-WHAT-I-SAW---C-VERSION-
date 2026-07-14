@@ -37,6 +37,7 @@ typedef enum {
     ST_CHURCH,      /* PART 1 opens at mass          (cutscene.c)  */
     ST_PART1END,    /* ...and closes in an apartment (cutscene.c)  */
     ST_JOURNAL,     /* WHAT I SAW -- the bestiary    (intro.c)     */
+    ST_NIGHT,       /* STAY THE NIGHT -- the minigame (cutscene.c) */
 } state_t;
 
 enum { DIR_DOWN, DIR_UP, DIR_LEFT, DIR_RIGHT };
@@ -290,6 +291,23 @@ typedef struct {
     int      journal_sel;                   /* which page you're on      */
     state_t  journal_from;                  /* who opened it: title/pack */
 
+    /* STAY THE NIGHT (cutscene.c). One slot per opening: five windows
+     * and the door. kind < 0 = nothing at that glass right now. All of
+     * it transient -- the night is played in one sitting. */
+    struct {
+        int phase;              /* 0 the card, 1 the night, 2 DAWN     */
+        int t;                  /* ticks into the current phase        */
+        int aim;                /* which opening the gun points at     */
+        int breaches;           /* break-ins the family can still take */
+        int kills;
+        int shot_cd, recoil, flash, red_t, spawn_t;
+        struct {
+            int kind;           /* SPECIES_*, or -1                    */
+            int hp, t_in, t_max;
+            int shiny, hurt, knocked;
+        } slot[NIGHT_SLOTS];
+    } night;
+
     /* DAN'S BOTTLE (overworld.c, dan_update): one vodka bottle in the
      * air at a time, flying from him to where you were standing when he
      * let go. Transient, like the lob. */
@@ -371,6 +389,8 @@ void drive_start(void);       /* the van pulls out */
 void battle_update(void);     void battle_render(void);
 void gameover_update(void);   void gameover_render(void);
 void journal_update(void);    void journal_render(void);
+void night_update(void);      void night_render(void);
+void night_start(void);       /* STAY THE NIGHT begins (cutscene.c) */
 void journal_start(state_t from);  /* ST_TITLE or ST_PACK: where B goes  */
 void journal_saw(int kind);        /* you got a LOOK at it (battle/kill) */
 void journal_kill(int kind);       /* ...and you put it down             */
