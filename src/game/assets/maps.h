@@ -58,19 +58,26 @@ static const char *const MAP_ROWS_FARM[20] = {
     "T..RRRRR..*.........,........T",
     "T..HHHHH........,............T",
     "T..HHDHH....,................T",
-    "T....#.......................T",
-    "T....#...ffffff...........,..T",
-    "T....#...fccccf..........ww..T",
-    "T....#...fccccf.........wwww.T",
-    "T....#...fccccf.........wwww.T",
-    "T....#...ffffff..........ww..T",
-    "T....#........,..............T",
+    /* THE FIELD. It happened again last night: a flattened ring pressed
+     * into the standing corn, a ring of crop inside it, a bare dot dead
+     * center. Pa's been saying it every morning ("FLAT IN CIRCLES AGAIN")
+     * -- now you can stand in it. Walkable, so you can. */
+    "T....#...ccccccccccc.........T",
+    "T....#...cc.......cc......,..T",
+    "T....#...c..ccccc..c.....ww..T",
+    "T....#...c..cc,cc..c....wwww.T",
+    "T....#...c..ccccc..c....wwww.T",
+    "T....#...cc.......cc.....ww..T",
+    "T....#...ccccccccccc.........T",
     "T....#########################",
     "T......*...........,.........T",
-    "T...T....................T...T",
-    "T............,...............T",
-    "T.....,..............*.......T",
-    "T..T......................T..T",
+    /* THE PEN, with a gate gap in the north fence. Jenna's birds, and the
+     * pigs the birds tolerate. The cows graze loose east of it -- always
+     * have -- and the goat is wherever the goat wants to be. */
+    "T...T...ffff.ffff........T...T",
+    "T.......f.......f............T",
+    "T.....,.f.......f....*.......T",
+    "T..T....fffffffff.........T..T",
     "T............................T",
     "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
 };
@@ -114,15 +121,39 @@ static const spawn_t MAP_SPAWNS_FARM[] = {
       "THEM ANTS WON'T CLEAR THEMSELVES, ~. AND DON'T GO OUT THERE DARK -- "
       "THAT'S WHAT THE LIGHT'S FOR." },
 
-    /* ---- THE LIVESTOCK. They are just NPCs that moo. ---- */
-    { ENT_NPC,   10, 14, LOOK_COW,
+    /* ---- THE LIVESTOCK. They are just NPCs that moo. The cows graze
+     * loose east of the pen; the goat answers to no fence. ---- */
+    { ENT_NPC,   19, 14, LOOK_COW,
       "MOO. ...MOOOOO. SHE CHEWS. SHE STARES RIGHT THROUGH YOU. "
       "SHE HAS SEEN THINGS AND SHE IS NOT GOING TO TALK ABOUT THEM." },
-    { ENT_NPC,   13, 15, LOOK_COW,
+    { ENT_NPC,   20, 16, LOOK_COW,
       "MOO! THIS ONE WON'T FACE NORTH. NOT SINCE TUESDAY." },
-    { ENT_NPC,   16, 17, LOOK_GOAT,
+    { ENT_NPC,   17, 17, LOOK_GOAT,
       "MAAAAAA! THE GOAT HEADBUTTS YOUR KNEE. LOVINGLY, YOU THINK. "
       "IT HAS ALSO EATEN PART OF THE FENCE." },
+
+    /* ---- THE PEN. Jenna's chickens, and the pigs they tolerate. ---- */
+    { ENT_NPC,   10, 15, LOOK_CHICKEN,
+      "BAWK. BUK-BUK-BUK. SHE PECKS AT NOTHING, TWICE, WITH TOTAL "
+      "CONFIDENCE. SOMEWHERE BEHIND YOU, JENNA IS WATCHING." },
+    { ENT_NPC,   14, 16, LOOK_CHICKEN,
+      "BAWK? THE HEN LOOKS AT THE SKY. THEN AT YOU. THEN BACK AT THE "
+      "SKY. SHE HAS BEEN DOING THIS ALL WEEK AND NOBODY KNOWS WHY." },
+    { ENT_NPC,   11, 16, LOOK_PIG,
+      "OINK. HE IS ENORMOUS AND HE HAS NO IDEA. HE LEANS INTO THE "
+      "FENCE UNTIL THE FENCE COMPLAINS." },
+    { ENT_NPC,   13, 15, LOOK_PIG,
+      "OINK OINK. SHE HAS DUG A HOLE. THE HOLE IS PERFECTLY ROUND. "
+      "YOU DECIDE NOT TO THINK ABOUT IT." },
+
+    /* JENNA, by the gate. Black hair, glasses, flannel, and a position
+     * on chicken slander that the county has learned to respect. */
+    { ENT_NPC,   14, 13, LOOK_JENNA,
+      "JENNA. I MIND THE BIRDS. ...YOU LOOKING AT MY CHICKENS?\n"
+      "GOOD BIRDS. SMART BIRDS. LAST FELLA THROUGH HERE CALLED THEM "
+      "'DUMB CLUCKERS'. SHERIFF NEVER DID FIND HIS HAT.\n"
+      "I'LL SHOOT ANYBODY WHO INSULTS MY CHICKENS, ~. ANYBODY.\n"
+      "...LOVELY EVENING, THOUGH, AIN'T IT?" },
     { ENT_NPC,    7,  5, LOOK_DOG,
       "WOOF! WOOF WOOF WOOF! HE HAS BEEN BARKING AT THE SKY ALL WEEK "
       "AND HE IS NOT SORRY." },

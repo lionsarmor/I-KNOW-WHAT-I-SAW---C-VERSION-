@@ -2266,6 +2266,131 @@ static const char *SPR_ART_BOY_1[16] = {
     "................",
 };
 
+/* THE CHICKEN. A plump white hen, side-on, facing left: red comb, orange
+ * beak and feet, one wing hinted in grey. Frame 1 is the whole bird one
+ * row lower -- a chicken is a thing that bobs. */
+static const char *SPR_ART_CHICKEN[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "......rr........",
+    ".....0110.......",
+    "....o1010.......",
+    ".....01111110...",
+    "....011111110...",
+    "....01111k110...",
+    ".....0111110....",
+    "......o..o......",
+    ".....oo..oo.....",
+    "................",
+};
+
+static const char *SPR_ART_CHICKEN_1[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "......rr........",
+    ".....0110.......",
+    "....o1010.......",
+    ".....01111110...",
+    "....011111110...",
+    "....01111k110...",
+    ".....0111110....",
+    "....oo...oo.....",
+    "................",
+};
+
+/* THE PIG. Hot pink (m/M -- the one thing that palette letter was always
+ * going to be for), side-on, with a snout, a tail nub and an ear that
+ * flicks between frames while the eye blinks. He is enormous and he has
+ * no idea. */
+static const char *SPR_ART_PIG[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....0M0.........",
+    "...0mmmmmmmm0...",
+    "..0Mm0mmmmmm0...",
+    "..0Mmmmmmmmm0...",
+    "...0mmmmmmmm00..",
+    "....0mm0.0mm0...",
+    "....0MM0.0MM0...",
+    "................",
+};
+
+static const char *SPR_ART_PIG_1[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "...0M00.........",
+    "...0mmmmmmmm0...",
+    "..0Mmmmmmmmm0...",
+    "..0Mmmmmmmmm0...",
+    "...0mmmmmmmm00..",
+    "....0mm0.0mm0...",
+    "....0MM0.0MM0...",
+    "................",
+};
+
+/* JENNA. Black hair (K -- true black would vanish into the outline), round
+ * glasses drawn as a white glint beside each dark pupil, red flannel,
+ * jeans, work boots. She minds the birds. Frame 1 she blinks, and the
+ * glint goes with it. Do not insult the chickens. */
+static const char *SPR_ART_JENNA[16] = {
+    "................",
+    ".....00000......",
+    "....0KKKKK0.....",
+    "...0KKKKKKK0....",
+    "...0KsssssK0....",
+    "...0K10s10K0....",
+    "...0KsssSsK0....",
+    "....K0ss0K......",
+    "...0KrrrK0......",
+    "..0rrRrrrRrr0...",
+    "..0rRrrrRrrr0...",
+    "...0rrrrrrrr0...",
+    "....0bbbb0......",
+    "....0b00b0......",
+    "...0DD00DD0.....",
+    "................",
+};
+
+static const char *SPR_ART_JENNA_1[16] = {
+    "................",
+    ".....00000......",
+    "....0KKKKK0.....",
+    "...0KKKKKKK0....",
+    "...0KsssssK0....",
+    "...0K00s00K0....",
+    "...0KsssSsK0....",
+    "....K0ss0K......",
+    "...0KrrrK0......",
+    "..0rrRrrrRrr0...",
+    "..0rrRrrrRrr0...",
+    "...0rrrrrrrr0...",
+    "....0bbbb0......",
+    "....0b00b0......",
+    "...0DD00DD0.....",
+    "................",
+};
+
 /* BRAD, THE TOWN DRUNK. The fu manchu (the dark band under the nose, tails
  * hanging past the chin), the stained tank top, the jeans, and the FORTY --
  * brown glass, held at his hip in frame 0 and TIPPED BACK in frame 1, so

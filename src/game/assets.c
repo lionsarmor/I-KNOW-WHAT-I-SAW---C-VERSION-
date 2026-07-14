@@ -283,6 +283,12 @@ int assets_init(void)
         { SPR_BOY_1,         SPR_ART_BOY_1         },
         { SPR_BRAD,          SPR_ART_BRAD          },
         { SPR_BRAD_1,        SPR_ART_BRAD_1        },
+        { SPR_CHICKEN,       SPR_ART_CHICKEN       },
+        { SPR_CHICKEN_1,     SPR_ART_CHICKEN_1     },
+        { SPR_PIG,           SPR_ART_PIG           },
+        { SPR_PIG_1,         SPR_ART_PIG_1         },
+        { SPR_JENNA,         SPR_ART_JENNA         },
+        { SPR_JENNA_1,       SPR_ART_JENNA_1       },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -567,6 +573,9 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_WIFE]      = { SPR_WIFE,       SPR_WIFE_1       },
     [LOOK_BOY]       = { SPR_BOY,        SPR_BOY_1        },
     [LOOK_BRAD]      = { SPR_BRAD,       SPR_BRAD_1       },
+    [LOOK_CHICKEN]   = { SPR_CHICKEN,    SPR_CHICKEN_1    },
+    [LOOK_PIG]       = { SPR_PIG,        SPR_PIG_1        },
+    [LOOK_JENNA]     = { SPR_JENNA,      SPR_JENNA_1      },
 };
 
 /* ============================ THE ITEMS ====================================

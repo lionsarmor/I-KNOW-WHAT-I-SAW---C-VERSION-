@@ -90,6 +90,9 @@ enum {
     SPR_WIFE,      SPR_WIFE_1,            /* MARIE. The whole point.       */
     SPR_BOY,       SPR_BOY_1,             /* DANNY, who was a little scared */
     SPR_BRAD,      SPR_BRAD_1,            /* BRAD. He has opinions and a 40. */
+    SPR_CHICKEN,   SPR_CHICKEN_1,         /* a good bird. a SMART bird.    */
+    SPR_PIG,       SPR_PIG_1,             /* enormous, and has no idea     */
+    SPR_JENNA,     SPR_JENNA_1,           /* she minds the birds. armed.   */
     NUM_SPRITES
 };
 
@@ -216,6 +219,9 @@ enum {
                             (Down here past LOOK_STOREKEEP on purpose:
                             roll_boon never picks him. Brad gives you
                             nothing but his opinion.) */
+    LOOK_CHICKEN,        /* pen animals -- same machinery as the cow */
+    LOOK_PIG,
+    LOOK_JENNA,          /* she watches the pen. Mind your mouth. */
     NUM_LOOKS
 };
 
