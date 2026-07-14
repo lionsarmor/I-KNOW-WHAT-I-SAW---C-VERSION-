@@ -500,11 +500,39 @@ static const sfx_step_t ax_hum[]      = {
     { 111, 18, 26, W_TRI},   {  57,110, 46, W_TRI},
 };
 
+/* THE CITY AT STREET LEVEL. Mostly it's the hum (Brad still blames the
+ * power lines), under which, now and then: a car passing blocks away (a
+ * soft brush of noise) and ONE distant siren -- two slow triangle wails,
+ * quiet enough to be someone else's problem. The loop runs about twelve
+ * seconds so the siren stays an event, not a metronome. That's the whole
+ * trick to not being annoying: rare, and never louder than the music. */
+static const sfx_step_t ax_city[]     = {
+    {  55,240, 40, W_TRI},     /* the hum                              */
+    {  56,220, 42, W_TRI},
+    { 300,140, 16, W_NOISE},   /* a car, blocks away                   */
+    {  55,240, 40, W_TRI},
+    {  57,200, 42, W_TRI},
+    { 520, 12, 26, W_TRI},     /* the siren: wail one...               */
+    { 640, 12, 30, W_TRI},
+    { 760, 14, 32, W_TRI},
+    { 640, 12, 28, W_TRI},
+    { 520, 12, 26, W_TRI},     /* ...wail two, already further away    */
+    { 640, 12, 29, W_TRI},
+    { 760, 14, 30, W_TRI},
+    { 640, 12, 27, W_TRI},
+    { 520, 16, 24, W_TRI},
+    {  56,240, 40, W_TRI},     /* the hum. it never really stopped     */
+    { 330,120, 14, W_NOISE},   /* another car. somebody's still driving */
+    {  55,250, 40, W_TRI},
+    {  56,230, 42, W_TRI},
+};
+
 static const struct { const sfx_step_t *s; int n; } amb_table[NUM_AMB] = {
     [AMB_NONE]     = { 0, 0 },
     [AMB_CRICKETS] = { ax_crickets, sizeof ax_crickets / sizeof(sfx_step_t) },
     [AMB_WIND]     = { ax_wind,     sizeof ax_wind     / sizeof(sfx_step_t) },
     [AMB_HUM]      = { ax_hum,      sizeof ax_hum      / sizeof(sfx_step_t) },
+    [AMB_CITY]     = { ax_city,     sizeof ax_city     / sizeof(sfx_step_t) },
 };
 
 static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {

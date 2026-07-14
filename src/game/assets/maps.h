@@ -233,7 +233,8 @@ static const warp_t MAP_WARPS_TOWN[] = {
       "THE NIGHT, AND NOBODY WILL GO NEAR IT WHILE THAT THING IS STANDING "
       "IN THE NORTH ROAD." },
     {  7, 17, MAP_STORE,  7,  8 },  /* the general store */
-    { 10,  0, MAP_RIDGE,  7,  8 },  /* north road -- past the goblin   */
+    { 10,  0, MAP_RIDGE, 14, 18 },  /* north road -- past the goblin,
+                                       and straight into Dan's gate    */
 };
 
 /* ============================ THE FARMHOUSE ================================
@@ -345,15 +346,29 @@ static const char *const MAP_ROWS_RIDGE[20] = {
     "T............................T",
     "T....,...........,..........,T",
     "T............................T",
-    "T..........,.................T",
-    "T.............##.............T",
-    "TTTTTTTTTTTTTT##TTTTTTTTTTTTTT",
+    /* THE GATE. One tile wide, cut through a tree line -- and DAN is
+     * standing in it. See his spawn below, and dan_update in overworld.c
+     * for the bottles. */
+    "TTTTTTTTTTTTTT.TTTTTTTTTTTTTTT",
+    "T.............#..............T",
+    "TTTTTTTTTTTTTT#TTTTTTTTTTTTTTT",
 };
 
 static const spawn_t MAP_SPAWNS_RIDGE[] = {
-    /* supplies, right by the gate -- you'll want them */
-    { ENT_ITEM,  12, 17, ITEM_SHELLS, 0 },
-    { ENT_ITEM,  17, 17, ITEM_MEDKIT, 0 },
+    /* supplies, just past the gate -- you'll want them */
+    { ENT_ITEM,  12, 16, ITEM_SHELLS, 0 },
+    { ENT_ITEM,  17, 16, ITEM_MEDKIT, 0 },
+
+    /* DAN. Bald, shades, red shoes, ARMED (with vodka). He stands in the
+     * one-tile gap and he does not move, and if you loiter in range he
+     * puts a bottle in the air (dan_update). Talk to him with the wrong
+     * name and you get the speech below; talk to him as RODDY and you
+     * get a very different man (try_talk) -- and the gate. */
+    { ENT_NPC,   14, 17, LOOK_DAN,
+      "DAN. SMARTEST MAN ON THIS ROCK. AND YOU -- YOU'RE DUMB. THE "
+      "SHERIFF'S DUMB. THE PRIEST'S DUMB. THEM LIGHTS ARE DUMB TOO.\n"
+      "THE RIDGE IS MINE. WALK AWAY, ~, 'FORE I FIND ANOTHER BOTTLE. "
+      "GO ON! GIT!" },
 
     /* THE BESTIARY. One of everything. */
     { ENT_ALIEN,  3,  3, SPECIES_ANT,        0 },
@@ -376,7 +391,6 @@ static const spawn_t MAP_SPAWNS_RIDGE[] = {
 
 static const warp_t MAP_WARPS_RIDGE[] = {
     { 14, 19, MAP_TOWN, 10, 1 },   /* back down the road into town */
-    { 15, 19, MAP_TOWN, 10, 1 },
 };
 
 

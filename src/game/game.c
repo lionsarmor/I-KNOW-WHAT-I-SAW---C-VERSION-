@@ -82,6 +82,21 @@ void game_update(uint16_t buttons_held)
     G.pressed = (uint16_t)(buttons_held & ~G.held);
     G.held    = buttons_held;
 
+    /* The ambient bed belongs to the WORLD -- scenes where the overworld
+     * is still around you (walking, talking, the pack, a fight on the same
+     * grass, dozing off) keep it; cutscenes, menus and the title do not.
+     * Crickets over the highway cutscene was a bug, not a mood. The
+     * overworld's ambient_refresh() brings the bed back the moment you're
+     * standing in a field again. */
+    switch (G.state) {
+    case ST_OVERWORLD: case ST_DIALOG: case ST_PACK: case ST_BATTLE:
+    case ST_PAUSE:     case ST_JOURNAL: case ST_SLEEP:
+        break;
+    default:
+        audio_ambient(AMB_NONE);
+        break;
+    }
+
     switch (G.state) {
     case ST_INTRO:     intro_update();     break;
     case ST_TITLE:     title_update();     break;

@@ -162,6 +162,18 @@
 #define LOB_TICKS         22   /* flight time, field and battle alike  */
 #define LOB_ARC           18   /* how high the arc rises, in pixels    */
 
+/* ---- DAN --------------------------------------------------------------------
+ * The drunk in the ridge gate. Stand in his range and he puts a BOTTLE in
+ * the air; it flies like the lob and lands where you WERE. Adjacent is
+ * safe -- close enough to talk is too close to throw -- which is how you
+ * ever get a word in. See dan_update in overworld.c. */
+#define DAN_THROW_CD      80   /* ticks between bottles                */
+#define DAN_RANGE_MIN     22   /* px: nearer than this he just yells   */
+#define DAN_RANGE_MAX     88   /* px: farther than this he can't reach */
+#define DAN_BOTTLE_DMG     2   /* HP a direct hit costs you            */
+#define BOTTLE_TICKS      26   /* flight time                          */
+#define BOTTLE_ARC        14   /* how high it tumbles, in pixels       */
+
 /* ---- HOLY WATER --------------------------------------------------------------
  * There are exactly THREE vials in the whole game (the deacon's gift is the
  * free sample). One throw KILLS one of those things outright -- any of them,

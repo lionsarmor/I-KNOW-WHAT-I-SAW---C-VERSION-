@@ -225,6 +225,9 @@ void overworld_enter_map(int map, int tx, int ty)
     G.boom_t     = 0;
     G.mist_t     = 0;       /* effects don't follow you through a door */
     G.lob_active = 0;       /* ...and neither does a thing mid-air     */
+    G.bottle_active = 0;    /* ...Dan's included                       */
+    G.dan_cd     = 40;      /* a breath of grace on arrival: you see
+                               him before the first bottle flies       */
 
     /* SOMEBODY DROPPED THEIR NERVE. Outdoors, sometimes, a stick of TNT is
      * just lying in the open -- dropped by whoever ran through here before
@@ -485,8 +488,8 @@ static int world_brightness(void)
  * up with it, mid-map, without anyone keeping track.
  *
  *   THE RIDGE      wind, day and night. It's high ground; it never stops.
- *   THE CITY       the hum. Brad says it's the power lines. The power has
- *                  been out since the office tower went dark. It hums.
+ *   THE CITY       the street bed: the hum, a passing car, one distant
+ *                  siren every dozen seconds. Somebody else's problem.
  *   anywhere else  crickets outdoors once the light drops past dusk's
  *                  midpoint -- and indoors, nothing: walls work.
  */
@@ -497,7 +500,7 @@ static void ambient_refresh(void)
         if (G.map_id == MAP_RIDGE)
             amb = AMB_WIND;
         else if (G.map_id == MAP_CITY || G.map_id == MAP_SOUTH)
-            amb = AMB_HUM;
+            amb = AMB_CITY;
         else if (day_brightness() < 200)
             amb = AMB_CRICKETS;
     }
@@ -792,6 +795,90 @@ static void update_lob(void)
         tnt_boom(G.lob_x1, G.lob_y1);
     else
         holy_mist(G.lob_x1, G.lob_y1);
+}
+
+/* ---- DAN --------------------------------------------------------------------
+ * The drunk in the ridge gate. He is an NPC (he blocks, he talks, he never
+ * moves) with one extra habit: stand inside his throwing range and every
+ * DAN_THROW_CD ticks a large bottle of vodka leaves his hand, arcs like
+ * the lob, and lands where you were standing when he let go -- so KEEP
+ * MOVING. A direct hit costs DAN_BOTTLE_DMG and shoves you back toward
+ * town. Every throw comes with a scream about how smart he is.
+ *
+ * Getting ADJACENT is safe (DAN_RANGE_MIN) -- you can't wind up a throw
+ * at a man standing on your feet -- and that's how you ever talk to him.
+ * What talking gets you depends on your name (see try_talk).
+ */
+static void dan_update(void)
+{
+    if (G.dan_cd > 0)
+        G.dan_cd--;
+
+    /* a bottle already in the air keeps flying, Dan or no Dan */
+    if (G.bottle_active && ++G.bottle_t >= BOTTLE_TICKS) {
+        G.bottle_active = 0;
+        audio_sfx(SFX_HIT);            /* glass, meeting Kentucky */
+        if (dist2(G.player.x + 8, G.player.y + 8,
+                  G.bottle_x1, G.bottle_y1) <= 16 * 16) {
+            G.player.hp -= DAN_BOTTLE_DMG;
+            audio_sfx(SFX_HURT);
+            rumble(140);
+            shake(2, 10);
+            /* knocked back away from the thrower, if there's room */
+            int sx = (G.player.x + 8 >= G.bottle_x0) ? 1 : -1;
+            int sy = (G.player.y + 8 >= G.bottle_y0) ? 1 : -1;
+            for (int k = 0; k < 6; k++) {
+                if (!blocked(G.player.x + sx * 2, G.player.y))
+                    G.player.x += sx * 2;
+                if (!blocked(G.player.x, G.player.y + sy * 2))
+                    G.player.y += sy * 2;
+            }
+            if (G.player.hp <= 0) {    /* bottled out of this world */
+                add_blood(G.player.x + 8, G.player.y + 8, 1);
+                audio_music(MUSIC_NONE);
+                G.state = ST_GAMEOVER;
+                G.t = 0;
+                return;
+            }
+        }
+    }
+
+    /* is he even here? (only the ridge has one, but don't assume) */
+    int dan = -1;
+    for (int i = 0; i < MAX_ENTITIES; i++)
+        if (G.ents[i].type == ENT_NPC && G.ents[i].kind == LOOK_DAN) {
+            dan = i;
+            break;
+        }
+    if (dan < 0 || G.bottle_active || G.dan_cd > 0)
+        return;
+
+    int d2 = dist2(G.ents[dan].x + 8, G.ents[dan].y + 8,
+                   G.player.x + 8, G.player.y + 8);
+    if (d2 <= DAN_RANGE_MIN * DAN_RANGE_MIN ||
+        d2 >  DAN_RANGE_MAX * DAN_RANGE_MAX)
+        return;
+
+    /* BOTTLE'S UP. And so is his opinion of himself. */
+    G.bottle_active = 1;
+    G.bottle_t  = 0;
+    G.bottle_x0 = G.ents[dan].x + 8;
+    G.bottle_y0 = G.ents[dan].y + 4;
+    G.bottle_x1 = G.player.x + 8;
+    G.bottle_y1 = G.player.y + 8;
+    G.dan_cd    = DAN_THROW_CD;
+    audio_sfx(SFX_BLIP);               /* the grunt of a professional */
+
+    static const char *yell[4] = {
+        "YOU'RE ALL MORONS! ALL OF YOU!",
+        "I'M THE ONLY GENIUS IN THIS COUNTY!",
+        "GET OFF MY ROAD, YOU LITTLE !?-?!",
+        "DUMB! EVERYBODY'S DUMB BUT DAN!",
+    };
+    static int yn;
+    G.toast       = yell[yn++ & 3];
+    G.toast_good  = 0;                 /* red. he is not good news. */
+    G.toast_ticks = 120;
 }
 
 static void fire_shot(void)
@@ -1351,6 +1438,14 @@ static void update_aliens(void)
 }
 
 /* if there's an NPC on the tile the player is facing, talk to them */
+/* does the player's name spell exactly this? (no strcmp in freestanding) */
+static int name_is(const char *want)
+{
+    const char *n = G.player.name;
+    while (*want && *n == *want) { n++; want++; }
+    return *want == '\0' && *n == '\0';
+}
+
 static void try_talk(void)
 {
     /* a probe point 12px ahead of the player's center */
@@ -1367,6 +1462,31 @@ static void try_talk(void)
             continue;
         if (px >= e->x && px < e->x + e->cw &&
             py >= e->y && py < e->y + e->ch) {
+            /* DAN. What talking buys you depends on WHO YOU ARE. To
+             * anyone else he's the speech on his spawn line and a closed
+             * gate; to RODDY he's a fellow abductee, suddenly and
+             * tearfully reformed -- and then he's GONE, permanently
+             * (mark_dead: NPCs never restock), and the ridge is open. */
+            if (e->kind == LOOK_DAN) {
+                if (name_is("RODDY")) {
+                    dialog_start(
+                        "...RODDY? RODDY!! IT'S ME. DAN.\n"
+                        "THEY TOOK ME TOO, RODDY. RIGHT OFF THIS RIDGE. "
+                        "THE LIGHT, THE TABLE, THE LITTLE... I CAN'T EVEN "
+                        "SAY IT.\n"
+                        "EVERYBODY CALLED ME A DRUNK. WELL. FAIR. BUT YOU "
+                        "KNOW, RODDY. YOU OF ALL PEOPLE KNOW.\n"
+                        "I'M DONE WITH THE BOTTLE. I'M TURNING TO GOD. "
+                        "STARTING... TOMORROW. THE RIDGE IS YOURS.\n"
+                        "HE STAGGERS OFF DOWN THE HILL, CROSSING HIMSELF "
+                        "WITH THE WRONG HAND.");
+                    mark_dead(i);          /* he never comes back */
+                    e->type = ENT_NONE;    /* the gap stands open */
+                } else {
+                    dialog_start(e->dialog);
+                }
+                return;
+            }
             /* Some NPCs are holding something for you. The first time you
              * talk they hand it over (their `dialog` is the line that does
              * it); after that they fall back to `after`. We reuse the
@@ -1533,6 +1653,9 @@ void overworld_update(void)
     update_lob();                  /* anything mid-air comes down */
     update_shots();
     update_gore();
+    dan_update();                  /* ...and so does the vodka */
+    if (G.state != ST_OVERWORLD)   /* a bottle can end you (gameover) */
+        return;
 
     if (PRESSED(BTN_A))
         try_talk();
@@ -2085,6 +2208,29 @@ void overworld_render(void)
             continue;
         int gsz = (g->life > 12) ? 2 : 1;
         gfx_fill_rect(g->x - cx, g->y - cy, gsz, gsz, g->col);
+    }
+
+    /* DAN'S BOTTLE, tumbling end over end -- drawn by hand (there's no
+     * sprite for a fifth of vodka): clear glass with a dark cap, swapping
+     * tall-for-wide as it spins. The arc math is the lob's. */
+    if (G.bottle_active) {
+        int t  = G.bottle_t;
+        int lx = G.bottle_x0 + (G.bottle_x1 - G.bottle_x0) * t / BOTTLE_TICKS
+               - cx;
+        int ly = G.bottle_y0 + (G.bottle_y1 - G.bottle_y0) * t / BOTTLE_TICKS
+               - 4 * BOTTLE_ARC * t * (BOTTLE_TICKS - t)
+                 / (BOTTLE_TICKS * BOTTLE_TICKS) - cy;
+        if ((t / 3) % 2) {
+            gfx_fill_rect(lx - 1, ly - 3, 3, 6, RGB565(225, 230, 240));
+            gfx_fill_rect(lx - 1, ly - 4, 3, 2, RGB565(60, 60, 70));
+        } else {
+            gfx_fill_rect(lx - 3, ly - 1, 6, 3, RGB565(225, 230, 240));
+            gfx_fill_rect(lx - 4, ly - 1, 2, 3, RGB565(60, 60, 70));
+        }
+        /* its shadow keeps the honest path underneath it */
+        gfx_blend_pixel(lx,     G.bottle_y0 + (G.bottle_y1 - G.bottle_y0)
+                                * t / BOTTLE_TICKS - cy + 5,
+                        RGB565(0, 0, 0), 110);
     }
 
     /* SOMETHING THROWN, STILL IN THE AIR. The item's own sprite rides a

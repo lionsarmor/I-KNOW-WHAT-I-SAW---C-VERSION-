@@ -143,7 +143,7 @@ enum {
  * music channels and the ambience politely stays out. Same rule as song
  * tracks: the small machine loses the sweetening, never the tune.
  */
-enum { AMB_NONE, AMB_CRICKETS, AMB_WIND, AMB_HUM, NUM_AMB };
+enum { AMB_NONE, AMB_CRICKETS, AMB_WIND, AMB_HUM, AMB_CITY, NUM_AMB };
 
 void audio_init(void);
 void audio_sfx(int id);

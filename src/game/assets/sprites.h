@@ -2434,6 +2434,49 @@ static const char *SPR_ART_BRAD_1[16] = {
     "....00..00......",
 };
 
+/* DAN. The OTHER drunk -- the one that's a problem. Bald (the dome gets a
+ * shine), black sunglasses drawn as one solid band, white shirt, blue
+ * jeans, RED shoes. Frame 1 the arm goes up and there's a big bottle of
+ * vodka in it, which is the last thing a lot of trespassers see clearly.
+ * He guards the ridge gate. See dan_update in overworld.c. */
+static const char *SPR_ART_DAN[16] = {
+    "................",
+    ".....00000......",
+    "....0sssss0.....",
+    "...0sssssss0....",
+    "...0sSsssSs0....",
+    "...000000000....",
+    "....0sssss0.....",
+    ".....0ss0.......",
+    ".....0s1s0......",
+    "....0111110.....",
+    "...0s11111s0....",
+    "...0s11111s0....",
+    "....011110......",
+    "....0b00b0......",
+    "...0rr00rr0.....",
+    "................",
+};
+
+static const char *SPR_ART_DAN_1[16] = {
+    "................",
+    ".....00000......",
+    "....0sssss0.....",
+    "...0sssssss0....",
+    "...0sSsssSs0.k..",
+    "...000000000.1..",
+    "....0sssss0..1..",
+    ".....0ss0....1..",
+    ".....0s1s0...s..",
+    "....0111110.....",
+    "...0s11111s0....",
+    "...0s11111s0....",
+    "....011110......",
+    "....0b00b0......",
+    "...0rr00rr0.....",
+    "................",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */
