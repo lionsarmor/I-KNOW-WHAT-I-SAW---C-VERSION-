@@ -93,7 +93,7 @@ enum {
     SPR_CHICKEN,   SPR_CHICKEN_1,         /* a good bird. a SMART bird.    */
     SPR_PIG,       SPR_PIG_1,             /* enormous, and has no idea     */
     SPR_JENNA,     SPR_JENNA_1,           /* she minds the birds. armed.   */
-    SPR_DAN,       SPR_DAN_1,             /* the ridge gate. incoming.     */
+    SPR_DAN,       SPR_DAN_1,             /* the north road. incoming.     */
     NUM_SPRITES
 };
 
@@ -223,7 +223,7 @@ enum {
     LOOK_CHICKEN,        /* pen animals -- same machinery as the cow */
     LOOK_PIG,
     LOOK_JENNA,          /* she watches the pen. Mind your mouth. */
-    LOOK_DAN,            /* the drunk on the ridge gate. He THROWS.
+    LOOK_DAN,            /* the drunk in the north road. He THROWS.
                             (Special-cased in try_talk and dan_update,
                             overworld.c: bottles, screaming, and one
                             name that gets past him.) */

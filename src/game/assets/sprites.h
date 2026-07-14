@@ -2438,7 +2438,7 @@ static const char *SPR_ART_BRAD_1[16] = {
  * shine), black sunglasses drawn as one solid band, white shirt, blue
  * jeans, RED shoes. Frame 1 the arm goes up and there's a big bottle of
  * vodka in it, which is the last thing a lot of trespassers see clearly.
- * He guards the ridge gate. See dan_update in overworld.c. */
+ * He guards the north road to the ridge. See dan_update in overworld.c. */
 static const char *SPR_ART_DAN[16] = {
     "................",
     ".....00000......",

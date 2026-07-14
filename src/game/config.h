@@ -163,7 +163,7 @@
 #define LOB_ARC           18   /* how high the arc rises, in pixels    */
 
 /* ---- DAN --------------------------------------------------------------------
- * The drunk in the ridge gate. Stand in his range and he puts a BOTTLE in
+ * The drunk in the town north road. Stand in his range and he puts a BOTTLE
  * the air; it flies like the lob and lands where you WERE. Adjacent is
  * safe -- close enough to talk is too close to throw -- which is how you
  * ever get a word in. See dan_update in overworld.c. */

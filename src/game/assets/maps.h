@@ -213,28 +213,36 @@ static const spawn_t MAP_SPAWNS_TOWN[] = {
     { ENT_NPC,    9, 18, LOOK_BRAD,
       "NAME'S BRAD. *HHRK* Y'ALL STILL ON ABOUT THE ALIENS? MAN, THEM "
       "THINGS IS FAKE AND GAY. FAKE. AND. GAY. THAT LIGHT OVER THE RIDGE "
-      "IS VENUS, THE HUMMIN' IS THE POWER LINES, AND THAT THING IN THE "
-      "NORTH ROAD IS A LITTLE GUY IN A SUIT. ...I AIN'T WALKIN' PAST IT "
+      "IS VENUS, THE HUMMIN' IS THE POWER LINES, AND THAT SCREAMIN' FROM "
+      "THE MIDDLE HOUSE IS A CAT. BIG CAT. ...I AIN'T GOIN' IN THERE "
       "THOUGH." },
 
-    /* IT STANDS IN THE ROAD. You cannot leave north until it is dealt
-     * with -- walk into it and the fight starts. It never wanders, and
-     * once it's down it stays down (see the `boss` flag in assets.c). */
-    { ENT_ALIEN, 10,  1, SPECIES_GOBLIN, 0 },
+    /* DAN STANDS IN THE ROAD. The north road is the way to the ridge,
+     * and Dan has decided the ridge is his: he's an NPC, so he's SOLID,
+     * and loitering in his range gets a bottle of vodka thrown at your
+     * head (dan_update, overworld.c). There is exactly one name that
+     * gets past him (try_talk). The goblin that used to stand here?
+     * Listen. It's in one of the HOUSES now. */
+    { ENT_NPC,   10,  1, LOOK_DAN,
+      "DAN. SMARTEST MAN ON THIS ROCK. AND YOU -- YOU'RE DUMB. THE "
+      "SHERIFF'S DUMB. THE PRIEST'S DUMB. THEM LIGHTS ARE DUMB TOO.\n"
+      "THE RIDGE IS MINE. WALK AWAY, ~, 'FORE I FIND ANOTHER BOTTLE. "
+      "GO ON! GIT!" },
 };
 
 static const warp_t MAP_WARPS_TOWN[] = {
     {  0, 12, MAP_FARM,  28, 12 },  /* west end of Main St -> the farm */
     { 15,  5, MAP_HOUSE,  7,  8 },  /* middle house door                 */
     {  5,  5, MAP_WRECK,  7,  8, 1 },  /* WEST HOUSE -- needs the brass key */
-    /* THE ROAD EAST. Shut until the thing in the north road is dealt with. */
+    /* THE ROAD EAST. Shut until the thing in the house is dealt with. */
     { 29, 12, MAP_VANLOT,  1, 11, 0, FLAG_GOBLIN_DEAD,
       "THE ROAD EAST IS STILL BLOCKED. SOMETHING CAME DOWN ACROSS IT IN "
-      "THE NIGHT, AND NOBODY WILL GO NEAR IT WHILE THAT THING IS STANDING "
-      "IN THE NORTH ROAD." },
+      "THE NIGHT -- AND NOBODY WILL TOUCH IT. THERE'S SCREAMING COMING "
+      "FROM ONE OF THE HOUSES ON MAIN STREET. IT'S BEEN GOING ON FOR TWO "
+      "DAYS, AND IT DOESN'T STOP." },
     {  7, 17, MAP_STORE,  7,  8 },  /* the general store */
-    { 10,  0, MAP_RIDGE, 14, 18 },  /* north road -- past the goblin,
-                                       and straight into Dan's gate    */
+    { 10,  0, MAP_RIDGE, 14, 18 },  /* north road -- past DAN, which
+                                       takes one very specific name   */
 };
 
 /* ============================ THE FARMHOUSE ================================
@@ -280,9 +288,16 @@ static const char *const MAP_ROWS_HOUSE[10] = {
 };
 
 static const spawn_t MAP_SPAWNS_HOUSE[] = {
+    /* THE SCREAMING you hear from the street. She's pressed against the
+     * far wall and it is IN HER HOUSE, pacing between her and the door.
+     * Kill it (here, in the living room, with the furniture) and the
+     * east road opens -- FLAG_GOBLIN_DEAD is FLAG_GOBLIN_DEAD wherever
+     * the thing happens to die. */
     { ENT_NPC, 11, 4, LOOK_NEIGHBOR,
-      "I DON'T OPEN THE DOOR AFTER DARK. NOT SINCE THE HUM. "
-      "YOU SHOULDN'T BE OUT WALKING, NEIGHBOR." },
+      "GET IT OUT!! GET IT OUT OF MY HOUSE!! IT CAME THROUGH THE BACK "
+      "WALL TWO NIGHTS AGO AND IT JUST -- STANDS THERE. LOOKING AT ME. "
+      "PLEASE. GET IT OUT." },
+    { ENT_ALIEN, 5, 2, SPECIES_GOBLIN, 0 },
     { ENT_ITEM, 3, 6, ITEM_MEDKIT, 0 },   /* they keep it by the door */
 };
 
@@ -346,9 +361,9 @@ static const char *const MAP_ROWS_RIDGE[20] = {
     "T............................T",
     "T....,...........,..........,T",
     "T............................T",
-    /* THE GATE. One tile wide, cut through a tree line -- and DAN is
-     * standing in it. See his spawn below, and dan_update in overworld.c
-     * for the bottles. */
+    /* THE GATE. One tile wide, cut through a tree line. (The bouncer is
+     * DAN, but he works the TOWN end of this road -- see
+     * MAP_SPAWNS_TOWN.) */
     "TTTTTTTTTTTTTT.TTTTTTTTTTTTTTT",
     "T.............#..............T",
     "TTTTTTTTTTTTTT#TTTTTTTTTTTTTTT",
@@ -359,16 +374,8 @@ static const spawn_t MAP_SPAWNS_RIDGE[] = {
     { ENT_ITEM,  12, 16, ITEM_SHELLS, 0 },
     { ENT_ITEM,  17, 16, ITEM_MEDKIT, 0 },
 
-    /* DAN. Bald, shades, red shoes, ARMED (with vodka). He stands in the
-     * one-tile gap and he does not move, and if you loiter in range he
-     * puts a bottle in the air (dan_update). Talk to him with the wrong
-     * name and you get the speech below; talk to him as RODDY and you
-     * get a very different man (try_talk) -- and the gate. */
-    { ENT_NPC,   14, 17, LOOK_DAN,
-      "DAN. SMARTEST MAN ON THIS ROCK. AND YOU -- YOU'RE DUMB. THE "
-      "SHERIFF'S DUMB. THE PRIEST'S DUMB. THEM LIGHTS ARE DUMB TOO.\n"
-      "THE RIDGE IS MINE. WALK AWAY, ~, 'FORE I FIND ANOTHER BOTTLE. "
-      "GO ON! GIT!" },
+    /* (Dan guards this place from the TOWN side -- he stands in the
+     * north road itself. See MAP_SPAWNS_TOWN.) */
 
     /* THE BESTIARY. One of everything. */
     { ENT_ALIEN,  3,  3, SPECIES_ANT,        0 },

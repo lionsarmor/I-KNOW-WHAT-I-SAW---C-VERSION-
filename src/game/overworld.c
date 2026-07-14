@@ -798,7 +798,8 @@ static void update_lob(void)
 }
 
 /* ---- DAN --------------------------------------------------------------------
- * The drunk in the ridge gate. He is an NPC (he blocks, he talks, he never
+ * The drunk in the town north road -- the way to the ridge. He is an NPC
+ * (he blocks, he talks, he never
  * moves) with one extra habit: stand inside his throwing range and every
  * DAN_THROW_CD ticks a large bottle of vodka leaves his hand, arcs like
  * the lob, and lands where you were standing when he let go -- so KEEP
@@ -1215,7 +1216,7 @@ static void ma_scene_update(void)
             dialog_start(
                 "~! WAIT! *HUFF* WAIT RIGHT THERE!\n"
                 "I RAN ALL THE WAY FROM THE FARM. THE WHOLE TOWN IS "
-                "SAYING WHAT YOU DID TO THAT THING IN THE NORTH ROAD.\n"
+                "SAYING WHAT YOU PULLED OUT OF THAT POOR WOMAN'S HOUSE.\n"
                 "AND NOW YOU'RE WALKING EAST. OF COURSE YOU ARE.\n"
                 "HERE -- GRANDPA'S FIELD JOURNAL. HE WROTE DOWN EVERY "
                 "LAST THING HE SAW OUT THERE, AND NOBODY BELIEVED HIM "
