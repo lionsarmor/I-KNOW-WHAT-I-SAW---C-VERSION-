@@ -205,7 +205,7 @@ void intro_render(void)
  * rows are built at run time rather than hard-coded -- ROW_* are what the
  * chosen index MEANS, which is the only thing the rest of the code cares
  * about. */
-enum { ROW_CONTINUE, ROW_NEWGAME, ROW_JOURNAL, ROW_OPTIONS };
+enum { ROW_CONTINUE, ROW_NEWGAME, ROW_JOURNAL, ROW_CHAPTERS, ROW_OPTIONS };
 
 static int title_rows(int *out)
 {
@@ -217,6 +217,7 @@ static int title_rows(int *out)
         out[n++] = ROW_JOURNAL;   /* the book reads the loaded save -- and
                                      it only exists at all once Ma has
                                      handed it over at the east gate */
+    out[n++] = ROW_CHAPTERS;      /* jump to any level, minigame or scene */
     out[n++] = ROW_OPTIONS;
     return n;
 }
@@ -227,13 +228,14 @@ static const char *title_row_label(int row)
     case ROW_CONTINUE: return "CONTINUE";
     case ROW_NEWGAME:  return "NEW GAME";
     case ROW_JOURNAL:  return "WHAT I SAW";
+    case ROW_CHAPTERS: return "CHAPTERS";
     default:           return "OPTIONS";
     }
 }
 
 void title_update(void)
 {
-    int rows[4];
+    int rows[5];
     int n = title_rows(rows);
 
     if (G.title_sel >= n)
@@ -259,6 +261,10 @@ void title_update(void)
 
     case ROW_JOURNAL:
         journal_start(ST_TITLE);
+        return;
+
+    case ROW_CHAPTERS:
+        chapters_start();
         return;
 
     case ROW_OPTIONS:
@@ -1005,7 +1011,7 @@ void title_render(void)
 
     /* the menu: CONTINUE (only if there's a save), NEW GAME, WHAT I SAW,
      * OPTIONS. Bottom-aligned so it doesn't jump when CONTINUE appears. */
-    int rows[4];
+    int rows[5];
     int n = title_rows(rows);
     int top = 132 - n * 14;
     for (int i = 0; i < n; i++) {
@@ -1042,8 +1048,11 @@ void title_render(void)
 
 void journal_saw(int kind)
 {
+    /* species_seen is 32 bits (THE TAN ONE is species 16) -- a uint16_t
+     * cast here would truncate bit 16 to zero and the tan would never
+     * make it into the book. */
     if (kind >= 0 && kind < NUM_SPECIES)
-        G.species_seen |= (uint16_t)(1u << kind);
+        G.species_seen |= (1u << kind);
 }
 
 void journal_kill(int kind)
@@ -1197,4 +1206,224 @@ void journal_render(void)
                    gfx_text_small_width("< > TURN PAGE   B CLOSE"),
                    SCREEN_H - 14, "< > TURN PAGE   B CLOSE",
                    RGB565(110, 110, 120));
+}
+
+/* ============================================================================
+ * CHAPTERS -- the main-menu level select.
+ *
+ * Every map, every minigame, every cutscene, in story order, jumpable from
+ * the title. Because it can drop you into content out of sequence, each
+ * chapter first stands the world up in a plausible state for its ERA --
+ * which man you are (farmer / lawyer / silver suit), a fair loadout so the
+ * place is actually playable, and a fresh set of spawns. It is a debug
+ * door and a fast-travel both.
+ * ==========================================================================*/
+enum { E0, E1, E2 };   /* the farmer, the lawyer, the man in the silver suit */
+enum { CH_MAP, CH_DRIVE, CH_PROLOGUE, CH_CHURCH, CH_P1END, CH_NIGHT, CH_P2END };
+
+typedef struct {
+    const char *label;
+    unsigned char kind;         /* CH_*                        */
+    unsigned char era;          /* E0/E1/E2 -- for CH_MAP      */
+    unsigned char map;          /* MAP_*   -- for CH_MAP       */
+    unsigned char tx, ty;       /* spawn tile -- for CH_MAP    */
+} chapter_t;
+
+static const chapter_t chapters[] = {
+    /* ---- THE PROLOGUE: the farmer ---- */
+    { "1  THE FARM",           CH_MAP, E0, MAP_FARM,       5,  6 },
+    { "2  TOWN",               CH_MAP, E0, MAP_TOWN,       1, 12 },
+    { "3  THE FARMHOUSE",      CH_MAP, E0, MAP_HOME,       7,  8 },
+    { "4  THE MIDDLE HOUSE",   CH_MAP, E0, MAP_HOUSE,      7,  8 },
+    { "5  GENERAL STORE",      CH_MAP, E0, MAP_STORE,      7,  8 },
+    { "6  THE NORTH RIDGE",    CH_MAP, E0, MAP_RIDGE,     14, 18 },
+    { "7  THE HOLLIS PLACE",   CH_MAP, E0, MAP_WRECK,      7,  8 },
+    { "8  THE PARKING LOT",    CH_MAP, E0, MAP_VANLOT,     1, 11 },
+    { "9  SCENE: THE HIGHWAY", CH_DRIVE },
+    { "10 SCENE: PROLOGUE END", CH_PROLOGUE },
+    /* ---- PART 1: the lawyer ---- */
+    { "11 SCENE: THE CHURCH",  CH_CHURCH },
+    { "12 MAIN STREET",        CH_MAP, E1, MAP_CITY,      11, 18 },
+    { "13 HALLORAN AND WEEKS", CH_MAP, E1, MAP_OFFICE,     2,  6 },
+    { "14 THE SOUTH SIDE",     CH_MAP, E1, MAP_SOUTH,     11,  1 },
+    { "15 THE STARLIGHT DINER",CH_MAP, E1, MAP_DINER,      7,  9 },
+    { "16 ROSA'S WALK-UP",     CH_MAP, E1, MAP_APARTMENT,  7,  1 },
+    { "17 SCENE: PART 1 END",  CH_P1END },
+    { "18 MINIGAME: THE NIGHT",CH_NIGHT },
+    /* ---- PART 2: the man in the silver suit ---- */
+    { "19 THE SHIP",           CH_MAP, E2, MAP_UFO,       19,  6 },
+    { "20 SCENE: PART 2 END",  CH_P2END },
+};
+#define NUM_CHAPTERS ((int)(sizeof chapters / sizeof chapters[0]))
+#define CHAPTER_ROWS 9         /* visible at once; the list scrolls */
+
+/* stand the player up for an era: the right man, a fair kit, full health,
+ * and a clean world so the chapter plays like it means to. */
+static void chapter_era(int era)
+{
+    player_t *p = &G.player;
+    if (p->max_hp < PLAYER_MAX_HP) p->max_hp = PLAYER_MAX_HP;
+    if (p->level  < 5)             p->level  = 5;   /* a fair testing level */
+    p->hp  = p->max_hp;
+    p->dir = DIR_DOWN;
+    p->walking = 0;
+    if (p->name[0] == '\0') {                        /* never named? give one */
+        static const char def[] = "TRAVELER";
+        for (int i = 0; i < (int)sizeof def; i++) p->name[i] = def[i];
+    }
+    for (int i = 0; i < NUM_ITEMS; i++) p->items[i] = 0;
+    p->lamp = 0; p->rosary = 0;
+
+    G.flags &= ~(FLAG_PART1 | FLAG_PART2);
+    if (era == E0) {
+        p->items[ITEM_SHOTGUN] = 1;  p->items[ITEM_SHELLS] = 18;
+        p->items[ITEM_FLASHLIGHT] = 1; p->items[ITEM_TNT] = 3;
+        p->items[ITEM_HERB] = 3;     p->items[ITEM_MEDKIT] = 2;
+        G.flags |= FLAG_GOBLIN_DEAD;                 /* roads open, world walkable */
+    } else if (era == E1) {
+        G.flags |= FLAG_PART1 | FLAG_FAMILY;
+        p->items[ITEM_HANDGUN] = 1;  p->items[ITEM_BULLETS] = 24;
+        p->items[ITEM_FLASHLIGHT] = 1; p->items[ITEM_HOLYWATER] = 2;
+        p->items[ITEM_HERB] = 3;     p->items[ITEM_MEDKIT] = 2;
+        p->items[ITEM_ROSARY] = 1;
+    } else {                                         /* E2: the ship */
+        G.flags |= FLAG_PART1 | FLAG_PART2;
+        p->items[ITEM_LASER] = 1;    p->items[ITEM_BATTERY] = 48;
+        p->items[ITEM_NUKE] = 2;     p->items[ITEM_GEL] = 4;
+        p->items[ITEM_MEDKIT] = 2;
+    }
+
+    G.items_seen = 0;
+    for (int i = 0; i < NUM_ITEMS; i++)
+        if (p->items[i]) G.items_seen |= (1u << i);
+
+    for (int m = 0; m < NUM_MAPS; m++) G.spawns_gone[m] = 0;   /* fresh maps */
+    G.boons_done   = 0;
+    G.boon_ent     = -1;
+    G.daytime      = 0;
+    G.last_restock = 0;
+    G.wx = WX_CLEAR; G.wx_t = 30 * TICKS_PER_SEC;
+    G.pack_sel = G.pack_top = 0;
+    blood_clear();
+}
+
+static void chapter_go(int idx)
+{
+    const chapter_t *c = &chapters[idx];
+    switch (c->kind) {
+    case CH_MAP:
+        chapter_era(c->era);
+        overworld_enter_map(c->map, c->tx, c->ty);
+        break;
+    case CH_DRIVE:
+        chapter_era(E0);
+        drive_start();
+        break;
+    case CH_PROLOGUE:
+        chapter_era(E0);
+        G.end_sel = 2;                 /* CONTINUE highlighted, as usual */
+        G.state = ST_PROLOGUE;
+        G.t = 0;
+        audio_music(MUSIC_TITLE);
+        break;
+    case CH_CHURCH:
+        if (G.player.name[0] == '\0') {          /* part1_start keeps the name */
+            static const char def[] = "TRAVELER";
+            for (int i = 0; i < (int)sizeof def; i++)
+                G.player.name[i] = def[i];
+        }
+        part1_start();                 /* stands up Part 1 AND opens the mass */
+        break;
+    case CH_P1END:
+        chapter_era(E1);
+        part1end_start();
+        break;
+    case CH_NIGHT:
+        chapter_era(E1);
+        night_start();
+        break;
+    case CH_P2END:
+        chapter_era(E2);
+        G.state = ST_PART2END;
+        G.t = 0;
+        audio_music(MUSIC_NIGHT);
+        break;
+    }
+}
+
+void chapters_start(void)
+{
+    G.chapter_sel = 0;
+    G.chapter_top = 0;
+    G.state = ST_CHAPTERS;
+    G.t = 0;
+}
+
+void chapters_update(void)
+{
+    if (PRESSED(BTN_B) || PRESSED(BTN_START)) {
+        audio_sfx(SFX_BLIP);
+        G.state = ST_TITLE;
+        G.t = 0;
+        return;
+    }
+    if (PRESSED(BTN_UP)) {
+        G.chapter_sel = (G.chapter_sel + NUM_CHAPTERS - 1) % NUM_CHAPTERS;
+        audio_sfx(SFX_BLIP);
+    }
+    if (PRESSED(BTN_DOWN)) {
+        G.chapter_sel = (G.chapter_sel + 1) % NUM_CHAPTERS;
+        audio_sfx(SFX_BLIP);
+    }
+    /* keep the cursor inside the visible window (wrap included) */
+    if (G.chapter_sel < G.chapter_top)
+        G.chapter_top = G.chapter_sel;
+    if (G.chapter_sel >= G.chapter_top + CHAPTER_ROWS)
+        G.chapter_top = G.chapter_sel - (CHAPTER_ROWS - 1);
+    if (G.chapter_top > NUM_CHAPTERS - CHAPTER_ROWS)
+        G.chapter_top = NUM_CHAPTERS - CHAPTER_ROWS;
+    if (G.chapter_top < 0)
+        G.chapter_top = 0;
+
+    if (PRESSED(BTN_A)) {
+        audio_sfx(SFX_CONFIRM);
+        chapter_go(G.chapter_sel);
+    }
+}
+
+void chapters_render(void)
+{
+    gfx_clear(RGB565(8, 8, 16));
+    gfx_text_ex((SCREEN_W - gfx_text_width("CHAPTERS", 2)) / 2, 8,
+                "CHAPTERS", RGB565(200, 200, 220), 2);
+
+    int shown = (NUM_CHAPTERS < CHAPTER_ROWS) ? NUM_CHAPTERS : CHAPTER_ROWS;
+    for (int r = 0; r < shown; r++) {
+        int i = G.chapter_top + r;
+        if (i >= NUM_CHAPTERS) break;
+        int y = 30 + r * 13;
+        int sel = (i == G.chapter_sel);
+        /* the era tints the row: farm greens, city blues, ship greens-white,
+         * scenes in a plain gray */
+        uint16_t col;
+        if (sel) col = RGB565(255, 255, 255);
+        else if (chapters[i].kind != CH_MAP) col = RGB565(150, 150, 160);
+        else if (chapters[i].era == E0) col = RGB565(150, 210, 150);
+        else if (chapters[i].era == E1) col = RGB565(150, 180, 230);
+        else                            col = RGB565(170, 230, 190);
+        gfx_text(28, y, chapters[i].label, col);
+        if (sel)
+            gfx_cursor(16, y, G.frame);
+    }
+
+    /* more-above / more-below arrows */
+    if (G.chapter_top > 0)
+        gfx_text_small(SCREEN_W - 16, 30, "^", RGB565(200, 200, 210));
+    if (G.chapter_top + CHAPTER_ROWS < NUM_CHAPTERS)
+        gfx_text_small(SCREEN_W - 16, 30 + (CHAPTER_ROWS - 1) * 13, "V",
+                       RGB565(200, 200, 210));
+
+    const char *hint = "A: GO   B: BACK";
+    gfx_text_small((SCREEN_W - gfx_text_small_width(hint)) / 2, SCREEN_H - 10,
+                   hint, RGB565(110, 110, 120));
 }

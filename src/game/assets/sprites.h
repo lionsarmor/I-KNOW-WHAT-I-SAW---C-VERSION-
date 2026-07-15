@@ -2655,49 +2655,47 @@ static const char *SPR_ART_SILVER_SIDE_2[16] = {
     ".....00.........",
 };
 
-/* THE TAN ONE. The face off the cover of that book: an enormous bald
- * head shaped like a teardrop, a chin that comes to almost nothing, and
- * the EYES -- two great black wraparound almonds, no white in them
- * anywhere. Below the head, a thin body on a stalk of a neck, arms that
- * hang past where hips would be, and long spindly legs. Tan, not gray --
- * that's the whole reason it's worse. Frame 1 lifts the long arms and
- * sets a cold glint in each eye. */
+/* THE TAN ONE -- the face off the cover of COMMUNION. A big smooth
+ * teardrop skull, olive-tan, with two ENORMOUS black almond eyes that
+ * sweep up toward the temples, the barest nose, and a thin closed
+ * mouth. Frame 0 keeps a cold catchlight in each eye; frame 1 loses it,
+ * so they blink to wet flat black. It barely moves. That is the point. */
 static const char *SPR_ART_TAN_0[16] = {
-    "....0nnnn0......",
-    "...0nnnnnn0.....",
-    "..0nnnnnnnn0....",
-    "..0nnnnnnnn0....",
-    "..0n00nn00n0....",
-    "..0n00nn00n0....",
-    "..0nn0nn0nn0....",
-    "..00nnnnnn00....",
-    "...0nnnnnn0.....",
-    "....0nNNn0......",
-    ".0...0nn0...0...",
-    "0n0.0nnnn0.0n0..",
-    "0n0.0nnnn0.0n0..",
-    "0n0.0n00n0.0n0..",
-    ".0..0N0.0N0.0...",
-    "....0N0.0N0.....",
+    "......nnnN......",
+    "....nnnjjnnN....",
+    "...nnnjjjjnnN...",
+    "..nnnjnnnnjnnN..",
+    "..00nnnnnnnn00..",
+    ".0000nnnnnn0000.",
+    ".n00010nn01000N.",
+    "..nnn00nn00nnN..",
+    "..nnnnnnnnnnnN..",
+    "...nnnnjnnnnN...",
+    "....NnNnnNnN....",
+    "....NnnnnnnN....",
+    ".....NnnnnN.....",
+    "......NNNN......",
+    "......NnnN......",
+    ".......NN.......",
 };
 
 static const char *SPR_ART_TAN_1[16] = {
-    "0...0nnnn0...0..",
-    "0n00nnnnnn00n0..",
-    "0n0nnnnnnnn0n0..",
-    "0n0nnnnnnnn0n0..",
-    "0n0n01nn10n0n0..",
-    "0n0n01nn10n0n0..",
-    ".0.0nn0nn0nn0...",
-    "...00nnnnnn00...",
-    "....0nnnnnn0....",
-    ".....0nNNn0.....",
-    "......0nn0......",
-    ".....0nnnn0.....",
-    ".....0nnnn0.....",
-    ".....0n00n0.....",
-    "....0N0..0N0....",
-    "....0N0..0N0....",
+    "......nnnN......",
+    "....nnnjjnnN....",
+    "...nnnjjjjnnN...",
+    "..nnnjnnnnjnnN..",
+    "..00nnnnnnnn00..",
+    ".0000nnnnnn0000.",
+    ".n00000nn00000N.",
+    "..nnn00nn00nnN..",
+    "..nnnnnnnnnnnN..",
+    "...nnnnjnnnnN...",
+    "....NnNnnNnN....",
+    "....NnnnnnnN....",
+    ".....NnnnnN.....",
+    "......NNNN......",
+    "......NnnN......",
+    ".......NN.......",
 };
 
 /* THE LASER. Not built for a human hand, but it fits one anyway. Grey

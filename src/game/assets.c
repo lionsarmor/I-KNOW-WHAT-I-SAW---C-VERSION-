@@ -63,9 +63,11 @@ static uint16_t pal(char c)
     /* the Hopkinsville goblin: silvery, self-lit, wrong */
     case 'v': return RGB565(198, 226, 255); /* goblin glow (silver-blue)  */
     case 'V': return RGB565( 96, 140, 200); /* goblin shadow              */
-    /* THE TAN ONE (Communion): warm beige hide, not corpse-gray          */
-    case 'n': return RGB565(208, 180, 140); /* tan                        */
-    case 'N': return RGB565(150, 122,  86); /* tan shadow                 */
+    /* THE TAN ONE (Communion cover): a yellow-green olive hide, three
+     * tones, so the big skull reads as smooth and modelled up close       */
+    case 'n': return RGB565(172, 166, 102); /* olive-tan mid              */
+    case 'N': return RGB565(112, 110,  64); /* olive-tan shadow           */
+    case 'j': return RGB565(208, 202, 146); /* olive-tan highlight        */
     default:
         pal_unknown++;                      /* game_init() will report it */
         return RGB565(255, 0, 255);         /* loud magenta = "typo here" */

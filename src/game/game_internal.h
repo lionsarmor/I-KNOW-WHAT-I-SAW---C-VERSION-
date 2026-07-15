@@ -39,6 +39,7 @@ typedef enum {
     ST_JOURNAL,     /* WHAT I SAW -- the bestiary    (intro.c)     */
     ST_NIGHT,       /* STAY THE NIGHT -- the minigame (cutscene.c) */
     ST_PART2END,    /* the escape pod, and the warning  (cutscene.c) */
+    ST_CHAPTERS,    /* the main-menu chapter select     (intro.c)   */
 } state_t;
 
 enum { DIR_DOWN, DIR_UP, DIR_LEFT, DIR_RIGHT };
@@ -295,6 +296,7 @@ typedef struct {
     uint8_t  species_kills[NUM_SPECIES];
     int      journal_sel;                   /* which page you're on      */
     state_t  journal_from;                  /* who opened it: title/pack */
+    int      chapter_sel, chapter_top;      /* the main-menu CHAPTERS list */
 
     /* STAY THE NIGHT (cutscene.c). One slot per opening: five windows
      * and the door. kind < 0 = nothing at that glass right now. All of
@@ -402,6 +404,8 @@ void night_start(void);       /* STAY THE NIGHT begins (cutscene.c) */
 void part2_start(void);       /* PART 2: wake on the ship (cutscene.c) */
 void pod_escape(void);        /* ...and leave it (cutscene.c) */
 void part2end_update(void);   void part2end_render(void);
+void chapters_start(void);    /* the main-menu chapter select (intro.c) */
+void chapters_update(void);   void chapters_render(void);
 void journal_start(state_t from);  /* ST_TITLE or ST_PACK: where B goes  */
 void journal_saw(int kind);        /* you got a LOOK at it (battle/kill) */
 void journal_kill(int kind);       /* ...and you put it down             */
