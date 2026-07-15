@@ -2655,48 +2655,49 @@ static const char *SPR_ART_SILVER_SIDE_2[16] = {
     ".....00.........",
 };
 
-/* THE TAN ONE. You have seen this face on a bookstore shelf: the tan
- * dome, the chin that comes to almost nothing, and the EYES -- black,
- * almond, wrapped halfway around the skull, with no white in them
- * anywhere. Frame 1 puts a single glint in each eye, which is somehow
- * worse. It waits by the pod, and it looks at you like it knows you.
- * (It knows you.) */
+/* THE TAN ONE. The face off the cover of that book: an enormous bald
+ * head shaped like a teardrop, a chin that comes to almost nothing, and
+ * the EYES -- two great black wraparound almonds, no white in them
+ * anywhere. Below the head, a thin body on a stalk of a neck, arms that
+ * hang past where hips would be, and long spindly legs. Tan, not gray --
+ * that's the whole reason it's worse. Frame 1 lifts the long arms and
+ * sets a cold glint in each eye. */
 static const char *SPR_ART_TAN_0[16] = {
-    "................",
-    ".....00000......",
-    "...00yyyyy00....",
-    "..0yyyyyyyyy0...",
-    "..0yyyyyyyyy0...",
-    "..0y00yyy00y0...",
-    "..0000yyy0000...",
-    "..0y00yyy00y0...",
-    "...0yyyyyyy0....",
-    "....0yyYyy0.....",
-    ".....0yYy0......",
-    ".....0yyy0......",
-    "....0yyyyy0.....",
-    "...0yy0y0yy0....",
-    "...0y0...0y0....",
-    "....0.....0.....",
+    "....0nnnn0......",
+    "...0nnnnnn0.....",
+    "..0nnnnnnnn0....",
+    "..0nnnnnnnn0....",
+    "..0n00nn00n0....",
+    "..0n00nn00n0....",
+    "..0nn0nn0nn0....",
+    "..00nnnnnn00....",
+    "...0nnnnnn0.....",
+    "....0nNNn0......",
+    ".0...0nn0...0...",
+    "0n0.0nnnn0.0n0..",
+    "0n0.0nnnn0.0n0..",
+    "0n0.0n00n0.0n0..",
+    ".0..0N0.0N0.0...",
+    "....0N0.0N0.....",
 };
 
 static const char *SPR_ART_TAN_1[16] = {
-    "................",
-    ".....00000......",
-    "...00yyyyy00....",
-    "..0yyyyyyyyy0...",
-    "..0yyyyyyyyy0...",
-    "..0y00yyy00y0...",
-    "..0010yyy0100...",
-    "..0y00yyy00y0...",
-    "...0yyyyyyy0....",
-    "....0yyYyy0.....",
-    ".....0yYy0......",
-    ".....0yyy0......",
-    "....0yyyyy0.....",
-    "...0yy0y0yy0....",
-    "...0y0...0y0....",
-    "....0.....0.....",
+    "0...0nnnn0...0..",
+    "0n00nnnnnn00n0..",
+    "0n0nnnnnnnn0n0..",
+    "0n0nnnnnnnn0n0..",
+    "0n0n01nn10n0n0..",
+    "0n0n01nn10n0n0..",
+    ".0.0nn0nn0nn0...",
+    "...00nnnnnn00...",
+    "....0nnnnnn0....",
+    ".....0nNNn0.....",
+    "......0nn0......",
+    ".....0nnnn0.....",
+    ".....0nnnn0.....",
+    ".....0n00n0.....",
+    "....0N0..0N0....",
+    "....0N0..0N0....",
 };
 
 /* THE LASER. Not built for a human hand, but it fits one anyway. Grey

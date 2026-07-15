@@ -120,6 +120,7 @@ enum {
     SFX_TALK0, SFX_TALK1, SFX_TALK2,   /* dialog babble, three pitches  */
     SFX_KNOCK,      /* it has reached the glass (STAY THE NIGHT)        */
     SFX_BREACH,     /* the glass didn't hold                            */
+    SFX_LASER,      /* PART 2: the silver man's beam weapon -- pew      */
     NUM_SFX
 };
 

@@ -515,7 +515,7 @@ void battle_update(void)
             int dmg  = base + eff_level() + rng_range(0, 4);
             G.battle.enemy_hp -= dmg;
             if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
-            audio_sfx(laser ? SFX_STING : SFX_SHOTGUN);
+            audio_sfx(laser ? SFX_LASER : SFX_SHOTGUN);
             msgb(laser   ? "THE BEAM BURNS THROUGH IT! "
                : shotgun ? "THE FAMILY GUN ROARS! "
                          : "THE PISTOL CRACKS! ", "", dmg, " DMG!");
@@ -816,36 +816,62 @@ void battle_render(void)
                ? ((G.battle.timer / 2) % 2 ? 2 : -2) : 0;
     if (shot_landed && G.battle.timer < SHOT_FIRE_TICK + 5)
         pshake = -2;
-    gfx_blit_ex(sprites[(G.flags & FLAG_PART1) ? SPR_LAWYER_UP_0
-                                               : SPR_FARMER_UP_0].px,
-                TILE, TILE, 40 + pshake, 78, 3, 256, 0);
+    /* each act's man, seen from behind: the farmer, the lawyer, or the
+     * man in the silver suit -- his own nine frames, so the UP frame is
+     * the same index off each base. */
+    int pback = (G.flags & FLAG_PART2) ? SPR_SILVER_UP_0
+              : (G.flags & FLAG_PART1) ? SPR_LAWYER_UP_0
+                                       : SPR_FARMER_UP_0;
+    gfx_blit_ex(sprites[pback].px, TILE, TILE, 40 + pshake, 78, 3, 256, 0);
+
+    int laser_gun = G.player.items[ITEM_LASER];
 
     /* THE GUN. Once you own the shotgun you carry it into every fight --
      * shouldered and ready between turns, and only swapped for the
-     * leveled SPR_GUN_AIM while you're actually firing (below). */
-    if (G.player.items[ITEM_SHOTGUN] && G.battle.phase != PH_SHOOT)
+     * leveled SPR_GUN_AIM while you're actually firing (below). The laser
+     * has no carry sprite: it's an energy weapon, drawn only as its bolt. */
+    if (G.player.items[ITEM_SHOTGUN] && !laser_gun &&
+        G.battle.phase != PH_SHOOT)
         gfx_blit_ex(sprites[SPR_GUN_READY].px, TILE, TILE,
                     58 + pshake, 62, 3, 256, 0);
 
-    /* ---- the SHOOT animation: gun up, flash, pellets up the diagonal */
+    /* ---- the SHOOT animation: gun up, flash, and the shot up the diagonal.
+     * The pump guns throw a yellow muzzle star and a white pellet cloud;
+     * the LASER throws a green bolt with a green flash and no gun. */
     if (G.battle.phase == PH_SHOOT) {
         int t = G.battle.timer;
-        gfx_blit_ex(sprites[SPR_GUN_AIM].px, TILE, TILE,
-                    58 + pshake, 52, 3, 256, 0);
+        if (!laser_gun)
+            gfx_blit_ex(sprites[SPR_GUN_AIM].px, TILE, TILE,
+                        58 + pshake, 52, 3, 256, 0);
         if (t >= SHOT_FIRE_TICK && t < SHOT_FIRE_TICK + 4) {
-            /* muzzle flash: a ragged yellow-white star at the tip */
-            gfx_fill_rect(92, 48, 10, 10, RGB565(255, 244, 180));
-            gfx_fill_rect(87, 51, 20,  4, RGB565(255, 200,  60));
-            gfx_fill_rect(95, 43,  4, 20, RGB565(255, 200,  60));
+            if (laser_gun) {                 /* a green flash at the emitter */
+                gfx_fill_rect(90, 62, 8, 8, RGB565(210, 255, 210));
+                gfx_fill_rect(86, 64, 16, 4, RGB565( 90, 240,  90));
+                gfx_fill_rect(92, 58,  4, 16, RGB565( 90, 240,  90));
+            } else {                         /* the ragged yellow-white star */
+                gfx_fill_rect(92, 48, 10, 10, RGB565(255, 244, 180));
+                gfx_fill_rect(87, 51, 20,  4, RGB565(255, 200,  60));
+                gfx_fill_rect(95, 43,  4, 20, RGB565(255, 200,  60));
+            }
         }
         if (t >= SHOT_FIRE_TICK && t < SHOT_FIRE_TICK + 8) {
-            /* the pellet cloud races at the thing in the air */
             int f = t - SHOT_FIRE_TICK;                  /* 0..7 */
-            int x = 98 + (170 - 98) * f / 8;
-            int y = 52 + (40  - 52) * f / 8;
-            gfx_fill_rect(x,     y,     2, 2, RGB565(255, 255, 255));
-            gfx_fill_rect(x - 5, y + 4, 2, 2, RGB565(255, 255, 200));
-            gfx_fill_rect(x - 9, y - 3, 2, 2, RGB565(255, 255, 200));
+            if (laser_gun) {
+                /* a single fat green bolt streaking at the thing, with a
+                 * bright green tail behind it */
+                int x = 96 + (172 - 96) * f / 8;
+                int y = 64 + (40  - 64) * f / 8;
+                gfx_fill_rect(x,     y,     4, 4, RGB565(210, 255, 200));
+                gfx_fill_rect(x - 6, y + 5, 3, 3, RGB565( 60, 240,  90));
+                gfx_fill_rect(x - 12,y + 9, 2, 2, RGB565( 24, 150,  50));
+            } else {
+                /* the pellet cloud races at the thing in the air */
+                int x = 98 + (170 - 98) * f / 8;
+                int y = 52 + (40  - 52) * f / 8;
+                gfx_fill_rect(x,     y,     2, 2, RGB565(255, 255, 255));
+                gfx_fill_rect(x - 5, y + 4, 2, 2, RGB565(255, 255, 200));
+                gfx_fill_rect(x - 9, y - 3, 2, 2, RGB565(255, 255, 200));
+            }
         }
     }
 

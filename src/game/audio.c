@@ -510,6 +510,13 @@ static const sfx_step_t sx_breach[]  = { {2600, 4,235, W_NOISE},
                                          { 260,14,170, W_SAW},
                                          { 150,22,130, W_SAW},
                                          {  90,18, 80, W_SAW} };
+/* THE LASER: a bright "pew" -- a high pulse that drops an octave and a
+ * half in a blink, with a little zap-tail of noise. Short and clean, so
+ * automatic fire is a fast stutter of them, not a wall of mush. */
+static const sfx_step_t sx_laser[]   = { {2400, 2,190, W_PULSE25},
+                                         {1500, 2,175, W_PULSE25},
+                                         { 900, 3,150, W_PULSE25},
+                                         {2000, 2, 90, W_NOISE} };
 
 /* ===========================================================================
  * THE AMBIENCE. Same step format as the sfx, but these LOOP -- the last
@@ -603,6 +610,7 @@ static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
     SFXROW(SFX_TALK2,   sx_talk2),
     SFXROW(SFX_KNOCK,   sx_knock),
     SFXROW(SFX_BREACH,  sx_breach),
+    SFXROW(SFX_LASER,   sx_laser),
 #undef SFXROW
 };
 

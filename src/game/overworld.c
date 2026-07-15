@@ -948,7 +948,7 @@ static void fire_shot(void)
          * No shotgun roar -- a flat electric SNAP (SFX_STING reads right). */
         G.shoot_cd = LASER_COOLDOWN;
         G.recoil   = 4;
-        audio_sfx(SFX_STING);
+        audio_sfx(SFX_LASER);
         rumble(70);
         shake(1, 4);
     } else {
