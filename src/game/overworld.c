@@ -168,6 +168,9 @@ int map_music(int map)
     case MAP_RIDGE:  return MUSIC_BOSS;    /* you should not be up here    */
     case MAP_CITY:   return MUSIC_TOWN;    /* more people, same pulse      */
     case MAP_SOUTH:  return MUSIC_TOWN;    /* same city, deeper in         */
+    case MAP_UFO:    return MUSIC_NIGHT;   /* PART 2: the unsolved-mysteries
+                                              wail, now that you are inside
+                                              the mystery                   */
     default:         return MUSIC_NONE;    /* indoors: just the room --
                                               and the OFFICE stays silent
                                               on purpose. So does the
@@ -666,6 +669,8 @@ static void kill_entity(int i)
         G.flags |= FLAG_GOBLIN_DEAD;
     if (e->kind == SPECIES_CHUPA_BOSS)
         G.flags |= FLAG_CHUPA_DEAD;
+    if (e->kind == SPECIES_TAN)
+        G.flags |= FLAG_TAN_DEAD;           /* the pod will open now */
 
     e->type = ENT_NONE;
 }
@@ -713,6 +718,8 @@ static void tnt_boom(int bx, int by)
     G.boom_x = bx;
     G.boom_y = by;
     G.boom_t = TNT_BOOM_TICKS;
+    G.boom_green = 0;                /* orange, the honest color of dynamite */
+    G.boom_r = TNT_RADIUS;
     audio_sfx(SFX_BOOM);             /* the crack, and then the THUMP */
     rumble(255);                     /* it is DYNAMITE */
     shake(SHAKE_TNT_MAG, SHAKE_TNT_TICKS);
@@ -737,6 +744,41 @@ static void tnt_boom(int bx, int by)
         spray_gore(e->x, e->y, 6);
     }
     spray_gore(bx - 8, by - 8, 10);  /* dirt and worse, straight up */
+}
+
+/* THE ALIEN NUKE landing at (bx,by): Pa's TNT, but the hole is bigger and
+ * the light is GREEN. Same shape of event -- a blast that clears a room --
+ * just more of it, which is the whole reason you'd carry the thing off
+ * their ship. */
+static void nuke_boom(int bx, int by)
+{
+    G.boom_x = bx;
+    G.boom_y = by;
+    G.boom_t = TNT_BOOM_TICKS;
+    G.boom_green = 1;                /* the renderer paints it green */
+    G.boom_r = NUKE_RADIUS;
+    audio_sfx(SFX_BOOM);
+    rumble(255);
+    shake(SHAKE_TNT_MAG + 2, SHAKE_TNT_TICKS + 6);
+
+    for (int i = 0; i < MAX_ENTITIES; i++) {
+        entity_t *e = &G.ents[i];
+        if (e->type != ENT_ALIEN)
+            continue;
+        if (dist2(e->x + 8, e->y + 8, bx, by) > NUKE_RADIUS * NUKE_RADIUS)
+            continue;
+        e->hp -= NUKE_OW_HITS;
+        if (e->hp <= 0) {
+            kill_entity(i);
+            continue;
+        }
+        e->hurt  = 12;
+        e->aggro = 1;
+        e->stun  = (species[e->kind].boss ? BOSS_STUN_TICKS : ENEMY_STUN_TICKS)
+                 * TNT_STUN_MULT;
+        spray_gore(e->x, e->y, 8);
+    }
+    spray_gore(bx - 8, by - 8, 14);
 }
 
 /* HOLY WATER landing at (bx,by): the mist rises, and everything the mist
@@ -793,6 +835,8 @@ static void update_lob(void)
     G.lob_active = 0;
     if (G.lob_kind == ITEM_TNT)
         tnt_boom(G.lob_x1, G.lob_y1);
+    else if (G.lob_kind == ITEM_NUKE)
+        nuke_boom(G.lob_x1, G.lob_y1);
     else
         holy_mist(G.lob_x1, G.lob_y1);
 }
@@ -895,14 +939,25 @@ static void fire_shot(void)
         sh->dx        = step[G.player.dir][0] * SHOT_SPEED;
         sh->dy        = step[G.player.dir][1] * SHOT_SPEED;
         sh->travelled = 0;
+        sh->laser     = LASER_UP();
         break;
     }
-    G.player.items[GUN_AMMO()]--;   /* shells or bullets, whichever gun */
-    G.shoot_cd = SHOOT_COOLDOWN;
-    G.recoil   = 6;
-    audio_sfx(SFX_SHOTGUN);
-    rumble(150);              /* the gun kicks */
-    shake(SHAKE_SHOT_MAG, SHAKE_SHOT_TICKS);
+    G.player.items[GUN_AMMO()]--;   /* shells, bullets, or battery charge */
+    if (LASER_UP()) {
+        /* THE LASER: automatic, so a short cooldown and a lighter kick.
+         * No shotgun roar -- a flat electric SNAP (SFX_STING reads right). */
+        G.shoot_cd = LASER_COOLDOWN;
+        G.recoil   = 4;
+        audio_sfx(SFX_STING);
+        rumble(70);
+        shake(1, 4);
+    } else {
+        G.shoot_cd = SHOOT_COOLDOWN;
+        G.recoil   = 6;
+        audio_sfx(SFX_SHOTGUN);
+        rumble(150);              /* the gun kicks */
+        shake(SHAKE_SHOT_MAG, SHAKE_SHOT_TICKS);
+    }
 }
 
 static void try_shoot(void)
@@ -979,6 +1034,7 @@ static int item_count(int kind)
 {
     if (kind == ITEM_SHELLS)  return SHELLS_PER_BOX;
     if (kind == ITEM_BULLETS) return BULLETS_PER_BOX;
+    if (kind == ITEM_BATTERY) return BATTERY_PER_CELL;   /* charges, not cells */
     return 1;
 }
 
@@ -1053,7 +1109,8 @@ static int locked_cd;   /* ticks left before "LOCKED" can show again */
  * arch, the tower's glass lobby */
 static int is_door_tile(int t)
 {
-    return t == TILE_DOOR || t == TILE_CHURCH_DOOR || t == TILE_DOOR_GLASS;
+    return t == TILE_DOOR || t == TILE_CHURCH_DOOR || t == TILE_DOOR_GLASS ||
+           t == TILE_POD;   /* the escape pod: bump it, like any door */
 }
 
 static void check_door_bump(void)
@@ -1088,6 +1145,13 @@ static void check_door_bump(void)
                 dialog_start("A HEAVY BRASS LOCK. THIS ONE ISN'T "
                              "JUST STUCK -- SOMEBODY LOCKED IT.");
             locked_cd = 30;
+            return;
+        }
+
+        /* THE POD, with the tan down (its needs_flag passed above): this
+         * is the end of Part 2. Don't warp -- LAUNCH. */
+        if (map_tile(m, tx, ty) == TILE_POD) {
+            pod_escape();
             return;
         }
 
@@ -1627,6 +1691,46 @@ void overworld_update(void)
         }
     }
 
+    /* PART 2: THE SHIP. The silver-suited man's own voice -- and the
+     * player is meant to slowly work out whose voice it is. Each fires
+     * once, keyed to a flag, never after a reload. */
+    if (G.flags & FLAG_PART2) {
+        if (!(G.flags & FLAG_M_WAKE) && G.t > 30) {
+            G.flags |= FLAG_M_WAKE;
+            monologue_start(
+                "COLD. FLAT ON MY BACK ON SOMETHING COLD, AND A LIGHT "
+                "RIGHT IN MY EYES.\n"
+                "I KNOW THIS. I HAVE BEEN HERE BEFORE. THE TABLE, THE "
+                "LIGHT, THE SMELL LIKE A STRUCK MATCH.\n"
+                "GET UP. GET UP AND GET OFF THIS THING. THERE'S A WEAPON "
+                "ON THE FLOOR -- IT FITS MY HAND LIKE IT WAS WAITING.");
+            return;
+        }
+        if (!(G.flags & FLAG_M_SKYMAP) && G.player.items[ITEM_LASER] &&
+            G.t > 20) {
+            G.flags |= FLAG_M_SKYMAP;
+            monologue_start(
+                "THESE SYMBOLS IN THE FLOOR -- IT'S A MAP. STARS. AND ONE "
+                "OF THEM IS CIRCLED.\n"
+                "I KNOW THAT SKY. I'VE LOOKED UP AT THAT SKY FROM A "
+                "TRACTOR SEAT A THOUSAND NIGHTS.\n"
+                "THEY'RE NOT LOST OUT HERE. THEY KNOW EXACTLY WHERE HOME "
+                "IS. THEY'VE GOT IT CIRCLED.");
+            return;
+        }
+        if (!(G.flags & FLAG_M_HANDS) && G.t > 300 && (G.t % 900) < 5) {
+            G.flags |= FLAG_M_HANDS;
+            monologue_start(
+                "I CATCH MY REFLECTION IN A DEAD SCREEN AND I DON'T KNOW "
+                "THE SUIT, BUT I KNOW THE FACE.\n"
+                "IT'S OLDER THAN IT SHOULD BE. HOW LONG HAVE I BEEN UP "
+                "HERE? WHAT DAY IS IT DOWN THERE?\n"
+                "...MARIE. DANNY. NO -- THAT'S NOT... WHOSE NAMES ARE "
+                "THOSE? WHY DO I KNOW THEM?");
+            return;
+        }
+    }
+
     if (G.daytime - G.last_restock >= (uint32_t)ITEM_RESPAWN_TICKS) {
         G.last_restock = G.daytime;
         restock_items();
@@ -1666,13 +1770,18 @@ void overworld_update(void)
     if (PRESSED(BTN_A))
         try_talk();
 
-    /* B = the family shotgun, right here in the field.
+    /* B = the gun, right here in the field.
      *
-     * This is the PRESS, not the hold: B also closes the pack and the
-     * dialog box, and if we read the hold we'd fire the instant those
-     * closed -- the same button-down that dismissed the menu was still
-     * down. One press, one shell. */
-    if (PRESSED(BTN_B))
+     * The pump guns fire on the PRESS, not the hold: B also closes the
+     * pack and the dialog box, and reading the hold would fire the instant
+     * those closed -- the same button-down that dismissed the menu still
+     * down. One press, one shell.
+     *
+     * THE LASER IS DIFFERENT. It's automatic: HOLD B and it keeps firing,
+     * capped by its own short cooldown. The grace window after closing a
+     * menu (shoot_cd, set on menu-close) covers the stray-shot problem for
+     * the hold case too, so this stays honest. */
+    if (LASER_UP() ? HELD(BTN_B) : PRESSED(BTN_B))
         try_shoot();
 
     /* START opens the pack. (On the C3 handheld there's no START button --
@@ -1705,9 +1814,13 @@ static void player_sprite(int *spr, int *flip)
 {
     static const int cycle[4] = { 0, 1, 0, 2 };
     int frame = G.player.walking ? cycle[(G.player.anim / 5) % 4] : 0;
-    /* Part 1 swaps the man, not the machinery: the lawyer's nine frames
-     * sit in the same order as the farmer's, so one base id does it. */
-    int base = (G.flags & FLAG_PART1) ? SPR_LAWYER_DOWN_0 : SPR_FARMER_DOWN_0;
+    /* Each act swaps the man, not the machinery: every walk cycle is nine
+     * frames in the same order, so one base id does it. Part 2's man is in
+     * a silver suit -- and if you look at the face under the hood, you'll
+     * know exactly who's been wearing all three. */
+    int base = (G.flags & FLAG_PART2) ? SPR_SILVER_DOWN_0
+             : (G.flags & FLAG_PART1) ? SPR_LAWYER_DOWN_0
+                                      : SPR_FARMER_DOWN_0;
     *flip = 0;
     switch (G.player.dir) {
     case DIR_DOWN:  *spr = base + frame;     break;
@@ -2197,14 +2310,23 @@ void overworld_render(void)
         }
     }
 
-    /* the blasts in flight */
+    /* the blasts in flight -- a hot buckshot dot with a warm tail, or a
+     * GREEN laser bolt with a longer bright streak behind it */
     for (int i = 0; i < MAX_SHOTS; i++) {
         if (!G.shots[i].active)
             continue;
         int sx = G.shots[i].x - cx, sy = G.shots[i].y - cy;
-        gfx_fill_rect(sx, sy, 3, 3, RGB565(255, 244, 190));
-        gfx_fill_rect(sx - G.shots[i].dx / 3, sy - G.shots[i].dy / 3,
-                      2, 2, RGB565(210, 170, 90));
+        if (G.shots[i].laser) {
+            gfx_fill_rect(sx, sy, 3, 3, RGB565(210, 255, 200));
+            gfx_fill_rect(sx - G.shots[i].dx / 2, sy - G.shots[i].dy / 2,
+                          2, 2, RGB565(60, 240, 90));
+            gfx_fill_rect(sx - G.shots[i].dx, sy - G.shots[i].dy,
+                          2, 2, RGB565(20, 150, 50));
+        } else {
+            gfx_fill_rect(sx, sy, 3, 3, RGB565(255, 244, 190));
+            gfx_fill_rect(sx - G.shots[i].dx / 3, sy - G.shots[i].dy / 3,
+                          2, 2, RGB565(210, 170, 90));
+        }
     }
 
     /* ...and what's left over */
@@ -2249,7 +2371,9 @@ void overworld_render(void)
         int ly = G.lob_y0 + (G.lob_y1 - G.lob_y0) * t / LOB_TICKS;
         /* the arc: 4h*t(T-t)/T^2 peaks at LOB_ARC mid-flight */
         int arc = 4 * LOB_ARC * t * (LOB_TICKS - t) / (LOB_TICKS * LOB_TICKS);
-        int spr = (G.lob_kind == ITEM_TNT) ? SPR_ITEM_TNT : SPR_ITEM_HOLYWATER;
+        int spr = (G.lob_kind == ITEM_TNT)  ? SPR_ITEM_TNT
+                : (G.lob_kind == ITEM_NUKE) ? SPR_ITEM_NUKE
+                                            : SPR_ITEM_HOLYWATER;
         gfx_blit_ex(sprites[spr].px, TILE, TILE,
                     lx - 8 - cx, ly - 8 - arc - cy, 1, 256,
                     (t / 4) % 2);                 /* it tumbles */
@@ -2302,10 +2426,11 @@ void overworld_render(void)
      * gets holier as it dies, so it comes apart instead of just fading. */
     int boom_r = 0;
     if (G.boom_t > 0) {
+        int full = G.boom_r ? G.boom_r : TNT_RADIUS;   /* nuke is bigger */
         int age = TNT_BOOM_TICKS - G.boom_t;
-        boom_r = TNT_RADIUS * (age + 4) / (TNT_BOOM_TICKS / 2 + 4);
-        if (boom_r > TNT_RADIUS)
-            boom_r = TNT_RADIUS;
+        boom_r = full * (age + 4) / (TNT_BOOM_TICKS / 2 + 4);
+        if (boom_r > full)
+            boom_r = full;
 
         int bx = G.boom_x - cx, by = G.boom_y - cy;
         int holes = 8 - G.boom_t * 8 / TNT_BOOM_TICKS;   /* 0 -> 8 as it dies */
@@ -2317,9 +2442,15 @@ void overworld_render(void)
                 if (((x * 7 + y * 13 + (int)G.frame) & 7) < holes)
                     continue;                     /* burnt through */
                 int d = d2 * 256 / (boom_r * boom_r + 1);
-                uint16_t col = (d <  90) ? RGB565(255, 250, 220)   /* core  */
-                             : (d < 170) ? RGB565(255, 176,  48)   /* fire  */
-                                         : RGB565(190,  70,  24);  /* smoke */
+                uint16_t col;
+                if (G.boom_green)                 /* THE ALIEN NUKE */
+                    col = (d <  90) ? RGB565(220, 255, 220)   /* core  */
+                        : (d < 170) ? RGB565( 90, 240,  70)   /* glow  */
+                                    : RGB565( 24, 150,  40);  /* haze  */
+                else                              /* PA'S TNT */
+                    col = (d <  90) ? RGB565(255, 250, 220)
+                        : (d < 170) ? RGB565(255, 176,  48)
+                                    : RGB565(190,  70,  24);
                 gfx_pixel(bx + x, by + y, col);
             }
     }
@@ -2716,14 +2847,17 @@ static int pack_usable(int kind)
 {
     return kind == ITEM_HERB || kind == ITEM_MEDKIT ||
            kind == ITEM_FLASHLIGHT || kind == ITEM_TNT ||
-           kind == ITEM_HOLYWATER || kind == ITEM_ROSARY;
+           kind == ITEM_HOLYWATER || kind == ITEM_ROSARY ||
+           /* the ship's gear: gel heals, the nuke is thrown, and the
+            * goo... the goo can be opened. Once. */
+           kind == ITEM_NUKE || kind == ITEM_GEL || kind == ITEM_GOO;
 }
 
 /* An item enters the pack the first time it touches your hands. Call this
  * from anywhere something is given to the player. */
 void pack_discover(int kind)
 {
-    G.items_seen |= (uint16_t)(1u << kind);
+    G.items_seen |= (1u << kind);
 }
 
 /* Build the list of rows currently in the pack: every item you've found,
@@ -2828,6 +2962,7 @@ void pack_update(void)
 
     case ITEM_TNT:
     case ITEM_HOLYWATER:
+    case ITEM_NUKE:                /* the alien nuke is thrown too */
         /* You throw it -- so get out of the menu first. You are going to
          * want to watch this, and to be facing the right way when it
          * lands (the arc itself is drawn by the renderer). */
@@ -2840,17 +2975,36 @@ void pack_update(void)
 
     case ITEM_HERB:
     case ITEM_MEDKIT:
+    case ITEM_GEL:                 /* alien gel: a smaller heal, no menu exit */
         if (G.player.hp >= G.player.max_hp) {
             audio_sfx(SFX_BLIP);   /* already whole -- don't waste it */
             return;
         }
         G.player.items[kind]--;
-        G.player.hp = (kind == ITEM_HERB)
-                    ? G.player.hp + HERB_HEAL
-                    : G.player.max_hp;
+        G.player.hp += (kind == ITEM_HERB) ? HERB_HEAL
+                     : (kind == ITEM_GEL)  ? GEL_HEAL
+                                           : G.player.max_hp;  /* MEDKIT */
         if (G.player.hp > G.player.max_hp)
             G.player.hp = G.player.max_hp;
         audio_sfx(SFX_HEAL);
+        break;
+
+    case ITEM_GOO:
+        /* WEIRD GREEN GOO IN A CAN. You told yourself you wouldn't. It
+         * doesn't get used up -- you can't put it DOWN, is the thing --
+         * but opening it, here, tells you something you can't un-know.
+         * It stays in the pack. The story it starts pays off later. */
+        audio_sfx(SFX_STING);
+        monologue_start(
+            "YOU THUMB THE LID BACK. JUST TO LOOK.\n"
+            "IT IS BREATHING. SLOWLY, IN AND OUT, LIKE IT IS ASLEEP -- "
+            "AND WHERE THE LIGHT HITS IT YOU CAN SEE, SUSPENDED IN THE "
+            "GREEN, SOMETHING SMALL AND FOLDED AND WAITING TO BE BIG.\n"
+            "IT IS THE SAME GREEN AS THE POD WINDOW. THE SAME GREEN AS "
+            "THE LIGHT ON THE HIGHWAY.\n"
+            "THEY ARE NOT VISITING. THEY ARE PLANTING. AND EARTH IS THE "
+            "FIELD.\n"
+            "...CLOSE IT. CLOSE IT AND TELL SOMEONE WHO CAN STOP IT.");
         break;
     }
 }

@@ -625,4 +625,109 @@ static const char *TILE_ART_LAMP[16] = {
     "...0KKKKKK0.....",
 };
 
+/* ============================ THE SHIP =====================================
+ * Part 2's architecture: white metal, consoles, and the symbols in the
+ * deck. Drawn to read as ONE surface -- the seams line up tile to tile.
+ */
+static const char *TILE_ART_UFOWALL[16] = {
+    "KKKKKKKKKKKKKKKK",
+    "K11111111111111K",
+    "K1kkkkkkkkkkkk1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1k1111111111k1K",
+    "K1kkkkkkkkkkkk1K",
+    "K11111111111111K",
+    "KKKKKKKKKKKKKKKK",
+};
+
+static const char *TILE_ART_UFOFLOOR[16] = {
+    "kkkkkkkkkkkkkkkK",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "k11111111111111K",
+    "KKKKKKKKKKKKKKKK",
+};
+
+/* a console: dark slab, mint screen, and lights that mean something to
+ * somebody */
+static const char *TILE_ART_COMPUTER[16] = {
+    "0000000000000000",
+    "0KKKKKKKKKKKKKK0",
+    "0KeeeeeeeeeeeeK0",
+    "0KegggegeggegeK0",
+    "0KeeeeeeeeeeeeK0",
+    "0KeggegeggeggeK0",
+    "0KeeeeeeeeeeeeK0",
+    "0KKKKKKKKKKKKKK0",
+    "0KkkkkkkkkkkkkK0",
+    "0Kk1k0k1k0k1kkK0",
+    "0KkkkkkkkkkkkkK0",
+    "0Kkrk0kgk0k1kkK0",
+    "0KkkkkkkkkkkkkK0",
+    "0KKKKKKKKKKKKKK0",
+    "0000000000000000",
+    "0000000000000000",
+};
+
+/* the deck symbol: a ring and a mark, pressed into the metal in a green
+ * that has no business glowing without a light source */
+static const char *TILE_ART_SYMBOL[16] = {
+    "kkkkkkkkkkkkkkkK",
+    "k11111111111111K",
+    "k1111ggggg11111K",
+    "k111gg111gg1111K",
+    "k11gg11111gg111K",
+    "k11g1111111g111K",
+    "k11g1111111g111K",
+    "k11g111g111g111K",
+    "k11g111g111g111K",
+    "k11g1111111g111K",
+    "k11gg11111gg111K",
+    "k111gg111gg1111K",
+    "k1111ggggg11111K",
+    "k11111g1g111111K",
+    "k11111111111111K",
+    "KKKKKKKKKKKKKKKK",
+};
+
+/* THE POD. A hatch in the deck with a green window, and the window is
+ * the only thing on this ship that looks like it wants you to live. */
+static const char *TILE_ART_POD[16] = {
+    "KKKKKKKKKKKKKKKK",
+    "K00000000000000K",
+    "K01111111111110K",
+    "K01kkkkkkkkkk10K",
+    "K01k11111111k10K",
+    "K01k1eeeeee1k10K",
+    "K01k1eggggE1k10K",
+    "K01k1egeegE1k10K",
+    "K01k1egeegE1k10K",
+    "K01k1eggggE1k10K",
+    "K01k1EEEEEE1k10K",
+    "K01k11111111k10K",
+    "K01kkkkkkkkkk10K",
+    "K01111111111110K",
+    "K00000000000000K",
+    "KKKKKKKKKKKKKKKK",
+};
+
 #endif /* TILES_H */

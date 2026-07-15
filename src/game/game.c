@@ -70,6 +70,7 @@ void render_scene(int s)
     case ST_GAMEOVER:  gameover_render();  break;
     case ST_JOURNAL:   journal_render();   break;
     case ST_NIGHT:     night_render();     break;
+    case ST_PART2END:  part2end_render();  break;
     case ST_PAUSE:     pause_render();     break;
     case ST_CONTROLS:  controls_render();  break;
     case ST_CHURCH:    church_render();    break;
@@ -113,6 +114,7 @@ void game_update(uint16_t buttons_held)
     case ST_GAMEOVER:  gameover_update();  break;
     case ST_JOURNAL:   journal_update();   break;
     case ST_NIGHT:     night_update();     break;
+    case ST_PART2END:  part2end_update();  break;
     case ST_PAUSE:     pause_update();     break;
     case ST_CONTROLS:  controls_update();  break;
     case ST_CHURCH:    church_update();    break;
@@ -146,13 +148,13 @@ const uint16_t *game_framebuffer(void)
  * rather than being misread.
  * ==========================================================================*/
 #define SAVE_MAGIC   0x494B5753u   /* "IKWS" */
-#define SAVE_VERSION 10            /* v10: THE JOURNAL -- species_seen and
-                                      one kill-count byte per species.
-                                      v9 added the South Side maps; v8
-                                      holy water and the worn rosary; v7
-                                      the pistol and the city. Old saves
-                                      fail the check and are ignored, as
-                                      designed. */
+#define SAVE_VERSION 11            /* v11: PART 2 -- the ship. The blob grew
+                                      with it (five new items, one new map,
+                                      one new species in the journal). v10
+                                      was the journal; v9 the South Side;
+                                      v8 holy water and the rosary; v7 the
+                                      pistol. Old saves fail the check and
+                                      are ignored, as designed. */
 
 /* Exactly how many bytes game_save_write() lays down. Kept next to the
  * writer so the two can't drift apart, and checked at COMPILE TIME below:
@@ -279,7 +281,7 @@ int game_save_load(const uint8_t *buf, int len)
     int      map     = (int)r32(&c);
     uint32_t daytime = r32(&c);
     uint32_t restock = r32(&c);
-    uint16_t seen    = (uint16_t)r32(&c);
+    uint32_t seen    = r32(&c);              /* items_seen: 32 bits now */
     uint32_t flags   = r32(&c);
     uint32_t rng     = r32(&c);
     uint16_t boons   = (uint16_t)r32(&c);
@@ -287,7 +289,7 @@ int game_save_load(const uint8_t *buf, int len)
     for (int m = 0; m < NUM_MAPS; m++)
         gone[m] = r32(&c);
 
-    uint16_t seen_sp = (uint16_t)r32(&c);   /* the journal */
+    uint32_t seen_sp = r32(&c);             /* the journal (widened for TAN) */
     uint8_t  kills[NUM_SPECIES];
     for (int i = 0; i < NUM_SPECIES; i++)
         kills[i] = buf[c.n++];
@@ -306,7 +308,7 @@ int game_save_load(const uint8_t *buf, int len)
     G.map_id = map;
     G.daytime = daytime;
     G.last_restock = restock;
-    G.items_seen = seen;
+    G.items_seen = seen;    /* was written as 32 bits all along (w32) */
     G.flags = flags;
     G.rng = rng ? rng : 0x1D872665u;    /* an all-zero rng never advances */
     G.boons_done = boons;

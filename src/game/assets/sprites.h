@@ -2477,6 +2477,334 @@ static const char *SPR_ART_DAN_1[16] = {
     "................",
 };
 
+
+/* THE MAN IN THE SILVER SUIT -- the Part 2 player. Nine frames, exactly
+ * the farmer's walk cycle, because they are exactly the farmer's frames:
+ * same bones, same gait, same face under the hood. The suit is theirs --
+ * hood, one-piece, boots, all of it silver -- but the face looking out of
+ * it is nobody's but his. Don't say it out loud. Let the player see it. */
+
+static const char *SPR_ART_SILVER_DOWN_0[16] = {
+    "................",
+    ".....00000......",
+    "...00kkkkk00....",
+    "..0kkKkkKkkk0...",
+    "..0k000000kk0...",
+    "..0ksssssskk0...",
+    "..0ks0ss0sk0....",
+    "...0sssSsss0....",
+    "....0ssss0......",
+    "...011kk110.....",
+    "..0s10kk01s0....",
+    "...0k1k1k0......",
+    "...0kkkkkk0.....",
+    "...0k0..0k0.....",
+    "..0KK0..0KK0....",
+    "...00....00.....",
+};
+
+static const char *SPR_ART_SILVER_DOWN_1[16] = {
+    "................",
+    ".....00000......",
+    "...00kkkkk00....",
+    "..0kkKkkKkkk0...",
+    "..0k000000kk0...",
+    "..0ksssssskk0...",
+    "..0ks0ss0sk0....",
+    "...0sssSsss0....",
+    "....0ssss0......",
+    "...011kk110.....",
+    "..0s10kk01s0....",
+    "...0k1k1k0......",
+    "...0kkkkkk0.....",
+    "....0k0.0k0.....",
+    "...0KK0.0k0.....",
+    ".........0KK0...",
+};
+
+static const char *SPR_ART_SILVER_DOWN_2[16] = {
+    "................",
+    ".....00000......",
+    "...00kkkkk00....",
+    "..0kkKkkKkkk0...",
+    "..0k000000kk0...",
+    "..0ksssssskk0...",
+    "..0ks0ss0sk0....",
+    "...0sssSsss0....",
+    "....0ssss0......",
+    "...011kk110.....",
+    "..0s10kk01s0....",
+    "...0k1k1k0......",
+    "...0kkkkkk0.....",
+    "....0k0.0k0.....",
+    "...0k0.0KK0.....",
+    "..0KK0..........",
+};
+
+static const char *SPR_ART_SILVER_UP_0[16] = {
+    "................",
+    ".....00000......",
+    "...00kkkkk00....",
+    "..0kkKkkKkkk0...",
+    "..0k000000kk0...",
+    "..0kkkkkkkk0....",
+    "...0kKKKKk0.....",
+    "...011kk110.....",
+    "..011k00k110....",
+    "..0s1k00k1s0....",
+    "...0kk00kk0.....",
+    "...0k1kk1k0.....",
+    "...0kkkkkk0.....",
+    "...0k0..0k0.....",
+    "..0KK0..0KK0....",
+    "...00....00.....",
+};
+
+static const char *SPR_ART_SILVER_UP_1[16] = {
+    "................",
+    ".....00000......",
+    "...00kkkkk00....",
+    "..0kkKkkKkkk0...",
+    "..0k000000kk0...",
+    "..0kkkkkkkk0....",
+    "...0kKKKKk0.....",
+    "...011kk110.....",
+    "..011k00k110....",
+    "..0s1k00k1s0....",
+    "...0kk00kk0.....",
+    "...0k1kk1k0.....",
+    "...0kkkkkk0.....",
+    "....0k0.0k0.....",
+    "...0KK0.0k0.....",
+    ".........0KK0...",
+};
+
+static const char *SPR_ART_SILVER_UP_2[16] = {
+    "................",
+    ".....00000......",
+    "...00kkkkk00....",
+    "..0kkKkkKkkk0...",
+    "..0k000000kk0...",
+    "..0kkkkkkkk0....",
+    "...0kKKKKk0.....",
+    "...011kk110.....",
+    "..011k00k110....",
+    "..0s1k00k1s0....",
+    "...0kk00kk0.....",
+    "...0k1kk1k0.....",
+    "...0kkkkkk0.....",
+    "....0k0.0k0.....",
+    "...0k0.0KK0.....",
+    "..0KK0..........",
+};
+
+static const char *SPR_ART_SILVER_SIDE_0[16] = {
+    "................",
+    "......0000......",
+    "....00kkkk00....",
+    "...0kkKkkkkk0...",
+    ".000k000000k0...",
+    "0KK0kssssssk0...",
+    "...0ks0ssssk0...",
+    "....0sssSss0....",
+    ".....0ssss0.....",
+    "...011kk110.....",
+    "..0s10kkkk110...",
+    "...0s0k1k1k0....",
+    "....0kkkkkk0....",
+    "....0k0.0k0.....",
+    "...0KK0.0KK0....",
+    "....00...00.....",
+};
+
+static const char *SPR_ART_SILVER_SIDE_1[16] = {
+    "................",
+    "......0000......",
+    "....00kkkk00....",
+    "...0kkKkkkkk0...",
+    ".000k000000k0...",
+    "0KK0kssssssk0...",
+    "...0ks0ssssk0...",
+    "....0sssSss0....",
+    ".....0ssss0.....",
+    "...011kk110.....",
+    "...010kkkk110...",
+    "...0s0k1k1k0....",
+    "...0kkk0kkkk0...",
+    "..0kkk0..0kkk0..",
+    ".0KK0....0KK0...",
+    "..00......00....",
+};
+
+static const char *SPR_ART_SILVER_SIDE_2[16] = {
+    "................",
+    "......0000......",
+    "....00kkkk00....",
+    "...0kkKkkkkk0...",
+    ".000k000000k0...",
+    "0KK0kssssssk0...",
+    "...0ks0ssssk0...",
+    "....0sssSss0....",
+    ".....0ssss0.....",
+    "...011kk110.....",
+    "..0s10kkkk110...",
+    "...0s0k1k1k0....",
+    "....0kkkkkk0....",
+    ".....0kkk0......",
+    "....0k0KK0......",
+    ".....00.........",
+};
+
+/* THE TAN ONE. You have seen this face on a bookstore shelf: the tan
+ * dome, the chin that comes to almost nothing, and the EYES -- black,
+ * almond, wrapped halfway around the skull, with no white in them
+ * anywhere. Frame 1 puts a single glint in each eye, which is somehow
+ * worse. It waits by the pod, and it looks at you like it knows you.
+ * (It knows you.) */
+static const char *SPR_ART_TAN_0[16] = {
+    "................",
+    ".....00000......",
+    "...00yyyyy00....",
+    "..0yyyyyyyyy0...",
+    "..0yyyyyyyyy0...",
+    "..0y00yyy00y0...",
+    "..0000yyy0000...",
+    "..0y00yyy00y0...",
+    "...0yyyyyyy0....",
+    "....0yyYyy0.....",
+    ".....0yYy0......",
+    ".....0yyy0......",
+    "....0yyyyy0.....",
+    "...0yy0y0yy0....",
+    "...0y0...0y0....",
+    "....0.....0.....",
+};
+
+static const char *SPR_ART_TAN_1[16] = {
+    "................",
+    ".....00000......",
+    "...00yyyyy00....",
+    "..0yyyyyyyyy0...",
+    "..0yyyyyyyyy0...",
+    "..0y00yyy00y0...",
+    "..0010yyy0100...",
+    "..0y00yyy00y0...",
+    "...0yyyyyyy0....",
+    "....0yyYyy0.....",
+    ".....0yYy0......",
+    ".....0yyy0......",
+    "....0yyyyy0.....",
+    "...0yy0y0yy0....",
+    "...0y0...0y0....",
+    "....0.....0.....",
+};
+
+/* THE LASER. Not built for a human hand, but it fits one anyway. Grey
+ * housing, green cell glowing in the grip. */
+static const char *SPR_ART_ITEM_LASER[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....00000000....",
+    "...0kkkkkkkk0...",
+    "...0kKKKKKkk00..",
+    "...00000kkk0e0..",
+    ".......0kg00....",
+    ".......0kg0.....",
+    ".......0gg0.....",
+    "........00......",
+    "................",
+    "................",
+    "................",
+};
+
+/* A BATTERY for it: a fat green cell with a bright terminal. They are
+ * lying all over the ship, which tells you something about the ship. */
+static const char *SPR_ART_ITEM_BATTERY[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "......010.......",
+    ".....00100......",
+    ".....0ggg0......",
+    ".....0gGg0......",
+    ".....0ggg0......",
+    ".....0gGg0......",
+    ".....0ggg0......",
+    ".....00000......",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
+/* THE ALIEN NUKE. A green sphere with fins folded out of it, humming
+ * very slightly in the hand. Like Pa's TNT the way a storm is like a
+ * sneeze. */
+static const char *SPR_ART_ITEM_NUKE[16] = {
+    "................",
+    "................",
+    "................",
+    "....0k0..0k0....",
+    "....0k0000k0....",
+    ".....0gggg0.....",
+    "....0ggGGgg0....",
+    "....0gGeeGg0....",
+    "....0gGeeGg0....",
+    "....0ggGGgg0....",
+    ".....0gggg0.....",
+    "....0k0000k0....",
+    "....0k0..0k0....",
+    "................",
+    "................",
+    "................",
+};
+
+/* ALIEN GEL: a soft white tube of something cool that closes wounds and
+ * asks nothing in return. Yet. */
+static const char *SPR_ART_ITEM_GEL[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "......0110......",
+    ".....011110.....",
+    ".....011110.....",
+    ".....0i11i0.....",
+    ".....011110.....",
+    ".....0iIIi0.....",
+    ".....011110.....",
+    ".....000000.....",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
+/* WEIRD GREEN GOO IN A CAN. It says so right on the... no, it doesn't
+ * say anything. There's just no other way to describe it. */
+static const char *SPR_ART_ITEM_GOO[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....000000.....",
+    ".....011110.....",
+    ".....0gggg0.....",
+    ".....0gGGg0.....",
+    ".....0geeg0.....",
+    ".....0gGGg0.....",
+    ".....0gggg0.....",
+    ".....000000.....",
+    "................",
+    "................",
+    "................",
+    "................",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */

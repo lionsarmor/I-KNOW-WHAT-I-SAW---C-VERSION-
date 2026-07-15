@@ -162,6 +162,17 @@
 #define LOB_TICKS         22   /* flight time, field and battle alike  */
 #define LOB_ARC           18   /* how high the arc rises, in pixels    */
 
+/* ---- PART 2: THE SHIP ---------------------------------------------------------
+ * The laser is AUTOMATIC: hold B and it keeps firing as long as the cell
+ * holds out. The nuke is Pa's TNT the way a storm is like a sneeze. */
+#define LASER_COOLDOWN     6   /* ticks between bolts (vs 16 for the pump) */
+#define LASER_BASE_DMG     7   /* battle: softer per shot, but see the cd  */
+#define BATTERY_PER_CELL  24   /* bolts per battery pickup                 */
+#define NUKE_DMG          40   /* battle: a flat, enormous, green hit      */
+#define NUKE_RADIUS       70   /* field blast radius (TNT is 44)           */
+#define NUKE_OW_HITS       6   /* field damage inside it (TNT is 4)        */
+#define GEL_HEAL          12   /* the tube closes this much wound          */
+
 /* ---- STAY THE NIGHT ---------------------------------------------------------
  * The Part 1 minigame: the walk-up, the family, five windows and a door,
  * and everything outside wants in. Survive until dawn. See cutscene.c. */

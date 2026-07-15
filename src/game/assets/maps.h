@@ -959,6 +959,95 @@ static const warp_t MAP_WARPS_APARTMENT[] = {
     { 7, 0, MAP_SOUTH, 30, 25 },   /* the doormat -> under the lamp */
 };
 
+/* ============================ THE SHIP =====================================
+ * PART 2: WHEN THE SKY COMES DOWN. You wake on the probe table (the glyph
+ * pad, top center) and everything between you and the escape pod (bottom)
+ * wants you back on that table. White walls, consoles that never sleep,
+ * symbols in the deck. THE TAN ONE stands over the pod. Legend:
+ *   %% wall   / deck   & console   @ deck-glyph   O the pod (bump it)
+ */
+static const char *const MAP_ROWS_UFO[30] = {
+    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
+    "%//////////////////////////////////////%",
+    "%/&&&&&&&//////////////////////&&&&&&&/%",
+    "%/&//////////////@@@@@@//////////////&/%",
+    "%/&//////////////@@@@@@//////////////&/%",
+    "%/&//////////////@@@@@@//////////////&/%",
+    "%//////////////////////////////////////%",
+    "%%%%%%%%%%%%%%%%////////%%%%%%%%%%%%%%%%",
+    "%//////////////////////////////////////%",
+    "%//////////////////////////////////////%",
+    "%////%///&////////////////////&///%////%",
+    "%////%///&////////&&&&////////&///%////%",
+    "%////%/////////////@@/////////////%////%",
+    "%////%%%%%%%%//////@@//////%%%%%%%%////%",
+    "%////%/////////////@@/////////////%////%",
+    "%////%////////////&&&&////////////%////%",
+    "%////%////////////////////////////%////%",
+    "%//////////////////////////////////////%",
+    "%%%%%%%%%%%%%//////////////%%%%%%%%%%%%%",
+    "%//////////////////////////////////////%",
+    "%//////////////////////////////////////%",
+    "%/////&&&&&&&&&//////////&&&&&&&&&/////%",
+    "%//////////////////////////////////////%",
+    "%//////////////////////////////////////%",
+    "%/////////%%%%/%%%%%%%%%%/%%%%/////////%",
+    "%//////////////////////////////////////%",
+    "%///////////////@@@@@@@@///////////////%",
+    "%//////////////////O///////////////////%",
+    "%//////////////////////////////////////%",
+    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
+};
+
+static const spawn_t MAP_SPAWNS_UFO[] = {
+    /* THE LASER, an arm's reach from the table. Pick it up before you
+     * understand anything else, because the room is already moving. */
+    { ENT_ITEM, 24, 5, ITEM_LASER, 0 },
+
+    /* THE GREYS. The crew. They come at you down every corridor. */
+    { ENT_ALIEN, 8, 9, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 31, 9, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 15, 10, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 25, 10, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 7, 16, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 32, 16, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 19, 17, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 9, 20, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 30, 20, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 14, 22, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 25, 22, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 19, 25, SPECIES_GREY, 0 },
+
+    /* THE TAN ONE. It stands between you and the pod, and it is in no
+     * hurry, because it has done this before and it remembers how it
+     * ends. A boss: down once, down for good. */
+    { ENT_ALIEN, 19, 23, SPECIES_TAN, 0 },
+
+    /* supplies, scattered the way a working ship scatters them */
+    { ENT_ITEM, 12, 3, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 27, 3, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 8, 15, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 31, 15, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 3, 10, ITEM_GEL, 0 },
+    { ENT_ITEM, 36, 10, ITEM_GEL, 0 },
+    { ENT_ITEM, 19, 20, ITEM_NUKE, 0 },
+    { ENT_ITEM, 7, 22, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 32, 22, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 20, 13, ITEM_GOO, 0 },
+};
+
+/* The pod is a one-way door HOME. It stays shut until the tan is down
+ * (FLAG_TAN_DEAD) -- there is no leaving while it is standing there.
+ * Where it leads is decided in code (the escape sequence), so the warp
+ * just needs to fire: it points back at itself and the pod handler in
+ * overworld.c takes it from there. */
+static const warp_t MAP_WARPS_UFO[] = {
+    { 19, 27, MAP_UFO, 19, 26, 0, FLAG_TAN_DEAD,
+      "THE HATCH IS SEALED. SOMETHING IS STILL STANDING BETWEEN YOU AND "
+      "IT -- YOU CAN FEEL IT LOOKING AT THE BACK OF YOUR NECK." },
+};
+
+
 /* ============================ THE MAP TABLE ===============================*/
 #define N(a) (int)(sizeof(a) / sizeof((a)[0]))
 
@@ -1005,6 +1094,10 @@ const map_t maps[NUM_MAPS] = {                       /* outdoor? (night) */
     [MAP_APARTMENT] = { "ROSA'S WALK-UP", MAP_ROWS_APARTMENT, 15, 10,
                     MAP_SPAWNS_APARTMENT, N(MAP_SPAWNS_APARTMENT),
                     MAP_WARPS_APARTMENT,  N(MAP_WARPS_APARTMENT), 0 },
+    /* ---- PART 2 ---- */
+    [MAP_UFO] = { "THE SHIP", MAP_ROWS_UFO, 40, 30,
+                    MAP_SPAWNS_UFO, N(MAP_SPAWNS_UFO),
+                    MAP_WARPS_UFO,  N(MAP_WARPS_UFO), 0 },
 };
 
 #undef N

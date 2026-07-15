@@ -1002,14 +1002,9 @@ void night_update(void)
         if (G.night.t > 200 && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
             audio_sfx(SFX_CONFIRM);
             gfx_origin(0, 0);
-            G.state  = ST_OVERWORLD;   /* the apartment. the morning. */
-            G.t      = 0;
-            G.banner = 0;
-            G.battle_grace = 60;
-            audio_music(map_music(G.map_id));
-            G.toast       = "YOU STAYED THE NIGHT.";
-            G.toast_good  = 1;
-            G.toast_ticks = 150;
+            /* You held the line -- and then the light came for YOU. Dawn
+             * is the doorway into PART 2: the man on the table. */
+            part2_start();
         }
         return;
     }
@@ -1289,4 +1284,117 @@ void night_render(void)
     }
 
     draw_toast();     /* the loot announcements land here too */
+}
+
+/* ============================================================================
+ * PART 2: WHEN THE SKY COMES DOWN.
+ *
+ * You wake on the probe table in a silver suit, and everything from here
+ * is escape. The man's own voice does the work (the monologues live in
+ * overworld_update, keyed to FLAG_M_*), and the player is meant to put it
+ * together slowly: the face under the hood, the sky he recognizes, the
+ * names he can't place. It's the farmer. From the prologue. They never
+ * gave him back. We do not say so.
+ * ==========================================================================*/
+void part2_start(void)
+{
+    G.flags |= FLAG_PART2;
+
+    /* stripped and laid out: nothing of Earth comes onto the table with
+     * you. The pockets are empty; the laser is on the floor an arm away. */
+    for (int i = 0; i < NUM_ITEMS; i++)
+        G.player.items[i] = 0;
+    G.player.lamp   = 0;
+    G.player.rosary = 0;
+    G.items_seen    = 0;              /* an empty pack again, on a new ship */
+    G.player.hp     = G.player.max_hp;
+
+    overworld_enter_map(MAP_UFO, 19, 6);
+    G.player.dir = DIR_DOWN;
+    G.save_pending = 1;              /* waking on the ship is a checkpoint */
+}
+
+/* THE POD. The tan is down (check_door_bump verified the flag), and this
+ * is the last thing you do on their ship: you climb in, you punch it, and
+ * you fall toward the one star they had circled. */
+void pod_escape(void)
+{
+    audio_sfx(SFX_CONFIRM);
+    G.state = ST_PART2END;
+    G.t     = 0;
+    audio_music(MUSIC_NIGHT);        /* the wail carries you home */
+}
+
+/* ---- END OF PART 2 ---------------------------------------------------------
+ * The pod falls. Earth grows in the window. A man who has been gone too
+ * long spends the whole descent rehearsing the warning nobody will
+ * believe -- because he never did either, the first time.
+ */
+#define P2END_HOLD 360
+
+void part2end_update(void)
+{
+    if (G.t > P2END_HOLD && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
+        audio_sfx(SFX_CONFIRM);
+        /* the chapter is done; the run is saved as post-escape. Back to
+         * the title -- CONTINUE will drop them on the ship, tan already
+         * down, pod already open, for anyone who wants to walk it again. */
+        G.save_pending = 1;
+        G.state = ST_TITLE;
+        G.t = 0;
+        audio_music(MUSIC_TITLE);
+    }
+}
+
+void part2end_render(void)
+{
+    gfx_clear(RGB565(4, 6, 14));
+
+    /* THE POD WINDOW: black space, and a blue-green world swelling in it
+     * as you fall. It gets bigger the longer you look. */
+    {
+        int wx = SCREEN_W / 2 - 40, wy = 16, ww = 80, wh = 56;
+        gfx_fill_rect(wx - 3, wy - 3, ww + 6, wh + 6, RGB565(70, 74, 84));
+        gfx_fill_rect(wx, wy, ww, wh, RGB565(6, 8, 20));
+        for (int i = 0; i < 20; i++) {          /* stars */
+            uint32_t h = (uint32_t)i * 2654435761u;
+            gfx_pixel(wx + 2 + (int)(h % (uint32_t)(ww - 4)),
+                      wy + 2 + (int)((h >> 9) % (uint32_t)(wh - 4)),
+                      RGB565(130, 130, 160));
+        }
+        int gr = 6 + (int)G.t / 12;             /* the planet, growing */
+        if (gr > 26) gr = 26;
+        int gx = wx + ww / 2, gy = wy + wh / 2;
+        for (int y = -gr; y <= gr; y++)
+            for (int x = -gr; x <= gr; x++) {
+                if (x * x + y * y > gr * gr) continue;
+                if (x + gx < wx || x + gx >= wx + ww) continue;
+                if (y + gy < wy || y + gy >= wy + wh) continue;
+                int land = ((x * 5 + y * 7 + x * y) & 7) < 3;
+                gfx_pixel(gx + x, gy + y,
+                          land ? RGB565(60, 150, 70) : RGB565(40, 90, 190));
+            }
+    }
+
+    gfx_text_ex((SCREEN_W - gfx_text_width("END OF PART 2", 2)) / 2, 80,
+                "END OF PART 2", RGB565(120, 220, 130), 2);
+    const char *l1 = "WHEN THE SKY COMES DOWN";
+    gfx_text((SCREEN_W - gfx_text_width(l1, 1)) / 2, 100, l1,
+             RGB565(200, 200, 210));
+
+    if (G.t > 90) {
+        const char *w1 = "I KNOW WHAT I SAW. I KNOW WHAT THEY'RE DOING.";
+        const char *w2 = "AND THIS TIME SOMEBODY IS GOING TO LISTEN.";
+        gfx_text_small((SCREEN_W - gfx_text_small_width(w1)) / 2, 120, w1,
+                       RGB565(150, 200, 160));
+        gfx_text_small((SCREEN_W - gfx_text_small_width(w2)) / 2, 130, w2,
+                       RGB565(150, 200, 160));
+    }
+    if (G.t > P2END_HOLD && (G.t % 60) < 40) {
+        const char *p = "START";
+        gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 148, p,
+                 RGB565(255, 255, 255));
+    }
+
+    draw_toast();
 }

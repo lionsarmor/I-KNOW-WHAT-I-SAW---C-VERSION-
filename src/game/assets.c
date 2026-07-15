@@ -86,6 +86,11 @@ const uint8_t tile_solid[NUM_TILES] = {
     [TILE_SKY_WALL] = 1, [TILE_SKY_TOP] = 1, [TILE_SKY_FAR] = 1,
     [TILE_CHURCH_WALL] = 1, [TILE_CHURCH_WIN] = 1, [TILE_CHURCH_CROSS] = 1,
     [TILE_CHURCH_DOOR] = 1, [TILE_DOOR_GLASS] = 1,
+    /* the ship: walls and consoles stop you; the deck and its symbols
+     * don't. The POD is SOLID -- like every door, you WALK INTO it to
+     * use it (its warp fires on the bump, and only once the tan is down). */
+    [TILE_UFOWALL] = 1, [TILE_UFOFLOOR] = 0, [TILE_COMPUTER] = 1,
+    [TILE_SYMBOL] = 0,  [TILE_POD] = 1,
 };
 /* NOTE: TILE_DOOR stays SOLID -- walking INTO a door is what triggers
  * its warp (see check_door_bump in overworld.c). The doormat is the
@@ -124,6 +129,12 @@ static int char_to_tile(char c)
     case '+': return TILE_CHURCH_CROSS;
     case 'U': return TILE_CHURCH_DOOR;
     case 'G': return TILE_DOOR_GLASS;
+    /* ---- PART 2: THE SHIP ---- */
+    case '%': return TILE_UFOWALL;
+    case '/': return TILE_UFOFLOOR;
+    case '&': return TILE_COMPUTER;
+    case '@': return TILE_SYMBOL;
+    case 'O': return TILE_POD;
     default:  return TILE_GRASS;   /* unknown char = grass, harmless */
     }
 }
@@ -291,6 +302,23 @@ int assets_init(void)
         { SPR_JENNA_1,       SPR_ART_JENNA_1       },
         { SPR_DAN,           SPR_ART_DAN           },
         { SPR_DAN_1,         SPR_ART_DAN_1         },
+        /* ---- PART 2: THE SHIP ---- */
+        { SPR_SILVER_DOWN_0, SPR_ART_SILVER_DOWN_0 },
+        { SPR_SILVER_DOWN_1, SPR_ART_SILVER_DOWN_1 },
+        { SPR_SILVER_DOWN_2, SPR_ART_SILVER_DOWN_2 },
+        { SPR_SILVER_UP_0,   SPR_ART_SILVER_UP_0   },
+        { SPR_SILVER_UP_1,   SPR_ART_SILVER_UP_1   },
+        { SPR_SILVER_UP_2,   SPR_ART_SILVER_UP_2   },
+        { SPR_SILVER_SIDE_0, SPR_ART_SILVER_SIDE_0 },
+        { SPR_SILVER_SIDE_1, SPR_ART_SILVER_SIDE_1 },
+        { SPR_SILVER_SIDE_2, SPR_ART_SILVER_SIDE_2 },
+        { SPR_TAN_0,         SPR_ART_TAN_0         },
+        { SPR_TAN_1,         SPR_ART_TAN_1         },
+        { SPR_ITEM_LASER,    SPR_ART_ITEM_LASER    },
+        { SPR_ITEM_BATTERY,  SPR_ART_ITEM_BATTERY  },
+        { SPR_ITEM_NUKE,     SPR_ART_ITEM_NUKE     },
+        { SPR_ITEM_GEL,      SPR_ART_ITEM_GEL      },
+        { SPR_ITEM_GOO,      SPR_ART_ITEM_GOO      },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -319,6 +347,12 @@ int assets_init(void)
         { TILE_CHURCH_CROSS, TILE_ART_CHURCH_CROSS },
         { TILE_CHURCH_DOOR,  TILE_ART_CHURCH_DOOR  },
         { TILE_DOOR_GLASS,   TILE_ART_DOOR_GLASS   },
+        /* ---- PART 2: THE SHIP ---- */
+        { TILE_UFOWALL,      TILE_ART_UFOWALL      },
+        { TILE_UFOFLOOR,     TILE_ART_UFOFLOOR     },
+        { TILE_COMPUTER,     TILE_ART_COMPUTER     },
+        { TILE_SYMBOL,       TILE_ART_SYMBOL       },
+        { TILE_POD,          TILE_ART_POD          },
     };
     for (unsigned i = 0; i < sizeof tile_art / sizeof tile_art[0]; i++)
         errors += decode(tile_art[i].art, TILE, TILE,
@@ -512,6 +546,17 @@ const species_t species[NUM_SPECIES] = {
         { { "MISSING TIME", MV_STUN, 0, 30 },
           { "THE PROBE", MV_HEAVY, 13, 30 } },
         2, 0, 0 },
+
+    /* --- THE TAN ONE. Part 2's boss, and the last face in the book. The
+     * one from the Communion cover: taller than the greys, the color of
+     * old paper, and it does not hurry because it does not have to. It
+     * stands between you and the pod. It hits like the thing that put you
+     * on the table. Twelve laser bolts in the field, and it keeps pace. */
+    [SPECIES_TAN] = { "THE TAN ONE", 95, 12, 150,
+        SPR_TAN_0, SPR_TAN_1, 256, 1, 0, 12,
+        { { "IT REMEMBERS YOU", MV_STUN, 0, 30 },
+          { "THE LONG NEEDLE", MV_DRAIN, 15, 30 } },
+        2, 0, 0 },
 };
 
 /* ---- THE LEGENDS, FOR THE JOURNAL ------------------------------------------
@@ -549,6 +594,9 @@ const char *species_lore[NUM_SPECIES] = {
     [SPECIES_GREY_BOSS]  = "THE STARLIGHT DINER. IT HAS BEEN STANDING "
                            "THERE SINCE MIDNIGHT. THE COFFEE IS STILL "
                            "WARM.",
+    [SPECIES_TAN]        = "THE ONE FROM THE COVER OF THAT BOOK. IT WAS "
+                           "IN THE ROOM WHEN YOU WOKE UP. IT WAS THERE "
+                           "THE FIRST TIME, TOO -- ON THE HIGHWAY.",
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
@@ -621,4 +669,22 @@ const item_info_t item_info[NUM_ITEMS] = {
     [ITEM_ROSARY] = { "ROSARY", SPR_ITEM_ROSARY,
         "MRS. ABERNATHY'S ROSARY. EQUIP IT FROM THE PACK: THE BEADS TURN "
         "ASIDE WHAT HUNTS YOU, AND LEND YOU A STRENGTH THAT ISN'T YOURS." },
+    /* ---- PART 2: THE SHIP ---- */
+    [ITEM_LASER] = { "LASER", SPR_ITEM_LASER,
+        "IT WASN'T BUILT FOR A HAND LIKE YOURS. IT FITS ANYWAY. HOLD THE "
+        "TRIGGER AND IT DOESN'T STOP -- AS LONG AS THE CELL HOLDS." },
+    [ITEM_BATTERY] = { "BATTERY", SPR_ITEM_BATTERY,
+        "A GREEN CELL FOR THE LASER. THEY ARE EVERYWHERE ON THIS SHIP, "
+        "WHICH TELLS YOU HOW MUCH THEY USE IT." },
+    [ITEM_NUKE] = { "A.NUKE", SPR_ITEM_NUKE,
+        "YOU DON'T KNOW WHAT IT IS. YOU KNOW WHAT IT'S FOR. THROW IT AND "
+        "GET SMALL -- THE HOLE IT LEAVES IS BIGGER THAN PA'S, AND THE "
+        "LIGHT IS GREEN." },
+    [ITEM_GEL] = { "GEL", SPR_ITEM_GEL,
+        "A TUBE OF COOL WHITE GEL. IT CLOSES A WOUND WHILE YOU WATCH, AND "
+        "IT DOESN'T HURT. THAT'S THE PART THAT SCARES YOU." },
+    [ITEM_GOO] = { "GOO?", SPR_ITEM_GOO,
+        "WEIRD GREEN GOO IN A CAN. THERE IS NO OTHER WAY TO SAY IT. IT IS "
+        "WARM THROUGH THE METAL AND IT MOVES WHEN YOU HOLD STILL.\n"
+        "DON'T OPEN IT. NOT YET. NOT HERE." },
 };

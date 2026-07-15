@@ -315,18 +315,24 @@ static void try_shoot(void)
         set_phase(PH_NOPE);
     } else {
         G.player.items[GUN_AMMO()]--;
-        /* the shotgun gets both barrels; the pistol gets both hands */
-        msgb(G.player.items[ITEM_SHOTGUN]
+        /* the shotgun gets both barrels; the pistol gets both hands;
+         * the laser just gets held down */
+        msgb(G.player.items[ITEM_LASER]
+                 ? "YOU HOLD THE TRIGGER DOWN..."
+                 : G.player.items[ITEM_SHOTGUN]
                  ? "YOU LEVEL BOTH BARRELS..."
                  : "YOU RAISE THE PISTOL, TWO HANDS...", "", -1, "");
         set_phase(PH_SHOOT);   /* the bang lands at SHOT_FIRE_TICK */
     }
 }
 
-/* The pockets you can reach mid-fight, in menu order. */
-#define N_BATTLE_ITEMS 4
+/* Every pocket you might reach mid-fight, across both halves of the game.
+ * The menu only lists what you're actually CARRYING (see avail_items), so
+ * a farm fight shows HERB/MEDKIT/TNT/H.WATER and a ship fight shows
+ * HERB/MEDKIT/GEL/A.NUKE -- the same list, filtered by what's in hand. */
+#define N_BATTLE_ITEMS 6
 static const int battle_items[N_BATTLE_ITEMS] = {
-    ITEM_HERB, ITEM_MEDKIT, ITEM_TNT, ITEM_HOLYWATER
+    ITEM_HERB, ITEM_MEDKIT, ITEM_TNT, ITEM_HOLYWATER, ITEM_GEL, ITEM_NUKE
 };
 
 /* the panel shows this many rows at once; a longer list SCROLLS */
@@ -354,14 +360,15 @@ static void use_item(int kind)
     }
     G.player.items[kind]--;
 
-    if (kind == ITEM_TNT || kind == ITEM_HOLYWATER) {
+    if (kind == ITEM_TNT || kind == ITEM_HOLYWATER || kind == ITEM_NUKE) {
         /* THROWN. The damage doesn't land here -- it lands when the arc
          * comes down, LOB_IMPACT_TICK into PH_LOB (see battle_update and
          * the animation in battle_render). */
         G.battle.lob_kind = kind;
         audio_sfx(SFX_BLIP);          /* the grunt of the throw */
-        msgb(kind == ITEM_TNT ? "YOU LIGHT THE FUSE AND THROW!"
-                              : "YOU HURL THE VIAL!", "", -1, "");
+        msgb(kind == ITEM_TNT  ? "YOU LIGHT THE FUSE AND THROW!"
+           : kind == ITEM_NUKE ? "YOU ARM IT AND THROW -- GET SMALL!"
+                               : "YOU HURL THE VIAL!", "", -1, "");
         set_phase(PH_LOB);
         return;
     }
@@ -372,6 +379,11 @@ static void use_item(int kind)
         if (G.player.hp > G.player.max_hp)
             G.player.hp = G.player.max_hp;
         msgb("THE HERB STINGS. GOOD. +", "", HERB_HEAL, " HP");
+    } else if (kind == ITEM_GEL) {
+        G.player.hp += GEL_HEAL;
+        if (G.player.hp > G.player.max_hp)
+            G.player.hp = G.player.max_hp;
+        msgb("THE GEL CLOSES IT. COLD. +", "", GEL_HEAL, " HP");
     } else {
         G.player.hp = G.player.max_hp;
         msgb("GAUZE AND IODINE. FULL HP!", "", -1, "");
@@ -413,6 +425,8 @@ static void win_battle(void)
         G.flags |= FLAG_GOBLIN_DEAD;        /* the road east of town opens */
     if (kind == SPECIES_CHUPA_BOSS)
         G.flags |= FLAG_CHUPA_DEAD;         /* the park path stands empty */
+    if (kind == SPECIES_TAN)
+        G.flags |= FLAG_TAN_DEAD;           /* the pod will open now */
     set_phase(PH_WIN);
 }
 
@@ -494,13 +508,16 @@ void battle_update(void)
 
     case PH_SHOOT:
         if (G.battle.timer == SHOT_FIRE_TICK) {          /* BOOM */
+            int laser   = G.player.items[ITEM_LASER];
             int shotgun = G.player.items[ITEM_SHOTGUN];
-            int dmg = (shotgun ? SHOTGUN_BASE_DMG : HANDGUN_BASE_DMG)
-                    + eff_level() + rng_range(0, 4);
+            int base = laser   ? LASER_BASE_DMG
+                     : shotgun ? SHOTGUN_BASE_DMG : HANDGUN_BASE_DMG;
+            int dmg  = base + eff_level() + rng_range(0, 4);
             G.battle.enemy_hp -= dmg;
             if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
-            audio_sfx(SFX_SHOTGUN);
-            msgb(shotgun ? "THE FAMILY GUN ROARS! "
+            audio_sfx(laser ? SFX_STING : SFX_SHOTGUN);
+            msgb(laser   ? "THE BEAM BURNS THROUGH IT! "
+               : shotgun ? "THE FAMILY GUN ROARS! "
                          : "THE PISTOL CRACKS! ", "", dmg, " DMG!");
         }
         if (G.battle.timer > 40 && msg_done()) {
@@ -548,14 +565,18 @@ void battle_update(void)
     case PH_LOB:
         /* the throw is in the air; the impact is a single, exact tick */
         if (G.battle.timer == LOB_IMPACT_TICK) {
-            if (G.battle.lob_kind == ITEM_TNT) {
-                G.battle.enemy_hp -= TNT_DMG;
+            if (G.battle.lob_kind == ITEM_TNT ||
+                G.battle.lob_kind == ITEM_NUKE) {
+                int nuke = (G.battle.lob_kind == ITEM_NUKE);
+                G.battle.enemy_hp -= nuke ? NUKE_DMG : TNT_DMG;
                 if (G.battle.enemy_hp < 0)
                     G.battle.enemy_hp = 0;
-                audio_sfx(SFX_BOOM);         /* the real thing. see audio.c */
-                rumble(255);                 /* it is STILL dynamite */
-                shake(SHAKE_TNT_MAG - 2, 18);
-                msgb("THE BLAST TEARS AT IT! ", "", TNT_DMG, " DMG!");
+                audio_sfx(SFX_BOOM);
+                rumble(255);
+                shake(SHAKE_TNT_MAG - (nuke ? 0 : 2), nuke ? 24 : 18);
+                msgb(nuke ? "GREEN FIRE SWALLOWS IT! "
+                          : "THE BLAST TEARS AT IT! ",
+                     "", nuke ? NUKE_DMG : TNT_DMG, " DMG!");
             } else {
                 /* HOLY WATER. No roll, no resistance, no boss clause:
                  * whatever it is, it is OVER. That is what one of three
@@ -839,17 +860,22 @@ void battle_render(void)
             int fy = 84 + (eyc - 84) * t / LOB_IMPACT_TICK
                    - 4 * 26 * t * (LOB_IMPACT_TICK - t)
                      / (LOB_IMPACT_TICK * LOB_IMPACT_TICK);
-            int spr = (G.battle.lob_kind == ITEM_TNT) ? SPR_ITEM_TNT
-                                                      : SPR_ITEM_HOLYWATER;
+            int spr = (G.battle.lob_kind == ITEM_TNT)  ? SPR_ITEM_TNT
+                    : (G.battle.lob_kind == ITEM_NUKE) ? SPR_ITEM_NUKE
+                                                       : SPR_ITEM_HOLYWATER;
             gfx_blit_ex(sprites[spr].px, TILE, TILE, fx - 8, fy - 8,
                         1, 256, (t / 3) % 2);
-        } else if (G.battle.lob_kind == ITEM_TNT && t < LOB_IMPACT_TICK + 22) {
-            /* THE EXPLOSION: swells, whites out, eats itself into smoke --
-             * the field blast's little brother, centred on the thing */
+        } else if ((G.battle.lob_kind == ITEM_TNT ||
+                    G.battle.lob_kind == ITEM_NUKE) &&
+                   t < LOB_IMPACT_TICK + 26) {
+            /* THE EXPLOSION: swells, whites out, eats itself into smoke.
+             * TNT burns orange; the alien nuke burns GREEN, and bigger. */
+            int nuke = (G.battle.lob_kind == ITEM_NUKE);
             int age = t - LOB_IMPACT_TICK;
-            int r   = 8 + age * 3;
-            if (r > 40) r = 40;
-            int holes = age * 8 / 22;
+            int r   = (nuke ? 12 : 8) + age * (nuke ? 4 : 3);
+            int rmax = nuke ? 56 : 40;
+            if (r > rmax) r = rmax;
+            int holes = age * 8 / 26;
             for (int y = -r; y <= r; y++)
                 for (int x = -r; x <= r; x++) {
                     int d2 = x * x + y * y;
@@ -858,9 +884,15 @@ void battle_render(void)
                     if (((x * 7 + y * 13 + (int)G.frame) & 7) < holes)
                         continue;
                     int d = d2 * 256 / (r * r + 1);
-                    uint16_t col = (d <  90) ? RGB565(255, 250, 220)
-                                 : (d < 170) ? RGB565(255, 176,  48)
-                                             : RGB565(190,  70,  24);
+                    uint16_t col;
+                    if (nuke)
+                        col = (d <  90) ? RGB565(220, 255, 220)
+                            : (d < 170) ? RGB565( 90, 240,  70)
+                                        : RGB565( 24, 150,  40);
+                    else
+                        col = (d <  90) ? RGB565(255, 250, 220)
+                            : (d < 170) ? RGB565(255, 176,  48)
+                                        : RGB565(190,  70,  24);
                     gfx_pixel(exc + x, eyc + y, col);
                 }
         } else if (G.battle.lob_kind == ITEM_HOLYWATER
@@ -998,9 +1030,14 @@ void gameover_update(void)
         G.player.hp = G.player.max_hp;
         /* the farmer wakes in his field; the lawyer wherever the night
          * dropped him -- the church steps up north, or the mouth of the
-         * South Side if that's where it happened. Losing a fight deep in
-         * the walk-ups should not cost the whole walk south again. */
-        if (!(G.flags & FLAG_PART1))
+         * South Side if that's where it happened. And the man in the
+         * silver suit doesn't get to die on their ship: he wakes up right
+         * back on the table, because that is the whole horror of it.
+         * (Check PART2 first -- MAP_UFO sorts after MAP_SOUTH, so the
+         * ">= MAP_SOUTH" branch would otherwise swallow it.) */
+        if (G.flags & FLAG_PART2)
+            overworld_enter_map(MAP_UFO, 19, 6);
+        else if (!(G.flags & FLAG_PART1))
             overworld_enter_map(MAP_FARM, 5, 6);
         else if (G.map_id >= MAP_SOUTH)
             overworld_enter_map(MAP_SOUTH, 11, 1);

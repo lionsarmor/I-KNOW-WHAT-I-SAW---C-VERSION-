@@ -38,6 +38,7 @@ typedef enum {
     ST_PART1END,    /* ...and closes in an apartment (cutscene.c)  */
     ST_JOURNAL,     /* WHAT I SAW -- the bestiary    (intro.c)     */
     ST_NIGHT,       /* STAY THE NIGHT -- the minigame (cutscene.c) */
+    ST_PART2END,    /* the escape pod, and the warning  (cutscene.c) */
 } state_t;
 
 enum { DIR_DOWN, DIR_UP, DIR_LEFT, DIR_RIGHT };
@@ -87,12 +88,13 @@ typedef struct {
     int aggro;           /* it has seen you and is coming             */
 } entity_t;
 
-/* a shotgun blast in flight */
+/* a shotgun blast -- or a laser bolt -- in flight */
 typedef struct {
     int active;
     int x, y;            /* map pixels           */
     int dx, dy;          /* pixels per tick      */
     int travelled;
+    int laser;           /* 1 = green bolt (draws green, hits like a laser) */
 } shot_t;
 
 /* what's left of something that came apart */
@@ -119,9 +121,10 @@ typedef struct {
 #define MAX_BLOOD 48
 
 /* species_seen (below) is one bit per species. If the bestiary ever
- * outgrows the mask, this line stops compiling instead of the seventeenth
- * creature silently never being seen. */
-typedef char journal_mask_fits[(NUM_SPECIES <= 16) ? 1 : -1];
+ * outgrows the mask, this line stops compiling instead of the
+ * thirty-third creature silently never being seen. (It was 16 bits until
+ * THE TAN ONE became creature seventeen.) */
+typedef char journal_mask_fits[(NUM_SPECIES <= 32) ? 1 : -1];
 
 /* ---- everything, in one struct you can inspect in a debugger -------------*/
 typedef struct {
@@ -146,8 +149,9 @@ typedef struct {
     int      recoil;         /* ticks of visible kick            */
 
     /* PA'S TNT, mid-air and then mid-blast. boom_t counts DOWN from
-     * TNT_BOOM_TICKS; the fireball is drawn while it's nonzero. */
-    int      boom_t, boom_x, boom_y;
+     * TNT_BOOM_TICKS; the fireball is drawn while it's nonzero. The alien
+     * nuke uses the same fields, but bigger and GREEN (boom_green). */
+    int      boom_t, boom_x, boom_y, boom_green, boom_r;
 
     /* A THROWN THING IN FLIGHT (TNT or holy water, field mode). It arcs
      * from (lob_x0,y0) to (lob_x1,y1) over LOB_TICKS, and only THEN does
@@ -230,7 +234,8 @@ typedef struct {
      * it starts empty and fills in as you find things: it never spoils an
      * item you haven't met. An item you found and used up still shows
      * (at x0) -- you already know it exists. */
-    uint16_t items_seen;
+    uint32_t items_seen;     /* one bit per ITEM_* -- widened past 16 when
+                                Part 2's gear made ITEM_GOO the 16th item */
 
     /* save games -- see the protocol at the bottom of game.h */
     int save_pending;    /* player picked SAVE; platform must write     */
@@ -286,7 +291,7 @@ typedef struct {
      * field (walking past a shape in the dark doesn't count -- you have to
      * have LOOKED at it). Kills cap at 255 and the journal shows 99+.
      * Both ride the save blob (v10). */
-    uint16_t species_seen;                  /* bitmask by SPECIES_*      */
+    uint32_t species_seen;                  /* bitmask by SPECIES_*      */
     uint8_t  species_kills[NUM_SPECIES];
     int      journal_sel;                   /* which page you're on      */
     state_t  journal_from;                  /* who opened it: title/pack */
@@ -361,6 +366,9 @@ extern game_t G;
 
 /* helper: did this button just get pressed this tick? */
 #define PRESSED(btn) ((G.pressed & (btn)) != 0)
+/* ...and is it being HELD right now? (the laser's automatic fire reads
+ * this instead of the press -- hold the trigger, it keeps going) */
+#define HELD(btn)    ((G.held & (btn)) != 0)
 
 /* deterministic xorshift RNG -- same everywhere, no libc */
 uint32_t rng_next(void);
@@ -391,6 +399,9 @@ void gameover_update(void);   void gameover_render(void);
 void journal_update(void);    void journal_render(void);
 void night_update(void);      void night_render(void);
 void night_start(void);       /* STAY THE NIGHT begins (cutscene.c) */
+void part2_start(void);       /* PART 2: wake on the ship (cutscene.c) */
+void pod_escape(void);        /* ...and leave it (cutscene.c) */
+void part2end_update(void);   void part2end_render(void);
 void journal_start(state_t from);  /* ST_TITLE or ST_PACK: where B goes  */
 void journal_saw(int kind);        /* you got a LOOK at it (battle/kill) */
 void journal_kill(int kind);       /* ...and you put it down             */
@@ -411,15 +422,21 @@ void draw_toast(void);   /* the little corner popup (SAVED. and friends) --
                             every scene that can show one calls this, so
                             they all agree on where and how */
 
-/* does the player have SOMETHING that fires? (Part 1's pistol counts) */
+/* does the player have SOMETHING that fires? (Part 1's pistol counts,
+ * and so does Part 2's laser) */
 #define PLAYER_HAS_GUN() \
-    (G.player.items[ITEM_SHOTGUN] || G.player.items[ITEM_HANDGUN])
+    (G.player.items[ITEM_SHOTGUN] || G.player.items[ITEM_HANDGUN] || \
+     G.player.items[ITEM_LASER])
 
-/* ...and what feeds the gun he'd actually raise. The shotgun wins if he
- * somehow carries both, and each gun eats ONLY its own ammunition:
- * SHELLS for the shotgun, BULLETS for the pistol. */
+/* ...and what feeds the gun he'd actually raise. The laser wins if he
+ * carries it (Part 2 stripped him of everything else anyway), then the
+ * shotgun; each gun eats ONLY its own ammunition. */
 #define GUN_AMMO() \
-    (G.player.items[ITEM_SHOTGUN] ? ITEM_SHELLS : ITEM_BULLETS)
+    (G.player.items[ITEM_LASER]   ? ITEM_BATTERY : \
+     G.player.items[ITEM_SHOTGUN] ? ITEM_SHELLS  : ITEM_BULLETS)
+
+/* is the raised gun the laser? (automatic fire + green bolts hang on it) */
+#define LASER_UP() (G.player.items[ITEM_LASER] > 0)
 void battle_start(int ent_index);
 void pack_discover(int item_kind);            /* it enters the pack     */
 void mark_dead(int ent_index);                /* it stays dead till dawn */

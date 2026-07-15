@@ -94,6 +94,18 @@ enum {
     SPR_PIG,       SPR_PIG_1,             /* enormous, and has no idea     */
     SPR_JENNA,     SPR_JENNA_1,           /* she minds the birds. armed.   */
     SPR_DAN,       SPR_DAN_1,             /* the north road. incoming.     */
+    /* ---- PART 2: THE SHIP -------------------------------------------- */
+    /* the man in the silver suit: the farmer's nine frames, resurfaced.
+     * Same ordering rules as the other two walk cycles. */
+    SPR_SILVER_DOWN_0, SPR_SILVER_DOWN_1, SPR_SILVER_DOWN_2,
+    SPR_SILVER_UP_0,   SPR_SILVER_UP_1,   SPR_SILVER_UP_2,
+    SPR_SILVER_SIDE_0, SPR_SILVER_SIDE_1, SPR_SILVER_SIDE_2, /* faces LEFT */
+    SPR_TAN_0,     SPR_TAN_1,             /* THE TAN ONE. it knows you.    */
+    SPR_ITEM_LASER,                       /* fits a human hand anyway      */
+    SPR_ITEM_BATTERY,                     /* a green cell                  */
+    SPR_ITEM_NUKE,                        /* the sphere with the fins      */
+    SPR_ITEM_GEL,                         /* the tube that closes wounds   */
+    SPR_ITEM_GOO,                         /* WEIRD GREEN GOO IN A CAN      */
     NUM_SPRITES
 };
 
@@ -145,6 +157,8 @@ enum {
     SPECIES_GREY_BOSS,    /* THE VISITOR -- the grey that stands in the
                              Starlight Diner and has not moved since it
                              chose to stand there                           */
+    SPECIES_TAN,          /* THE TAN ONE -- Part 2's boss. The face from
+                             the bookstore shelf. It waits by the pod.      */
     NUM_SPECIES
 };
 
@@ -264,6 +278,16 @@ enum {
                       never restock (see restock_items). Hold onto it.   */
     ITEM_ROSARY,   /* equip from the pack: attacks miss you often, and you
                       fight ROSARY_LEVELS above yourself. See config.h.  */
+    /* ---- PART 2: THE SHIP. Everything below is theirs. ---- */
+    ITEM_LASER,    /* automatic fire: HOLD B and it just keeps going.
+                      Eats BATTERY charge, one unit per bolt.            */
+    ITEM_BATTERY,  /* a green cell: BATTERY_PER_CELL charges each        */
+    ITEM_NUKE,     /* the alien nuke. Thrown like TNT; the hole it
+                      leaves is bigger, and the light is GREEN.          */
+    ITEM_GEL,      /* alien gel: heals GEL_HEAL, battle or pack          */
+    ITEM_GOO,      /* WEIRD GREEN GOO IN A CAN. A story is in there.
+                      Do not open it. (Using it from the pack is how
+                      you find out you shouldn't have.)                  */
     NUM_ITEMS
 };
 
@@ -333,6 +357,13 @@ enum {
     TILE_CHURCH_CROSS,  /* the gilded cross set into the gable             */
     TILE_CHURCH_DOOR,   /* the arched double door (a DOOR: bump to enter)  */
     TILE_DOOR_GLASS,    /* an office lobby's glass doors (also a DOOR)     */
+    /* ---- PART 2: THE SHIP -------------------------------------------- */
+    TILE_UFOWALL,       /* white metal panelling. It has no seams you'd
+                           fit a knife into, and no dirt anywhere.        */
+    TILE_UFOFLOOR,      /* the deck                                       */
+    TILE_COMPUTER,      /* a console. The screens never stop working.     */
+    TILE_SYMBOL,        /* a glyph in the deck, glowing faintly green     */
+    TILE_POD,           /* the escape pod hatch. Warp on it to leave.     */
     NUM_TILES
 };
 
@@ -355,6 +386,7 @@ enum {
                            it, and it has been standing there since it
                            decided to.                                    */
     MAP_APARTMENT,      /* the walk-up off the Low Street. THEM.          */
+    MAP_UFO,            /* PART 2: the ship. Probe table to escape pod.   */
     NUM_MAPS
 };
 
@@ -403,6 +435,15 @@ typedef struct {          /* something living (or lying) on a map */
                                         in the pack and on the title       */
 #define FLAG_NIGHT       (1u << 9)   /* STAY THE NIGHT survived: talking to
                                         Marie again won't restart it       */
+#define FLAG_PART2       (1u << 10)  /* PART 2: the man in the silver suit.
+                                        Picks his sprites, his gun, and
+                                        which world he wakes up in.        */
+#define FLAG_TAN_DEAD    (1u << 11)  /* the thing by the pod is down; the
+                                        pod hatch will answer you now      */
+#define FLAG_M_WAKE      (1u << 12)  /* Part 2 monologues, one shot each:  */
+#define FLAG_M_SKYMAP    (1u << 13)  /*   the floor map points at home     */
+#define FLAG_M_HANDS     (1u << 14)  /*   whose hands are these?           */
+#define FLAG_M_POD       (1u << 15)  /*   you've fallen out of skies before */
 /* A flag NOBODY ever sets. A warp that requires it is a door that never
  * opens -- which is how a door gets a CUSTOM "locked" line instead of the
  * generic one (see check_door_bump). */
