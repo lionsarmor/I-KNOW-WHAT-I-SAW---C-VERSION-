@@ -244,6 +244,7 @@ typedef struct {
     int has_save;        /* a save exists -> title offers CONTINUE, and
                             LOAD is selectable in the pack               */
     int title_sel;       /* title menu row (see title_rows in intro.c)  */
+    int title_top;       /* first visible row -- the menu scrolls, 3 at a time */
 
     /* OPTIONS. `fullscreen` is what the PLAYER asked for; the platform
      * reads it via game_want_fullscreen() and makes the window match.

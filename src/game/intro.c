@@ -206,6 +206,7 @@ void intro_render(void)
  * chosen index MEANS, which is the only thing the rest of the code cares
  * about. */
 enum { ROW_CONTINUE, ROW_NEWGAME, ROW_JOURNAL, ROW_CHAPTERS, ROW_OPTIONS };
+#define TITLE_VIS 3   /* menu rows shown at once; the rest scroll */
 
 static int title_rows(int *out)
 {
@@ -249,6 +250,15 @@ void title_update(void)
         G.title_sel = (G.title_sel + 1) % n;
         audio_sfx(SFX_BLIP);
     }
+
+    /* only TITLE_VIS rows show at once -- keep the cursor inside the window,
+     * wrap included (jumping to the end scrolls to the end) */
+    if (G.title_sel < G.title_top)
+        G.title_top = G.title_sel;
+    if (G.title_sel >= G.title_top + TITLE_VIS)
+        G.title_top = G.title_sel - (TITLE_VIS - 1);
+    if (G.title_top > n - TITLE_VIS) G.title_top = n - TITLE_VIS;
+    if (G.title_top < 0)             G.title_top = 0;
 
     if (!PRESSED(BTN_START) && !PRESSED(BTN_A))
         return;
@@ -1009,21 +1019,37 @@ void title_render(void)
     gfx_text_ex((SCREEN_W - gfx_text_width(l1, 2)) / 2, 44, l1, red, 2);
     gfx_text_ex((SCREEN_W - gfx_text_width(l2, 2)) / 2, 64, l2, red, 2);
 
-    /* the menu: CONTINUE (only if there's a save), NEW GAME, WHAT I SAW,
-     * OPTIONS. Bottom-aligned so it doesn't jump when CONTINUE appears. */
+    /* the menu. Only TITLE_VIS rows show at once; the rest scroll under
+     * them (see title_top), with little arrows to say there's more. The
+     * block is a FIXED height whether it's showing 2 rows or scrolling 5,
+     * so nothing jumps as CONTINUE / WHAT I SAW appear and disappear. */
     int rows[5];
     int n = title_rows(rows);
-    int top = 132 - n * 14;
-    for (int i = 0; i < n; i++) {
+    int vis = (n < TITLE_VIS) ? n : TITLE_VIS;
+    if (G.title_top > n - vis) G.title_top = n - vis;   /* n can shrink */
+    if (G.title_top < 0)       G.title_top = 0;
+
+    int top = 138 - TITLE_VIS * 14;   /* leaves the up-arrow clear of the logo */
+    for (int r = 0; r < vis; r++) {
+        int i = G.title_top + r;
         const char *label = title_row_label(rows[i]);
         int ox = (SCREEN_W - gfx_text_width(label, 1)) / 2;
-        int oy = top + i * 14;
+        int oy = top + r * 14;
         gfx_text(ox, oy, label,
                  (i == G.title_sel) ? RGB565(255, 255, 255)
                                     : RGB565(120, 120, 128));
         if (i == G.title_sel)
             gfx_cursor(ox - 12, oy, G.frame);
     }
+
+    /* the scroll arrows: a small caret above the list when there's more
+     * above, and below it when there's more below */
+    if (G.title_top > 0)
+        gfx_text((SCREEN_W - gfx_text_width("^", 1)) / 2, top - 11, "^",
+                 RGB565(150, 150, 158));
+    if (G.title_top + vis < n)
+        gfx_text((SCREEN_W - gfx_text_width("V", 1)) / 2, top + vis * 14 - 3,
+                 "V", RGB565(150, 150, 158));
 
     /* controls hint -- update this if you change the platform mappings */
     const char *hint = "Z:A  X:B  ENTER:START";
