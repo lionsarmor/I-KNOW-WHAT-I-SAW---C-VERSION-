@@ -150,12 +150,12 @@ const uint16_t *game_framebuffer(void)
  * rather than being misread.
  * ==========================================================================*/
 #define SAVE_MAGIC   0x494B5753u   /* "IKWS" */
-#define SAVE_VERSION 11            /* v11: PART 2 -- the ship. The blob grew
-                                      with it (five new items, one new map,
-                                      one new species in the journal). v10
-                                      was the journal; v9 the South Side;
-                                      v8 holy water and the rosary; v7 the
-                                      pistol. Old saves fail the check and
+#define SAVE_VERSION 12            /* v12: the SHIP grew two more decks -- the
+                                      science lab and the hangar (spawns_gone
+                                      is per-map, so the blob grows) plus one
+                                      new journal species (the cloning tank).
+                                      v11 was Part 2; v10 the journal; v9 the
+                                      South Side. Old saves fail the check and
                                       are ignored, as designed. */
 
 /* Exactly how many bytes game_save_write() lays down. Kept next to the

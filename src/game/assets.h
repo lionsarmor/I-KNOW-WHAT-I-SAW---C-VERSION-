@@ -106,6 +106,8 @@ enum {
     SPR_ITEM_NUKE,                        /* the sphere with the fins      */
     SPR_ITEM_GEL,                         /* the tube that closes wounds   */
     SPR_ITEM_GOO,                         /* WEIRD GREEN GOO IN A CAN      */
+    SPR_CLONETANK, SPR_CLONETANK_1,       /* the lab's vats                */
+    SPR_SADIE,     SPR_SADIE_1,           /* the girl from the parking lot */
     NUM_SPRITES
 };
 
@@ -159,6 +161,9 @@ enum {
                              chose to stand there                           */
     SPECIES_TAN,          /* THE TAN ONE -- Part 2's boss. The face from
                              the bookstore shelf. It waits by the pod.      */
+    SPECIES_CLONETANK,    /* the science-lab vats: rooted, solid, and they
+                             push out north-ridge horrors until you break
+                             the glass. Five of them. See lab_pool().       */
     NUM_SPECIES
 };
 
@@ -241,6 +246,7 @@ enum {
                             (Special-cased in try_talk and dan_update,
                             overworld.c: bottles, screaming, and one
                             name that gets past him.) */
+    LOOK_SADIE,          /* the rescued girl, PART 2's science lab */
     NUM_LOOKS
 };
 
@@ -386,7 +392,9 @@ enum {
                            it, and it has been standing there since it
                            decided to.                                    */
     MAP_APARTMENT,      /* the walk-up off the Low Street. THEM.          */
-    MAP_UFO,            /* PART 2: the ship. Probe table to escape pod.   */
+    MAP_UFO,            /* PART 2 stage 1: the ship. Probe table to hatch. */
+    MAP_LAB,            /* PART 2 stage 2: the science lab, and the vats.  */
+    MAP_HANGAR,         /* PART 2 stage 3: the hangar, and the way home.   */
     NUM_MAPS
 };
 
@@ -444,6 +452,11 @@ typedef struct {          /* something living (or lying) on a map */
 #define FLAG_M_SKYMAP    (1u << 13)  /*   the floor map points at home     */
 #define FLAG_M_HANDS     (1u << 14)  /*   whose hands are these?           */
 #define FLAG_M_POD       (1u << 15)  /*   you've fallen out of skies before */
+#define FLAG_LAB_CLEAR   (1u << 16)  /* all five cloning tanks are broken --
+                                        the hangar door will open           */
+#define FLAG_GIRL        (1u << 17)  /* SADIE is freed and with you         */
+#define FLAG_M_LAB       (1u << 18)  /* the descent-into-the-lab monologue  */
+#define FLAG_M_HANGAR    (1u << 19)  /* the hangar-arrival monologue        */
 /* A flag NOBODY ever sets. A warp that requires it is a door that never
  * opens -- which is how a door gets a CUSTOM "locked" line instead of the
  * generic one (see check_door_bump). */

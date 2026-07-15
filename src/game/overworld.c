@@ -168,9 +168,10 @@ int map_music(int map)
     case MAP_RIDGE:  return MUSIC_BOSS;    /* you should not be up here    */
     case MAP_CITY:   return MUSIC_TOWN;    /* more people, same pulse      */
     case MAP_SOUTH:  return MUSIC_TOWN;    /* same city, deeper in         */
-    case MAP_UFO:    return MUSIC_NIGHT;   /* PART 2: the unsolved-mysteries
-                                              wail, now that you are inside
-                                              the mystery                   */
+    case MAP_UFO:
+    case MAP_LAB:
+    case MAP_HANGAR: return MUSIC_NIGHT;   /* PART 2: the unsolved-mysteries
+                                              wail, all three decks of it    */
     default:         return MUSIC_NONE;    /* indoors: just the room --
                                               and the OFFICE stays silent
                                               on purpose. So does the
@@ -262,6 +263,12 @@ void overworld_enter_map(int map, int tx, int ty)
     }
 
     roll_boon(map);         /* who here is holding something for you? */
+
+    /* the ship greets you with a klaxon a beat after you can see it -- long
+     * enough to read the banner, not so long you think it's safe */
+    G.alarm_flash = 0;
+    G.alarm_t     = (map == MAP_UFO || map == MAP_LAB || map == MAP_HANGAR)
+                  ? 90 : 0;
 
     G.state  = ST_OVERWORLD;
     G.t      = 0;
@@ -462,6 +469,41 @@ static int weather_dim(void)
     return 256;
 }
 
+/* ============================ THE SHIP ALARM ===============================
+ * PART 2's "weather": not a sky, but a SHIP in trouble. On MAP_UFO the
+ * emergency lights go off at random -- a red pulse washes the deck, a low
+ * klaxon wells up down some corridor, and every so often the whole ship
+ * JOLTS. It runs whether you're fighting or standing still: the point is
+ * that this is a real emergency, and a real hassle, for THEM -- you're
+ * just the loose thing rattling around inside it.
+ * ==========================================================================*/
+/* all three decks of the Part 2 ship -- they share the alarm, the music,
+ * and the fact that the whole thing is coming apart around you */
+static int on_ship(void)
+{
+    return G.map_id == MAP_UFO || G.map_id == MAP_LAB ||
+           G.map_id == MAP_HANGAR;
+}
+
+static void ship_alarm_update(void)
+{
+    if (!on_ship()) {
+        G.alarm_flash = 0;
+        return;
+    }
+    if (G.alarm_flash > 0)
+        G.alarm_flash--;
+
+    if (--G.alarm_t <= 0) {
+        /* a new emergency flares up */
+        G.alarm_flash = 40;                       /* ~2/3 s of red on the deck */
+        audio_sfx(SFX_ALARM);                     /* low, down a corridor */
+        if (rng_range(1, 3) == 1)                 /* and once in a while... */
+            shake(3, 26);                         /* ...the ship LURCHES */
+        G.alarm_t = rng_range(150, 420);          /* 2.5-7 s to the next one */
+    }
+}
+
 static int day_brightness(void)
 {
     uint32_t cycle = DAY_LEN_TICKS + NIGHT_LEN_TICKS;
@@ -646,10 +688,68 @@ static void field_level_up(void)
     G.toast_ticks = 120;
 }
 
+/* SADIE, freed. Drop the store owner's daughter onto a clear tile by the
+ * tank that held her -- as an NPC you can talk to. Talking sets FLAG_GIRL
+ * (see try_talk), which is what unseals the hangar door. */
+static void spawn_sadie(int px, int py)
+{
+    int slot = -1;
+    for (int i = 0; i < MAX_ENTITIES; i++)
+        if (G.ents[i].type == ENT_NONE) { slot = i; break; }
+    if (slot < 0)
+        return;                         /* no room -- FLAG_LAB_CLEAR still set */
+    entity_t *e = &G.ents[slot];
+    e->type = ENT_NPC;
+    e->kind = LOOK_SADIE;
+    /* a tile below the tank if it's clear, else right on it */
+    e->x = px;
+    e->y = (!blocked(px, py + TILE)) ? py + TILE : py;
+    e->dir = DIR_DOWN;
+    e->cw = e->ch = TILE;
+    e->dialog = 0;                      /* try_talk speaks for her */
+    e->gift = 0; e->after = 0;
+    e->stun = e->hurt = e->aggro = 0;
+}
+
+/* THE GLASS BREAKS. A cloning tank shot to pieces: no gore, no XP -- the
+ * reward is that it STOPS. Count what's left; when the last one goes, the
+ * lab is clear and the girl in it is free (spawn_sadie). */
+static void clone_tank_break(int i)
+{
+    entity_t *e = &G.ents[i];
+    int tx = e->x, ty = e->y;
+
+    journal_saw(SPECIES_CLONETANK);
+    journal_kill(SPECIES_CLONETANK);
+    audio_sfx(SFX_BREACH);              /* glass, and a lot of it */
+    rumble(200);
+    shake(3, 16);
+    mark_dead(i);                       /* stays broken across re-entry */
+    e->type = ENT_NONE;
+
+    int left = 0;
+    for (int k = 0; k < MAX_ENTITIES; k++)
+        if (G.ents[k].type == ENT_ALIEN && G.ents[k].kind == SPECIES_CLONETANK)
+            left++;
+    if (left == 0 && !(G.flags & FLAG_LAB_CLEAR)) {
+        G.flags |= FLAG_LAB_CLEAR;
+        spawn_sadie(tx, ty);            /* she was in the last one */
+        audio_sfx(SFX_PICKUP);
+        G.toast       = "A GIRL. THERE'S A GIRL IN THE GLASS.";
+        G.toast_good  = 1;
+        G.toast_ticks = 150;
+    }
+}
+
 static void kill_entity(int i)
 {
     entity_t *e = &G.ents[i];
     const species_t *sp = &species[e->kind];
+
+    if (e->kind == SPECIES_CLONETANK) {   /* not a body -- a machine */
+        clone_tank_break(i);
+        return;
+    }
 
     spray_gore(e->x, e->y, 14);
     add_blood(e->x + 8, e->y + 8, sp->boss);   /* where the body dropped */
@@ -679,6 +779,19 @@ static void hit_entity(int i)
 {
     entity_t *e = &G.ents[i];
     const species_t *sp = &species[e->kind];
+
+    /* A CLONING TANK is a bolted-down machine: shooting it cracks glass, it
+     * does NOT bleed and it does NOT get knocked across the room. Chip the
+     * hp, flash it, and let it shatter when it's spent (clone_tank_break). */
+    if (e->kind == SPECIES_CLONETANK) {
+        e->hp--;
+        e->hurt = 6;
+        audio_sfx(SFX_HIT);              /* a hard glassy tink */
+        if (e->hp <= 0)
+            kill_entity(i);
+        return;
+    }
+
     e->hp--;
     e->hurt = 8;
     spray_gore(e->x, e->y, 4);      /* a spatter, not a burst */
@@ -1022,6 +1135,12 @@ static void update_gore(void)
  * into a visitor starts the fight (unless we just fled one) */
 static void bump_entity(int i)
 {
+    /* A CLONING TANK is furniture, not a foe: it blocks you (try_step saw
+     * it as a solid entity and stopped you), but you can't punch glass into
+     * a turn-based fight. You shoot it. So bumping one does nothing. */
+    if (G.ents[i].type == ENT_ALIEN && G.ents[i].kind == SPECIES_CLONETANK)
+        return;
+
     /* Walk into a visitor and you get the FULL turn-based fight (and the
      * full XP). But something you've already staggered can't grab you --
      * finish it off with the gun. */
@@ -1148,9 +1267,10 @@ static void check_door_bump(void)
             return;
         }
 
-        /* THE POD, with the tan down (its needs_flag passed above): this
-         * is the end of Part 2. Don't warp -- LAUNCH. */
-        if (map_tile(m, tx, ty) == TILE_POD) {
+        /* THE ESCAPE POD -- but only the one in the HANGAR launches. The
+         * identical hatch on the ship above just warps you down (its warp,
+         * handled below). In the hangar, this is the end of Part 2. */
+        if (map_tile(m, tx, ty) == TILE_POD && G.map_id == MAP_HANGAR) {
             pod_escape();
             return;
         }
@@ -1366,6 +1486,29 @@ static int hill_brood_count(int hill)
     return n;
 }
 
+/* how many loose spawns a spawner is allowed to have out at once. The farm
+ * anthill keeps it to a trickle; the LAB is an all-out melee, capped only
+ * by the entity slots left over after the tanks and the loose greys. */
+static int brood_cap(void)
+{
+    return (G.map_id == MAP_LAB) ? 6 : BROOD_MAX;
+}
+
+/* WHAT THE TANKS DECANT. Mostly Hopkinsville goblins -- the thing every
+ * witness in this game has been trying to describe -- salted with the
+ * cryptids that never made it off the ridge: the Mothman, the Reptoid,
+ * Sasquatch, and (why not, it grew here too) the Loch Ness Monster. Grey
+ * and Dover clones fill the gaps so the room keeps moving. */
+static int lab_pool(void)
+{
+    static const int pool[] = {
+        SPECIES_GOBLIN, SPECIES_GOBLIN, SPECIES_GOBLIN,
+        SPECIES_DOVER,  SPECIES_DOVER,  SPECIES_GREY, SPECIES_GREY,
+        SPECIES_MOTHMAN, SPECIES_REPTOID, SPECIES_SASQUATCH, SPECIES_NESSIE,
+    };
+    return pool[rng_range(0, (int)(sizeof pool / sizeof pool[0]) - 1)];
+}
+
 static int hill_spawn(int hill)
 {
     const map_t *m = cur_map();
@@ -1392,7 +1535,8 @@ static int hill_spawn(int hill)
 
         entity_t *e = &G.ents[slot];
         e->type   = ENT_ALIEN;
-        e->kind   = (rng_range(1, 100) <= ANTHILL_SOLDIER_PCT)
+        e->kind   = (G.map_id == MAP_LAB) ? lab_pool()
+                  : (rng_range(1, 100) <= ANTHILL_SOLDIER_PCT)
                   ? SPECIES_SOLDIER : SPECIES_ANT;
         e->x      = nx;
         e->y      = ny;
@@ -1437,7 +1581,7 @@ static void update_aliens(void)
         if (sp->rooted) {
             if (sp->brood > 0 && --e->timer <= 0) {
                 e->timer = sp->brood;
-                if (hill_brood_count(i) < BROOD_MAX)
+                if (hill_brood_count(i) < brood_cap())
                     hill_spawn(i);
             }
             continue;
@@ -1527,6 +1671,29 @@ static void try_talk(void)
             continue;
         if (px >= e->x && px < e->x + e->cw &&
             py >= e->y && py < e->y + e->ch) {
+            /* SADIE. The store owner's daughter, freed from the last tank.
+             * The first time you reach her sets FLAG_GIRL -- which unseals
+             * the hangar door -- and closes the loop from the parking lot.
+             * After that she's just relieved, and moving. */
+            if (e->kind == LOOK_SADIE) {
+                if (!(G.flags & FLAG_GIRL)) {
+                    G.flags |= FLAG_GIRL;
+                    audio_sfx(SFX_CONFIRM);
+                    dialog_start(
+                        "SADIE. I'M SADIE. MY DAD HAS THE STORE ON THE "
+                        "HIGHWAY -- I WENT OUT FOR THE CARTS AND THE LIGHT "
+                        "CAME DOWN AND THEN I WAS... I WAS IN THAT.\n"
+                        "HOW LONG? DON'T TELL ME HOW LONG.\n"
+                        "THERE'S A HANGAR THROUGH THAT DOOR. I'VE SEEN THEM "
+                        "COME AND GO FROM IT. IF ANYTHING ON THIS SHIP FLIES "
+                        "HOME, IT'S IN THERE.\n"
+                        "...DON'T LEAVE ME. PLEASE. LET'S GO.");
+                } else {
+                    dialog_start("SADIE STAYS CLOSE. \"THE HANGAR. GO.\"");
+                }
+                return;
+            }
+
             /* DAN. What talking buys you depends on WHO YOU ARE. To
              * anyone else he's the speech on his spawn line and a closed
              * gate; to RODDY he's a fellow abductee, suddenly and
@@ -1638,6 +1805,7 @@ void overworld_update(void)
 {
     G.daytime++;                   /* the sun only moves while you walk */
     weather_update();              /* ...and so does the sky */
+    ship_alarm_update();           /* ...and the ship comes apart around you */
     ambient_refresh();             /* ...and the sound of the place */
     if (G.banner > 0)
         G.banner--;
@@ -1727,6 +1895,29 @@ void overworld_update(void)
                 "HERE? WHAT DAY IS IT DOWN THERE?\n"
                 "...MARIE. DANNY. NO -- THAT'S NOT... WHOSE NAMES ARE "
                 "THOSE? WHY DO I KNOW THEM?");
+            return;
+        }
+        /* DOWN IN THE LAB: the penny drops about what this place is. */
+        if (G.map_id == MAP_LAB && !(G.flags & FLAG_M_LAB) && G.t > 30) {
+            G.flags |= FLAG_M_LAB;
+            monologue_start(
+                "IT'S A NURSERY. THAT'S WHAT THE TANKS ARE.\n"
+                "EVERY SHAPE ANYBODY EVER SWORE THEY SAW OVER A CORNFIELD "
+                "-- THE GOBLIN, THE MOTH, THE THING IN THE LAKE -- THEY'RE "
+                "GROWING THEM IN HERE. BY THE ROW.\n"
+                "BREAK THE GLASS. BREAK ALL OF IT. NOTHING ELSE GETS "
+                "DECANTED TONIGHT.");
+            return;
+        }
+        /* THE HANGAR: home is on the other side of that door. */
+        if (G.map_id == MAP_HANGAR && !(G.flags & FLAG_M_HANGAR) &&
+            G.t > 30) {
+            G.flags |= FLAG_M_HANGAR;
+            monologue_start(
+                "SO THAT'S HOW THEY COME AND GO. A WHOLE BAY OF THEM, AND "
+                "ONE LITTLE ONE AT THE END WITH THE HATCH STILL OPEN.\n"
+                "IT'LL FIT TWO. SADIE -- STAY BEHIND ME.\n"
+                "WE ARE GOING HOME, AND WE ARE GOING TO MAKE THEM LISTEN.");
             return;
         }
     }
@@ -1910,7 +2101,8 @@ static void draw_hud(void)
     }
     if (PLAYER_HAS_GUN()) {
         /* the AMMO THAT FITS THE GUN: shells beside the shotgun, the
-         * bullet carton beside the pistol */
+         * bullet carton beside the pistol, and the green CELL beside the
+         * laser (that's charge, not rounds -- so it wears the battery). */
         int ammo = GUN_AMMO();
         char am[8];
         int n = G.player.items[ammo], k = 0;
@@ -1918,9 +2110,10 @@ static void draw_hud(void)
         if (n >= 10) am[k++] = (char)('0' + n / 10);
         am[k++] = (char)('0' + n % 10);
         am[k] = '\0';
-        gfx_blit(sprites[ammo == ITEM_SHELLS ? SPR_ITEM_SHELLS
-                                             : SPR_ITEM_BULLETS].px,
-                 TILE, TILE, ix - 4, iy - 4);
+        int icon = (ammo == ITEM_SHELLS)  ? SPR_ITEM_SHELLS
+                 : (ammo == ITEM_BATTERY) ? SPR_ITEM_BATTERY
+                                          : SPR_ITEM_BULLETS;
+        gfx_blit(sprites[icon].px, TILE, TILE, ix - 4, iy - 4);
         gfx_text_small_outlined(ix + 11, iy + 4, am, RGB565(255, 220, 80));
     }
 
@@ -2558,6 +2751,40 @@ void overworld_render(void)
             n = 1;
         }
         gfx_night(DARK_BRIGHT, lights, n);
+    }
+
+    /* THE SHIP ALARM. When the emergency lights flare (ship_alarm_update),
+     * red wells up from the edges of the deck like a rotating beacon --
+     * strobing on and off, brightest at the rim, with a faint wash across
+     * the whole floor. Drawn last of the world effects, over everything
+     * but the HUD, so the emergency is impossible to ignore. */
+    if (on_ship() && G.alarm_flash > 0) {
+        int f = G.alarm_flash;
+        if ((f / 5) % 2 == 0) {                    /* the beacon's ON phase */
+            /* BLEND toward red, don't ADD -- the deck is near-white, and
+             * adding red to white just stays white. Blending actually
+             * tints it, edges hardest, a wash across the middle. */
+            uint16_t red = RGB565(220, 24, 16);
+            int a0 = 90 + f * 3;                   /* strong at the rim */
+            if (a0 > 210) a0 = 210;
+            for (int b = 0; b < 14; b++) {         /* a 14px edge falloff */
+                int a = a0 * (14 - b) / 14;
+                for (int x = 0; x < SCREEN_W; x++) {
+                    gfx_blend_pixel(x, b, red, a);
+                    gfx_blend_pixel(x, SCREEN_H - 1 - b, red, a);
+                }
+                for (int y = 0; y < SCREEN_H; y++) {
+                    gfx_blend_pixel(b, y, red, a);
+                    gfx_blend_pixel(SCREEN_W - 1 - b, y, red, a);
+                }
+            }
+            /* a faint red over the whole deck so the light "fills the room" */
+            int wash = 30 + f;
+            if (wash > 70) wash = 70;
+            for (int y = 14; y < SCREEN_H - 14; y++)
+                for (int x = 14; x < SCREEN_W - 14; x++)
+                    gfx_blend_pixel(x, y, red, wash);
+        }
     }
 
     draw_hud();

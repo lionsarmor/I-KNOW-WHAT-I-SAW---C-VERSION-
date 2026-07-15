@@ -1383,7 +1383,9 @@ void part2end_render(void)
              RGB565(200, 200, 210));
 
     if (G.t > 90) {
-        const char *w1 = "I KNOW WHAT I SAW. I KNOW WHAT THEY'RE DOING.";
+        const char *w1 = (G.flags & FLAG_GIRL)
+            ? "SADIE'S HAND IS TIGHT ON MINE. WE BOTH SAW IT."
+            : "I KNOW WHAT I SAW. I KNOW WHAT THEY'RE DOING.";
         const char *w2 = "AND THIS TIME SOMEBODY IS GOING TO LISTEN.";
         gfx_text_small((SCREEN_W - gfx_text_small_width(w1)) / 2, 120, w1,
                        RGB565(150, 200, 160));

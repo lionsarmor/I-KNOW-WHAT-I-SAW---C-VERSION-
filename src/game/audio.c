@@ -517,6 +517,16 @@ static const sfx_step_t sx_laser[]   = { {2400, 2,190, W_PULSE25},
                                          {1500, 2,175, W_PULSE25},
                                          { 900, 3,150, W_PULSE25},
                                          {2000, 2, 90, W_NOISE} };
+/* THE SHIP'S KLAXON: a low two-tone alarm, slow and QUIET on purpose --
+ * it wells up somewhere down a corridor, sounds twice, and fades. The
+ * ship is in trouble and it is not your ship. Kept under the music so it
+ * unsettles rather than nags. */
+static const sfx_step_t sx_alarm[]   = { { 220, 20, 55, W_PULSE50},
+                                         { 165, 22, 55, W_PULSE50},
+                                         {   0, 10,  0, W_PULSE50},
+                                         { 220, 20, 45, W_PULSE50},
+                                         { 165, 26, 40, W_PULSE50},
+                                         { 140, 20, 24, W_PULSE50} };
 
 /* ===========================================================================
  * THE AMBIENCE. Same step format as the sfx, but these LOOP -- the last
@@ -611,6 +621,7 @@ static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
     SFXROW(SFX_KNOCK,   sx_knock),
     SFXROW(SFX_BREACH,  sx_breach),
     SFXROW(SFX_LASER,   sx_laser),
+    SFXROW(SFX_ALARM,   sx_alarm),
 #undef SFXROW
 };
 

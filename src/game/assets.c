@@ -324,6 +324,10 @@ int assets_init(void)
         { SPR_ITEM_NUKE,     SPR_ART_ITEM_NUKE     },
         { SPR_ITEM_GEL,      SPR_ART_ITEM_GEL      },
         { SPR_ITEM_GOO,      SPR_ART_ITEM_GOO      },
+        { SPR_CLONETANK,     SPR_ART_CLONETANK     },
+        { SPR_CLONETANK_1,   SPR_ART_CLONETANK_1   },
+        { SPR_SADIE,         SPR_ART_SADIE         },
+        { SPR_SADIE_1,       SPR_ART_SADIE_1       },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -562,6 +566,16 @@ const species_t species[NUM_SPECIES] = {
         { { "IT REMEMBERS YOU", MV_STUN, 0, 30 },
           { "THE LONG NEEDLE", MV_DRAIN, 15, 30 } },
         2, 0, 0 },
+
+    /* --- THE CLONING TANK. Not a creature, a MACHINE that makes them: a
+     * rooted, solid vat that pushes a north-ridge horror out onto the deck
+     * every `brood` ticks. It never moves and never fights -- but it takes
+     * a dozen laser bolts to shatter the glass. XP 0: the reward is that
+     * it stops. See lab_pool()/hill_spawn() and the kill in overworld.c. */
+    [SPECIES_CLONETANK] = { "CLONING TANK", 40, 0, 0,
+        SPR_CLONETANK, SPR_CLONETANK_1, 256, 0, 0, 12,
+        { { 0 } },
+        0, 1, 150 },        /* rooted, brood every 150 ticks */
 };
 
 /* ---- THE LEGENDS, FOR THE JOURNAL ------------------------------------------
@@ -602,6 +616,9 @@ const char *species_lore[NUM_SPECIES] = {
     [SPECIES_TAN]        = "THE ONE FROM THE COVER OF THAT BOOK. IT WAS "
                            "IN THE ROOM WHEN YOU WOKE UP. IT WAS THERE "
                            "THE FIRST TIME, TOO -- ON THE HIGHWAY.",
+    [SPECIES_CLONETANK]  = "THEY DON'T CATCH THEM. THEY GROW THEM. EVERY "
+                           "THING I EVER SAW IN A FIELD WAS DECANTED IN A "
+                           "ROOM LIKE THIS ONE.",
 };
 
 const npc_look_t npc_looks[NUM_LOOKS] = {
@@ -632,6 +649,7 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_PIG]       = { SPR_PIG,        SPR_PIG_1        },
     [LOOK_JENNA]     = { SPR_JENNA,      SPR_JENNA_1      },
     [LOOK_DAN]       = { SPR_DAN,        SPR_DAN_1        },
+    [LOOK_SADIE]     = { SPR_SADIE,      SPR_SADIE_1      },
 };
 
 /* ============================ THE ITEMS ====================================

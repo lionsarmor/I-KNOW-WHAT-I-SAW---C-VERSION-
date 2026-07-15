@@ -2804,6 +2804,89 @@ static const char *SPR_ART_ITEM_GOO[16] = {
     "................",
 };
 
+/* THE CLONING TANK. A glass cylinder of green-lit fluid with a folded,
+ * waiting SHAPE suspended in it and bubbles climbing past. Frame 1 the
+ * bubbles rise. Five of these line the science lab, each pushing out
+ * something from the north ridge -- shoot the tank itself to stop it. */
+static const char *SPR_ART_CLONETANK[16] = {
+    "....kkkkkkkk....",
+    "...k11111111k...",
+    "..kKeeeeeeeeKk..",
+    "..kEe0eeee0eEk..",
+    "..kEeee00eeeEk..",
+    "..kEee0000eeEk..",
+    "..kEee0000eeEk..",
+    "..kEeee00eeeEk..",
+    "..kEeeeeeeeeEk..",
+    "..kEeegeeegeEk..",
+    "..kEeeeeeeeeEk..",
+    "..kEegeeegeeEk..",
+    "..kEeeeeeeeeEk..",
+    "..kK11111111Kk..",
+    "...kKKKKKKKKk...",
+    "....k0K00K0k....",
+};
+
+static const char *SPR_ART_CLONETANK_1[16] = {
+    "....kkkkkkkk....",
+    "...k11111111k...",
+    "..kKeeeeeeeeKk..",
+    "..kEe0eeee0eEk..",
+    "..kEeee00eeeEk..",
+    "..kEee0000eeEk..",
+    "..kEee0000eeEk..",
+    "..kEeee00eeeEk..",
+    "..kEegeeegeeEk..",
+    "..kEeeeeeeeeEk..",
+    "..kEeegeeegeEk..",
+    "..kEeeeeeeeeEk..",
+    "..kEegeeeegeEk..",
+    "..kK11111111Kk..",
+    "...kKKKKKKKKk...",
+    "....k0K00K0k....",
+};
+
+/* SADIE. The store owner's daughter, the one who went out at nine for the
+ * carts and never came back. Brown ponytail, a green grocer's apron over
+ * a pale shirt. She has been in a tank. She is not entirely okay. */
+static const char *SPR_ART_SADIE[16] = {
+    "................",
+    ".....hhhhh......",
+    "....hhhhhhh.h...",
+    "...hhssssshhh...",
+    "...hs0ss0shh....",
+    "...hsssSssh.....",
+    "....hssssh......",
+    "....01111r0.....",
+    "...0g1gg1g0.....",
+    "...0gg11gg0.....",
+    "...0g1111g0.....",
+    "...0g1gg1g0.....",
+    "....0bbbb0......",
+    "....0b00b0......",
+    "...0DD00DD0.....",
+    "....00..00......",
+};
+
+static const char *SPR_ART_SADIE_1[16] = {
+    "................",
+    ".....hhhhh......",
+    "....hhhhhhh.h...",
+    "...hhssssshhh...",
+    "...hs0ss0shh....",
+    "...hsssSssh.....",
+    "....hssssh......",
+    "....01111r0.....",
+    "...0g1gg1g0.....",
+    "...0gg11gg0.....",
+    "...0g1111g0.....",
+    "...0g1gg1g0.....",
+    "....0bbbb0......",
+    "....0b0.0b0.....",
+    "...0DD0.0DD0....",
+    "....00...00.....",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */

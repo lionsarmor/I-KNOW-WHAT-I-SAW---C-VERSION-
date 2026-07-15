@@ -1042,11 +1042,122 @@ static const spawn_t MAP_SPAWNS_UFO[] = {
  * just needs to fire: it points back at itself and the pod handler in
  * overworld.c takes it from there. */
 static const warp_t MAP_WARPS_UFO[] = {
-    { 19, 27, MAP_UFO, 19, 26, 0, FLAG_TAN_DEAD,
+    /* THE HATCH DOWN. It won't open until the tan is dead -- and it doesn't
+     * go home, it goes DEEPER: down into the science lab. (The pod tile is
+     * only the way OUT once you reach the hangar; check_door_bump warps it
+     * here on the ship and only launches from the hangar.) */
+    { 19, 27, MAP_LAB, 15, 2, 0, FLAG_TAN_DEAD,
       "THE HATCH IS SEALED. SOMETHING IS STILL STANDING BETWEEN YOU AND "
       "IT -- YOU CAN FEEL IT LOOKING AT THE BACK OF YOUR NECK." },
 };
 
+
+/* ============================ THE SCIENCE LAB ==============================
+ * PART 2 stage 2. You came DOWN the hatch. Five cloning tanks line the
+ * room, each decanting something out of the north-ridge nightmare --
+ * goblins, mostly, and worse. Shoot the TANKS to stop them (they are
+ * solid and take a dozen bolts each); break all five and the girl in the
+ * last one is freed, and the hangar door opens. Legend as the ship.
+ */
+static const char *const MAP_ROWS_LAB[20] = {
+    "%%%%%%%%%%%%%%//%%%%%%%%%%%%%%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%///&&&&&&//////////&&&&&&///%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%///////////&&&&&&///////////%",
+    "%///&////////////////////&///%",
+    "%///&////////////////////&///%",
+    "%///&////////////////////&///%",
+    "%///&////////&&&&////////&///%",
+    "%///&////////////////////&///%",
+    "%////////////////////////////%",
+    "%//////@@@@////////@@@@//////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%%%%%%%%%%%%%%GG%%%%%%%%%%%%%%",
+};
+
+static const spawn_t MAP_SPAWNS_LAB[] = {
+    /* THE FIVE TANKS. Rooted, solid, and they will not stop making more
+     * until the glass is broken. The girl is in the last one you break. */
+    { ENT_ALIEN,  6,  7, SPECIES_CLONETANK, 0 },
+    { ENT_ALIEN, 23,  7, SPECIES_CLONETANK, 0 },
+    { ENT_ALIEN,  6, 15, SPECIES_CLONETANK, 0 },
+    { ENT_ALIEN, 23, 15, SPECIES_CLONETANK, 0 },
+    { ENT_ALIEN, 15, 10, SPECIES_CLONETANK, 0 },
+
+    /* what has already been decanted and is loose in the room */
+    { ENT_ALIEN, 10,  3, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 19,  3, SPECIES_GREY, 0 },
+    { ENT_ALIEN,  9, 11, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 20, 11, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 14,  5, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 15, 16, SPECIES_GREY, 0 },
+
+    /* supplies -- you will burn through the cell down here */
+    { ENT_ITEM,  3,  2, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 26,  2, ITEM_BATTERY, 0 },
+    { ENT_ITEM,  3, 17, ITEM_GEL, 0 },
+    { ENT_ITEM, 26, 17, ITEM_GEL, 0 },
+    { ENT_ITEM, 15,  2, ITEM_NUKE, 0 },
+    { ENT_ITEM, 15, 13, ITEM_BATTERY, 0 },
+};
+
+static const warp_t MAP_WARPS_LAB[] = {
+    /* THE HANGAR DOOR. Sealed until the tanks are down and Sadie is with
+     * you (FLAG_GIRL) -- you are not leaving her in this room. */
+    { 14, 19, MAP_HANGAR, 14, 2, 0, FLAG_GIRL,
+      "THE DOOR TO THE HANGAR IS SEALED. YOU ARE NOT GOING THROUGH IT "
+      "WITHOUT HER, AND SHE IS STILL IN THE GLASS." },
+    { 15, 19, MAP_HANGAR, 15, 2, 0, FLAG_GIRL,
+      "THE DOOR TO THE HANGAR IS SEALED. YOU ARE NOT GOING THROUGH IT "
+      "WITHOUT HER, AND SHE IS STILL IN THE GLASS." },
+};
+
+/* ============================ THE HANGAR ===================================
+ * PART 2 stage 3. The bay doors, the parked shapes in the dark, and one
+ * small craft that will fit two. Bump the pod to GO HOME (pod_escape).
+ */
+static const char *const MAP_ROWS_HANGAR[20] = {
+    "%%%%%%%%%%%%%%//%%%%%%%%%%%%%%",
+    "%////////////////////////////%",
+    "%/&&&&&&//////////////&&&&&&/%",
+    "%/&////////////////////////&/%",
+    "%/&///////@@@@@@@@@@///////&/%",
+    "%/&///////@@@@@@@@@@///////&/%",
+    "%/&////////////////////////&/%",
+    "%/&////////////////////////&/%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%///////////%%%%%%///////////%",
+    "%/////////////OO/////////////%",
+    "%////////////////////////////%",
+    "%////////////////////////////%",
+    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
+};
+
+static const spawn_t MAP_SPAWNS_HANGAR[] = {
+    /* two last sentries between you and the craft */
+    { ENT_ALIEN,  9,  9, SPECIES_GREY, 0 },
+    { ENT_ALIEN, 20,  9, SPECIES_GREY, 0 },
+    { ENT_ITEM,  14,  9, ITEM_GEL,     0 },
+};
+
+static const warp_t MAP_WARPS_HANGAR[] = {
+    /* the escape pod itself is TILE_POD (14/15,16); check_door_bump on
+     * MAP_HANGAR fires pod_escape() -- no warp entry needed for it. */
+    { 0, 0, MAP_HANGAR, 0, 0, 0, FLAG_NEVER, "" },
+};
 
 /* ============================ THE MAP TABLE ===============================*/
 #define N(a) (int)(sizeof(a) / sizeof((a)[0]))
@@ -1098,6 +1209,12 @@ const map_t maps[NUM_MAPS] = {                       /* outdoor? (night) */
     [MAP_UFO] = { "THE SHIP", MAP_ROWS_UFO, 40, 30,
                     MAP_SPAWNS_UFO, N(MAP_SPAWNS_UFO),
                     MAP_WARPS_UFO,  N(MAP_WARPS_UFO), 0 },
+    [MAP_LAB] = { "THE SCIENCE LAB", MAP_ROWS_LAB, 30, 20,
+                    MAP_SPAWNS_LAB, N(MAP_SPAWNS_LAB),
+                    MAP_WARPS_LAB,  N(MAP_WARPS_LAB), 0 },
+    [MAP_HANGAR] = { "THE HANGAR", MAP_ROWS_HANGAR, 30, 20,
+                    MAP_SPAWNS_HANGAR, N(MAP_SPAWNS_HANGAR),
+                    MAP_WARPS_HANGAR,  N(MAP_WARPS_HANGAR), 0 },
 };
 
 #undef N

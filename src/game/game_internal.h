@@ -182,6 +182,12 @@ typedef struct {
      * where the tornado is, in world pixels. */
     int      wx, wx_t, wx_x, wx_flash;
 
+    /* THE SHIP ALARM (PART 2). Not weather -- but the same kind of thing:
+     * an environment doing its own thing around you. On the ship the
+     * emergency lights go, at random: alarm_t counts down to the next red
+     * pulse, alarm_flash is how much red is on the glass right now. */
+    int      alarm_t, alarm_flash;
+
     /* Ticks left on the "THE FARM" banner. Set ONLY by overworld_enter_map,
      * so it fires when you actually walk into a place -- not every time a
      * dialog or a menu closes and hands control back to the overworld. */

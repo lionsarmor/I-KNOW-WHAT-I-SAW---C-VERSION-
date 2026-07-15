@@ -121,6 +121,7 @@ enum {
     SFX_KNOCK,      /* it has reached the glass (STAY THE NIGHT)        */
     SFX_BREACH,     /* the glass didn't hold                            */
     SFX_LASER,      /* PART 2: the silver man's beam weapon -- pew      */
+    SFX_ALARM,      /* PART 2: the ship's emergency klaxon, low + slow  */
     NUM_SFX
 };
 
