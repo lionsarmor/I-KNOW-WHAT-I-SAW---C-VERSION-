@@ -366,6 +366,9 @@ typedef struct {
         int hit_power;           /* MV_MULTI: damage per blow          */
         int lob_kind;            /* PH_LOB: what's in the air (ITEM_*) */
         char msg[80];
+        const char *msg_hi;      /* a substring of msg to paint in the
+                                    SPECIAL-MOVE color (the move's name);
+                                    NULL for an ordinary line. */
     } battle;
 
     uint32_t rng;

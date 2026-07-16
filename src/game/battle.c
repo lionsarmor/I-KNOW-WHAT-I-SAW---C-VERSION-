@@ -73,6 +73,7 @@ static int eff_level(void)
  * text c. e.g.  msgb("A ", sp->name, -1, " BLOCKS YOUR PATH!") */
 static void msgb(const char *a, const char *b, int num, const char *c)
 {
+    G.battle.msg_hi = 0;    /* ordinary line -- no special-move highlight */
     char *m = G.battle.msg;
     int i = 0;
     while (*a && i < 60) m[i++] = *a++;
@@ -291,6 +292,9 @@ static void enemy_attacks(void)
             p[i++] = *c;
         if (i < 78) p[i++] = '!';
         p[i] = '\0';
+        /* paint the MOVE NAME in the special-move color (draw_msg). msgb
+         * cleared msg_hi above, so set it after. */
+        G.battle.msg_hi = m->name;
         audio_sfx(SFX_STING);
         set_phase(PH_SPECIAL);
         return;
@@ -720,31 +724,62 @@ void battle_update(void)
  * run straight off the right edge of the screen. Greedy wrap at spaces. */
 #define MSG_COLS 27
 
+/* find `needle` in `hay`; -1 if absent (no libc in the freestanding core) */
+static int str_find(const char *hay, const char *needle)
+{
+    if (!needle || !*needle)
+        return -1;
+    for (int i = 0; hay[i]; i++) {
+        int j = 0;
+        while (needle[j] && hay[i + j] == needle[j]) j++;
+        if (!needle[j]) return i;
+    }
+    return -1;
+}
+
 static void draw_msg(const char *s, int x, int y)
 {
+    /* Ordinary text is white. If msg_hi points at a substring (a monster's
+     * SPECIAL MOVE name -- see enemy_attacks), that span is painted in a
+     * hot, pulsing alien violet instead, so a special move READS as one. */
+    int hs = str_find(s, G.battle.msg_hi), he = -1;
+    if (hs >= 0) {
+        he = hs;
+        while (G.battle.msg_hi[he - hs]) he++;
+    }
+    int pulse = 210 + (int)((G.frame / 3) % 46);          /* 210..255 */
+    uint16_t normal = RGB565(255, 255, 255);
+    uint16_t hi     = RGB565(pulse, 70, pulse);           /* violet, alive */
+
     char line[MSG_COLS + 1];
-    int  n = 0, row = 0;
+    int  base = 0, row = 0;                    /* base = abs offset of line */
 
     while (*s && row < 2) {
-        /* how much of the rest fits on this line? */
         int take = 0, last_space = -1;
         while (s[take] && take < MSG_COLS) {
-            if (s[take] == ' ')
-                last_space = take;
+            if (s[take] == ' ') last_space = take;
             take++;
         }
-        /* if we stopped mid-word, back up to the last space */
         if (s[take] && last_space > 0)
             take = last_space;
 
-        for (n = 0; n < take; n++)
-            line[n] = s[n];
-        line[n] = '\0';
-        gfx_text(x, y + row * 11, line, RGB565(255, 255, 255));
+        /* draw the line in runs, switching color at the highlight edges */
+        int lx = x, i = 0;
+        while (i < take) {
+            int in = (base + i >= hs && base + i < he);
+            int k = 0;
+            while (i < take &&
+                   ((base + i >= hs && base + i < he) ? 1 : 0) == in) {
+                line[k++] = s[i]; i++;
+            }
+            line[k] = '\0';
+            gfx_text(lx, y + row * 11, line, in ? hi : normal);
+            lx += gfx_text_width(line, 1);
+        }
 
-        s += take;
-        while (*s == ' ')
-            s++;                 /* swallow the break */
+        s    += take;
+        base += take;
+        while (*s == ' ') { s++; base++; }     /* swallow the break */
         row++;
     }
 }
