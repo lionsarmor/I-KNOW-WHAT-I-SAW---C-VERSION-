@@ -719,8 +719,9 @@ static void clone_tank_break(int i)
     entity_t *e = &G.ents[i];
     int tx = e->x, ty = e->y;
 
-    journal_saw(SPECIES_CLONETANK);
-    journal_kill(SPECIES_CLONETANK);
+    /* NOT a journal creature -- it's a machine. WHAT I SAW is for things
+     * that were alive (see NUM_JOURNAL in intro.c), so the tank goes
+     * unrecorded on purpose. */
     audio_sfx(SFX_BREACH);              /* glass, and a lot of it */
     rumble(200);
     shake(3, 16);
@@ -1999,6 +2000,16 @@ static void camera(int *cx, int *cy)
     if (*cy > m->h * TILE - SCREEN_H) *cy = m->h * TILE - SCREEN_H;
 }
 
+/* which rung of the melee ladder is in hand: the best weapon owned, or
+ * fists. What the FIGHT button swings (battle.c) and the HUD shows. */
+int best_melee(void)
+{
+    for (int m = NUM_MELEE - 1; m >= 1; m--)
+        if (G.player.items[melee_info[m].item] > 0)
+            return m;
+    return MELEE_FIST;
+}
+
 /* which sprite frame is the player right now?
  * classic 4-phase walk cycle over 3 frames: stand, stepL, stand, stepR */
 static void player_sprite(int *spr, int *flip)
@@ -2082,6 +2093,15 @@ static void draw_hud(void)
 
     /* ---- what you're carrying, only if you have it ----------------------*/
     int ix = X, iy = Y + 21;
+    {
+        /* the melee weapon in hand -- the thing the FIGHT button swings.
+         * Nothing to draw for bare fists. */
+        int m = best_melee();
+        if (melee_info[m].spr >= 0) {
+            gfx_blit(sprites[melee_info[m].spr].px, TILE, TILE, ix - 4, iy - 4);
+            ix += 12;
+        }
+    }
     if (G.player.items[ITEM_KEY]) {
         gfx_blit(sprites[SPR_ITEM_KEY].px, TILE, TILE, ix - 4, iy - 4);
         ix += 12;

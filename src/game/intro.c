@@ -1087,6 +1087,12 @@ void journal_kill(int kind)
         G.species_kills[kind]++;
 }
 
+/* WHAT I SAW is a bestiary -- LIVING things only. The cloning tank is a
+ * machine and the last species in the enum, so the book stops just short
+ * of it. (If a non-creature is ever added anywhere but the end, give the
+ * journal a real predicate instead of this count.) */
+#define NUM_JOURNAL SPECIES_CLONETANK
+
 void journal_start(state_t from)
 {
     G.journal_from = from;
@@ -1098,11 +1104,11 @@ void journal_start(state_t from)
 void journal_update(void)
 {
     if (PRESSED(BTN_LEFT)) {
-        G.journal_sel = (G.journal_sel + NUM_SPECIES - 1) % NUM_SPECIES;
+        G.journal_sel = (G.journal_sel + NUM_JOURNAL - 1) % NUM_JOURNAL;
         audio_sfx(SFX_BLIP);
     }
     if (PRESSED(BTN_RIGHT) || PRESSED(BTN_A)) {
-        G.journal_sel = (G.journal_sel + 1) % NUM_SPECIES;
+        G.journal_sel = (G.journal_sel + 1) % NUM_JOURNAL;
         audio_sfx(SFX_BLIP);
     }
     if (PRESSED(BTN_B) || PRESSED(BTN_START)) {
@@ -1163,15 +1169,15 @@ void journal_render(void)
     gfx_text(12, 10, "WHAT I SAW", RGB565(255, 255, 255));
     {
         int total = 0;
-        for (int i = 0; i < NUM_SPECIES; i++)
+        for (int i = 0; i < NUM_JOURNAL; i++)
             total += (G.species_seen >> i) & 1;
         char hdr[8];
         int p = 0;
         if (total > 9) hdr[p++] = (char)('0' + total / 10);
         hdr[p++] = (char)('0' + total % 10);
         hdr[p++] = '/';
-        if (NUM_SPECIES > 9) hdr[p++] = (char)('0' + NUM_SPECIES / 10);
-        hdr[p++] = (char)('0' + NUM_SPECIES % 10);
+        if (NUM_JOURNAL > 9) hdr[p++] = (char)('0' + NUM_JOURNAL / 10);
+        hdr[p++] = (char)('0' + NUM_JOURNAL % 10);
         hdr[p]   = '\0';
         gfx_text(SCREEN_W - 12 - gfx_text_width(hdr, 1), 10, hdr,
                  RGB565(150, 150, 158));
@@ -1278,7 +1284,9 @@ static const chapter_t chapters[] = {
     { "18 MINIGAME: THE NIGHT",CH_NIGHT },
     /* ---- PART 2: the man in the silver suit ---- */
     { "19 THE SHIP",           CH_MAP, E2, MAP_UFO,       19,  6 },
-    { "20 SCENE: PART 2 END",  CH_P2END },
+    { "20 THE SCIENCE LAB",    CH_MAP, E2, MAP_LAB,       15,  3 },
+    { "21 THE HANGAR",         CH_MAP, E2, MAP_HANGAR,    14,  3 },
+    { "22 SCENE: PART 2 END",  CH_P2END },
 };
 #define NUM_CHAPTERS ((int)(sizeof chapters / sizeof chapters[0]))
 #define CHAPTER_ROWS 9         /* visible at once; the list scrolls */
@@ -1305,18 +1313,19 @@ static void chapter_era(int era)
         p->items[ITEM_SHOTGUN] = 1;  p->items[ITEM_SHELLS] = 18;
         p->items[ITEM_FLASHLIGHT] = 1; p->items[ITEM_TNT] = 3;
         p->items[ITEM_HERB] = 3;     p->items[ITEM_MEDKIT] = 2;
+        p->items[ITEM_SPADE] = 1;                    /* a melee weapon for FIGHT */
         G.flags |= FLAG_GOBLIN_DEAD;                 /* roads open, world walkable */
     } else if (era == E1) {
         G.flags |= FLAG_PART1 | FLAG_FAMILY;
         p->items[ITEM_HANDGUN] = 1;  p->items[ITEM_BULLETS] = 24;
         p->items[ITEM_FLASHLIGHT] = 1; p->items[ITEM_HOLYWATER] = 2;
         p->items[ITEM_HERB] = 3;     p->items[ITEM_MEDKIT] = 2;
-        p->items[ITEM_ROSARY] = 1;
+        p->items[ITEM_ROSARY] = 1;   p->items[ITEM_PIPE] = 1;
     } else {                                         /* E2: the ship */
         G.flags |= FLAG_PART1 | FLAG_PART2;
         p->items[ITEM_LASER] = 1;    p->items[ITEM_BATTERY] = 48;
         p->items[ITEM_NUKE] = 2;     p->items[ITEM_GEL] = 4;
-        p->items[ITEM_MEDKIT] = 2;
+        p->items[ITEM_MEDKIT] = 2;   p->items[ITEM_PROD] = 1;
     }
 
     G.items_seen = 0;
@@ -1339,6 +1348,12 @@ static void chapter_go(int idx)
     switch (c->kind) {
     case CH_MAP:
         chapter_era(c->era);
+        /* the deeper ship decks assume the ones before them are done: the
+         * lab is past the tan; the hangar is past the lab, girl rescued. */
+        if (c->map == MAP_LAB || c->map == MAP_HANGAR)
+            G.flags |= FLAG_TAN_DEAD;
+        if (c->map == MAP_HANGAR)
+            G.flags |= FLAG_LAB_CLEAR | FLAG_GIRL;
         overworld_enter_map(c->map, c->tx, c->ty);
         break;
     case CH_DRIVE:

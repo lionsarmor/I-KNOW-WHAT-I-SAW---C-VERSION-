@@ -86,6 +86,9 @@ static const spawn_t MAP_SPAWNS_FARM[] = {
     { ENT_NPC,    8,  3, LOOK_PA,
       "PA: THE CROPS WERE FLAT IN CIRCLES AGAIN THIS MORNING, ~. "
       "AND THE COWS WON'T GO NEAR THE POND. YOU BE CAREFUL OUT THERE." },
+    /* PA'S SPADE, stuck in the dirt right by the door. Grab it -- until you
+     * do, the FIGHT button is your bare knuckles, and that's a bad plan. */
+    { ENT_ITEM,   6,  6, ITEM_SPADE, 0 },
     /* The farm is HOME. It is where you feed the dog and get mooed at, and
      * it should feel like that most of the time -- so there is exactly one
      * ant wandering it, and exactly one hill making more. If you want the
@@ -406,8 +409,9 @@ static const warp_t MAP_WARPS_RIDGE[] = {
  * inside in a while, and it shows: the floor is holed, the furniture is
  * where it landed, and the man who owns the place is still sitting in it.
  *
- * >>> THE LANDOWNER'S NAME IS A PLACEHOLDER -- you left it blank. Change
- * >>> "ELIAS HOLLIS" below to whatever you actually want him called.
+ * ELIAS HOLLIS was abducted and reassembled by something working from a
+ * bad diagram. He is fine about it. He has his own sprite now (LOOK_HOLLIS)
+ * with the features in the wrong places, and he'd love to chat.
  */
 static const char *const MAP_ROWS_WRECK[10] = {
     "HHHHHHHHHHHHHHH",
@@ -424,14 +428,17 @@ static const char *const MAP_ROWS_WRECK[10] = {
 
 static const spawn_t MAP_SPAWNS_WRECK[] = {
     /* He is sitting in the wreckage of his own front room. He has been
-     * sitting there for some time. */
-    { ENT_NPC, 5, 4, LOOK_PA,   /* NOTE: shares Pa's sprite for now */
-      "...OH. YOU FOUND THE KEY. I WONDERED WHO'D COME.\n"
-      "ELIAS HOLLIS. I OWN THIS. OWNED IT. THEY TOOK ME OUT THROUGH THAT "
-      "ROOF, ~, AND THEY PUT ME BACK IN THE WRONG ORDER.",
+     * sitting there for some time. His face is not where you'd expect. */
+    { ENT_NPC, 5, 4, LOOK_HOLLIS,
+      "...OH! COMPANY! DON'T MIND THE FACE, IT SETTLES.\n"
+      "ELIAS HOLLIS. I OWN THIS. OWNED IT. THEY TOOK ME UP THROUGH THAT "
+      "ROOF AND PUT ME BACK IN THE WRONG ORDER -- MY EAR'S ON MY CHEEK "
+      "AND I TASTE COLORS NOW, BUT THE MORTGAGE IS PAID, SO.\n"
+      "THE ONE THAT DID IT HUMMED THE WHOLE TIME, ~. CHEERFUL LITTLE "
+      "TUNE. I'D KNOW IT ANYWHERE.",
       0,
-      "THE CEILING IS STILL OPEN. I DON'T LOOK UP ANY MORE. "
-      "YOU SHOULDN'T EITHER." },
+      "MY LEFT HAND'S A RIGHT HAND NOW. WAVES AT PEOPLE ON ITS OWN. "
+      "...YOU GET USED TO YOURSELF. EVENTUALLY." },
 
     { ENT_ITEM, 11, 8, ITEM_MEDKIT, 0 },
     { ENT_ITEM,  2, 8, ITEM_SHELLS, 0 },
@@ -713,6 +720,8 @@ static const spawn_t MAP_SPAWNS_OFFICE[] = {
 
     { ENT_ITEM,  4,  6, ITEM_FLASHLIGHT, 0 },  /* the maintenance torch,
                                                    right inside the door  */
+    { ENT_ITEM, 15,  4, ITEM_PIPE,       0 },  /* a length of pipe pried
+                                                   off the dark stairwell  */
     { ENT_ITEM, 13, 10, ITEM_HANDGUN,    0 },  /* Kowalski's desk drawer  */
     { ENT_ITEM, 14,  1, ITEM_BULLETS,    0 },  /* ...and the carton under
                                                    it. Pistol BULLETS --
@@ -1003,6 +1012,9 @@ static const spawn_t MAP_SPAWNS_UFO[] = {
     /* THE LASER, an arm's reach from the table. Pick it up before you
      * understand anything else, because the room is already moving. */
     { ENT_ITEM, 24, 5, ITEM_LASER, 0 },
+    /* an alien STUN-PROD dropped by the table -- your first melee weapon
+     * up here, and a nasty one (you know exactly what it feels like) */
+    { ENT_ITEM, 15, 5, ITEM_PROD,  0 },
 
     /* THE GREYS. The crew. They come at you down every corridor. */
     { ENT_ALIEN, 8, 9, SPECIES_GREY, 0 },

@@ -328,6 +328,11 @@ int assets_init(void)
         { SPR_CLONETANK_1,   SPR_ART_CLONETANK_1   },
         { SPR_SADIE,         SPR_ART_SADIE         },
         { SPR_SADIE_1,       SPR_ART_SADIE_1       },
+        { SPR_ITEM_SPADE,    SPR_ART_ITEM_SPADE    },
+        { SPR_ITEM_PIPE,     SPR_ART_ITEM_PIPE     },
+        { SPR_ITEM_PROD,     SPR_ART_ITEM_PROD     },
+        { SPR_HOLLIS,        SPR_ART_HOLLIS        },
+        { SPR_HOLLIS_1,      SPR_ART_HOLLIS_1      },
     };
     for (unsigned i = 0; i < sizeof sprite_art / sizeof sprite_art[0]; i++)
         errors += decode(sprite_art[i].art, TILE, TILE,
@@ -650,6 +655,16 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
     [LOOK_JENNA]     = { SPR_JENNA,      SPR_JENNA_1      },
     [LOOK_DAN]       = { SPR_DAN,        SPR_DAN_1        },
     [LOOK_SADIE]     = { SPR_SADIE,      SPR_SADIE_1      },
+    [LOOK_HOLLIS]    = { SPR_HOLLIS,     SPR_HOLLIS_1     },
+};
+
+/* THE MELEE LADDER (see melee_t in assets.h). Fists first, always; each
+ * weapon you own outranks it and outranks the ones before it. */
+const melee_t melee_info[NUM_MELEE] = {
+    [MELEE_FIST]  = { -1,         "YOU THROW A PUNCH! ",       0, -1 },
+    [MELEE_SPADE] = { ITEM_SPADE, "YOU SWING THE SPADE! ",     3, SPR_ITEM_SPADE },
+    [MELEE_PIPE]  = { ITEM_PIPE,  "YOU SWING THE PIPE! ",      6, SPR_ITEM_PIPE },
+    [MELEE_PROD]  = { ITEM_PROD,  "YOU JAB THE STUN-PROD! ",  10, SPR_ITEM_PROD },
 };
 
 /* ============================ THE ITEMS ====================================
@@ -710,4 +725,15 @@ const item_info_t item_info[NUM_ITEMS] = {
         "WEIRD GREEN GOO IN A CAN. THERE IS NO OTHER WAY TO SAY IT. IT IS "
         "WARM THROUGH THE METAL AND IT MOVES WHEN YOU HOLD STILL.\n"
         "DON'T OPEN IT. NOT YET. NOT HERE." },
+    /* ---- MELEE WEAPONS (see melee_info[]). Not used from a menu -- just
+     * carrying one is what the FIGHT button swings. ---- */
+    [ITEM_SPADE] = { "SPADE", SPR_ITEM_SPADE,
+        "PA'S SPADE. THE HANDLE IS WORN SMOOTH WHERE HIS HANDS WENT. IT "
+        "ISN'T MUCH, BUT IT'S BETTER THAN YOUR BARE KNUCKLES." },
+    [ITEM_PIPE] = { "PIPE", SPR_ITEM_PIPE,
+        "A LENGTH OF LEAD PIPE, PRIED OFF SOMETHING IN THE DARK. IT HAS A "
+        "GOOD, UGLY WEIGHT TO IT." },
+    [ITEM_PROD] = { "PROD", SPR_ITEM_PROD,
+        "AN ALIEN STUN-PROD. THE TIP STILL SPARKS GREEN. YOU'VE BEEN ON "
+        "THE WRONG END OF ONE OF THESE. NOW YOU'RE NOT." },
 };

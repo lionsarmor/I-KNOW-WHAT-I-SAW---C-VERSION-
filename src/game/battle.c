@@ -158,11 +158,14 @@ void battle_start(int ent_index)
 
 static void player_attacks(void)
 {
-    int dmg = PLAYER_BASE_ATK + eff_level() + rng_range(0, 2);
+    /* FIGHT swings whatever melee weapon is in hand -- fists by default,
+     * and fists barely dent anything. Find a spade. Find worse. */
+    const melee_t *w = &melee_info[best_melee()];
+    int dmg = PLAYER_BASE_ATK + w->bonus + eff_level() + rng_range(0, 2);
     G.battle.enemy_hp -= dmg;
     if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
     audio_sfx(SFX_HIT);
-    msgb("YOU SWING YOUR SPADE! ", "", dmg, " DMG!");
+    msgb(w->hit, "", dmg, " DMG!");
     set_phase(PH_PLAYER_HIT);
 }
 

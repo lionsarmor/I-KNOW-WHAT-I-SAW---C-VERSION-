@@ -59,7 +59,9 @@
 /* ---- Player / gameplay tunables ------------------------------------------*/
 #define PLAYER_SPEED      2   /* pixels moved per tick while walking        */
 #define PLAYER_MAX_HP    20   /* starting max health                        */
-#define PLAYER_BASE_ATK   3   /* base damage before level bonus + rng       */
+#define PLAYER_BASE_ATK   2   /* FIST damage before level + rng. Low on
+                                 purpose: a bare punch should hurt YOU more
+                                 than it. Melee weapons add melee_info[].bonus */
 #define XP_PER_LEVEL     10   /* need level * XP_PER_LEVEL to level up      */
 #define ALIEN_WANDER_SPEED 1  /* pixels per tick when an alien wanders      */
 /* Per-ENEMY stats (hp, attack, xp) live in the species[] table in

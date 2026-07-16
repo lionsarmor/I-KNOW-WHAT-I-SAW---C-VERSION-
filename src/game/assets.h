@@ -108,6 +108,8 @@ enum {
     SPR_ITEM_GOO,                         /* WEIRD GREEN GOO IN A CAN      */
     SPR_CLONETANK, SPR_CLONETANK_1,       /* the lab's vats                */
     SPR_SADIE,     SPR_SADIE_1,           /* the girl from the parking lot */
+    SPR_ITEM_SPADE, SPR_ITEM_PIPE, SPR_ITEM_PROD,  /* melee weapons        */
+    SPR_HOLLIS,    SPR_HOLLIS_1,          /* the man put back wrong        */
     NUM_SPRITES
 };
 
@@ -247,6 +249,7 @@ enum {
                             overworld.c: bottles, screaming, and one
                             name that gets past him.) */
     LOOK_SADIE,          /* the rescued girl, PART 2's science lab */
+    LOOK_HOLLIS,         /* Elias Hollis, reassembled wrong */
     NUM_LOOKS
 };
 
@@ -294,8 +297,25 @@ enum {
     ITEM_GOO,      /* WEIRD GREEN GOO IN A CAN. A story is in there.
                       Do not open it. (Using it from the pack is how
                       you find out you shouldn't have.)                  */
+    /* ---- MELEE WEAPONS. Passive: carrying the best one is what the FIGHT
+     * button swings. You start with none (fists). See melee_info[]. ---- */
+    ITEM_SPADE,    /* the farm. Pa's spade.                              */
+    ITEM_PIPE,     /* PART 1: a length of lead pipe from the dark tower. */
+    ITEM_PROD,     /* PART 2: an alien stun-prod off the ship.           */
     NUM_ITEMS
 };
+
+/* THE MELEE LADDER. The FIGHT action swings the best weapon you're holding;
+ * with none, you throw a punch (weak). One row per rung -- item is the
+ * ITEM_* you must own (-1 = fists, always available), spr the HUD icon. */
+enum { MELEE_FIST, MELEE_SPADE, MELEE_PIPE, MELEE_PROD, NUM_MELEE };
+typedef struct {
+    int         item;   /* ITEM_* to own, or -1 for fists   */
+    const char *hit;    /* the FIGHT message                */
+    int         bonus;  /* damage added over a bare punch    */
+    int         spr;    /* HUD sprite, or -1                 */
+} melee_t;
+extern const melee_t melee_info[NUM_MELEE];
 
 typedef struct {
     const char *name;         /* shown in the battle ITEM menu       */

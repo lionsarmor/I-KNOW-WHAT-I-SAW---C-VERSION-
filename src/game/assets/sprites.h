@@ -2887,6 +2887,106 @@ static const char *SPR_ART_SADIE_1[16] = {
     "....00...00.....",
 };
 
+/* MELEE WEAPONS. The FIGHT button used to always say "spade"; now it says
+ * whatever is in your hand, and by default that is nothing. Pick these up.
+ */
+static const char *SPR_ART_ITEM_SPADE[16] = {
+    "................",
+    "................",
+    ".......dd.......",
+    ".......dd.......",
+    ".......dd.......",
+    ".......dd.......",
+    ".......dd.......",
+    ".......dd.......",
+    "......kddk......",
+    ".....kkkkkk.....",
+    ".....kKKKKk.....",
+    ".....kKKKKk.....",
+    "......kKKk......",
+    ".......kk.......",
+    "................",
+    "................",
+};
+
+static const char *SPR_ART_ITEM_PIPE[16] = {
+    "................",
+    "................",
+    "................",
+    "................",
+    "............KKk.",
+    "...........kkkK.",
+    "..........k11k..",
+    ".........k11k...",
+    "........k11k....",
+    ".......k11k.....",
+    "......k11k......",
+    ".....k11k.......",
+    "....kKKk........",
+    "...kKKk.........",
+    "................",
+    "................",
+};
+
+static const char *SPR_ART_ITEM_PROD[16] = {
+    "................",
+    ".....ee.........",
+    "....egge........",
+    "....egge........",
+    ".....gg.........",
+    ".....KK.........",
+    "....KKK.........",
+    "....KKK.........",
+    "...KKK..........",
+    "...KKK..........",
+    "..KKK...........",
+    "..KKK...........",
+    ".KKd............",
+    ".Kd.............",
+    "................",
+    "................",
+};
+
+/* ELIAS HOLLIS. Abducted, and reassembled by something that had only a
+ * rough idea of where the parts went. Perfectly pleasant about it. */
+static const char *SPR_ART_HOLLIS[16] = {
+    "................",
+    ".....00000......",
+    "...00HHHHH00....",
+    "..0HHHHHHHHH0...",
+    "..0Hss0sssss0...",
+    "..0Hssssss0s0...",
+    "..k0sssssss0....",
+    "..0ss0sSssss0...",
+    "...0sss00s0.....",
+    "...0rrrrrr0.....",
+    "..0rRrrrRrr0....",
+    "..0rrRrrrRr0....",
+    "...0rrrrrr0.....",
+    "...0b0..0b0.....",
+    "..0DD0..0DD0....",
+    "...00....00.....",
+};
+
+static const char *SPR_ART_HOLLIS_1[16] = {
+    "................",
+    ".....00000......",
+    "...00HHHHH00....",
+    "..0HHHHHHHHH0...",
+    "..0Hss0sssss0...",
+    "..0Hssssss0s0...",
+    "...0sssssss0....",
+    "..k0ss0sSsss0...",
+    "...0sss00s0.....",
+    "...0rrrrrr0.....",
+    "..0rRrrrRrr0....",
+    "..0rrrRrrRr0....",
+    "...0rrrrrr0.....",
+    "...0b0..0b0.....",
+    "..0DD0..0DD0....",
+    "...00....00.....",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */

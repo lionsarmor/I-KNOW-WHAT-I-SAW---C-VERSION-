@@ -418,6 +418,7 @@ void journal_saw(int kind);        /* you got a LOOK at it (battle/kill) */
 void journal_kill(int kind);       /* ...and you put it down             */
 void species_colors(int kind, uint16_t *edge, uint16_t *text);
                                    /* the strength tiers (battle.c)      */
+int  best_melee(void);             /* the FIGHT weapon in hand (melee ladder) */
 void church_update(void);     void church_render(void);
 void part1_start(void);       /* new man, new city: begins at mass */
 void part1end_update(void);   void part1end_render(void);
