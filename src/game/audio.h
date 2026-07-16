@@ -122,6 +122,12 @@ enum {
     SFX_BREACH,     /* the glass didn't hold                            */
     SFX_LASER,      /* PART 2: the silver man's beam weapon -- pew      */
     SFX_ALARM,      /* PART 2: the ship's emergency klaxon, low + slow  */
+    SFX_PISTOL,     /* the office revolver -- a sharp, dry CRACK         */
+    /* the melee ladder, one voice each (see melee_info[] in assets.c):  */
+    SFX_PUNCH,      /* bare fists -- a dull, unconvincing thud           */
+    SFX_SPADE,      /* the spade -- a bright metal CLANG                 */
+    SFX_PIPE,       /* the lead pipe -- a heavier, lower clang + ring    */
+    SFX_PROD,       /* the alien stun-prod -- a crackling electric ZAP   */
     NUM_SFX
 };
 

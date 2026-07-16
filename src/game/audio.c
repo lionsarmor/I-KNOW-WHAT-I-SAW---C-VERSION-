@@ -452,6 +452,35 @@ static const sfx_step_t sx_shotgun[] = { {3000, 3,230, W_NOISE},
                                          { 500,12,150, W_NOISE},
                                          { 160,24, 80, W_NOISE},
                                          {  90,20, 40, W_NOISE} };
+/* THE PISTOL: not the shotgun's rolling boom -- a single dry CRACK. A hard
+ * noise transient, a short mid-body, and it's gone. No barn echo. */
+static const sfx_step_t sx_pistol[]  = { {2600, 2,210, W_NOISE},
+                                         { 900, 4,150, W_NOISE},
+                                         { 300, 5, 70, W_NOISE} };
+/* BARE FISTS: a dull, low thud that doesn't convince anybody -- least of
+ * all the thing you just punched. */
+static const sfx_step_t sx_punch[]   = { { 180, 3,150, W_NOISE},
+                                         { 110, 6,100, W_TRI},
+                                         {  80, 6, 50, W_TRI} };
+/* THE SPADE: a bright metal CLANG -- a hard tick, then a high ring that
+ * decays. Steel on something that isn't. */
+static const sfx_step_t sx_spade[]   = { {2400, 2,200, W_NOISE},
+                                         {1760, 6,170, W_TRI},
+                                         {1760,10,110, W_TRI},
+                                         {1320,14, 60, W_TRI} };
+/* THE PIPE: heavier and lower than the spade, with a longer ring -- lead
+ * has a good ugly weight to it. */
+static const sfx_step_t sx_pipe[]    = { {1400, 3,210, W_NOISE},
+                                         { 660, 8,180, W_TRI},
+                                         { 660,14,120, W_TRI},
+                                         { 495,20, 60, W_TRI} };
+/* THE STUN-PROD: a crackling electric ZAP -- buzzy saw over noise, biting
+ * up and then snapping off. */
+static const sfx_step_t sx_prod[]    = { {1500, 2,190, W_SAW},
+                                         {2100, 3,200, W_SAW},
+                                         {1700, 3,170, W_NOISE},
+                                         {2400, 4,150, W_SAW},
+                                         { 800, 4, 80, W_NOISE} };
 static const sfx_step_t sx_pickup[]  = { { 880, 5,130, W_PULSE25},
                                          {1175, 5,130, W_PULSE25},
                                          {1568,12,140, W_PULSE25} };
@@ -622,6 +651,11 @@ static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
     SFXROW(SFX_BREACH,  sx_breach),
     SFXROW(SFX_LASER,   sx_laser),
     SFXROW(SFX_ALARM,   sx_alarm),
+    SFXROW(SFX_PISTOL,  sx_pistol),
+    SFXROW(SFX_PUNCH,   sx_punch),
+    SFXROW(SFX_SPADE,   sx_spade),
+    SFXROW(SFX_PIPE,    sx_pipe),
+    SFXROW(SFX_PROD,    sx_prod),
 #undef SFXROW
 };
 

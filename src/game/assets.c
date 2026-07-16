@@ -5,6 +5,7 @@
  * ==========================================================================*/
 #include "assets.h"
 #include "gfx.h"
+#include "audio.h"      /* melee_info[] names the SFX_* each weapon makes */
 
 #include "assets/font.h"      /* defines font8[][]      */
 #include "assets/sprites.h"   /* defines SPR_ART_*      */
@@ -661,10 +662,10 @@ const npc_look_t npc_looks[NUM_LOOKS] = {
 /* THE MELEE LADDER (see melee_t in assets.h). Fists first, always; each
  * weapon you own outranks it and outranks the ones before it. */
 const melee_t melee_info[NUM_MELEE] = {
-    [MELEE_FIST]  = { -1,         "YOU THROW A PUNCH! ",       0, -1 },
-    [MELEE_SPADE] = { ITEM_SPADE, "YOU SWING THE SPADE! ",     3, SPR_ITEM_SPADE },
-    [MELEE_PIPE]  = { ITEM_PIPE,  "YOU SWING THE PIPE! ",      6, SPR_ITEM_PIPE },
-    [MELEE_PROD]  = { ITEM_PROD,  "YOU JAB THE STUN-PROD! ",  10, SPR_ITEM_PROD },
+    [MELEE_FIST]  = { -1,         "YOU THROW A PUNCH! ",       0, -1,            SFX_PUNCH },
+    [MELEE_SPADE] = { ITEM_SPADE, "YOU SWING THE SPADE! ",     3, SPR_ITEM_SPADE, SFX_SPADE },
+    [MELEE_PIPE]  = { ITEM_PIPE,  "YOU SWING THE PIPE! ",      6, SPR_ITEM_PIPE,  SFX_PIPE },
+    [MELEE_PROD]  = { ITEM_PROD,  "YOU JAB THE STUN-PROD! ",  10, SPR_ITEM_PROD,  SFX_PROD },
 };
 
 /* ============================ THE ITEMS ====================================

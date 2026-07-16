@@ -53,6 +53,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_lcd_panel_io.h"
@@ -135,9 +136,25 @@ static const char *TAG = "iknowwhatisaw";
 #define OFF_X ((LCD_W - SCREEN_W) / 2)
 #define OFF_Y ((LCD_H - SCREEN_H) / 2)
 
-/* SPI LCDs want big-endian RGB565, the core renders little-endian,
- * so we byte-swap into this buffer each frame (76.8 KB). */
-static uint16_t swapbuf[SCREEN_W * SCREEN_H];
+/* SPI LCDs want big-endian RGB565, the core renders little-endian, so we
+ * byte-swap before sending. We do it a STRIP at a time into a small DMA
+ * buffer rather than a whole second framebuffer -- a full 76.8 KB swap
+ * buffer plus the 76.8 KB core framebuffer would not fit the ESP32-C3's
+ * DRAM. STRIP_H rows at a time keeps this to a few KB. */
+#define STRIP_H 16                            /* 160 / 16 = 10 strips even */
+static uint16_t swapbuf[SCREEN_W * STRIP_H];  /* ~7.5 KB, was ~76.8 KB     */
+
+/* the panel signals each strip's DMA done through this, so we never refill
+ * the strip buffer while the controller is still reading it */
+static SemaphoreHandle_t lcd_ready;
+static bool lcd_trans_done(esp_lcd_panel_io_handle_t io,
+                           esp_lcd_panel_io_event_data_t *ed, void *ctx)
+{
+    (void)io; (void)ed; (void)ctx;
+    BaseType_t hp = pdFALSE;
+    xSemaphoreGiveFromISR(lcd_ready, &hp);
+    return hp == pdTRUE;
+}
 
 /* ---- buttons ---------------------------------------------------------------*/
 #if BOARD_C3_SUPER_MINI
@@ -258,6 +275,11 @@ static esp_lcd_panel_handle_t lcd_init(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(
         (esp_lcd_spi_bus_handle_t)SPI2_HOST, &io_cfg, &io));
 
+    /* one strip's DMA-done handoff -- present() waits on it (see swapbuf) */
+    lcd_ready = xSemaphoreCreateBinary();
+    esp_lcd_panel_io_callbacks_t cbs = { .on_color_trans_done = lcd_trans_done };
+    ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io, &cbs, NULL));
+
     esp_lcd_panel_handle_t panel;
     esp_lcd_panel_dev_config_t panel_cfg = {
         .reset_gpio_num = PIN_LCD_RST,
@@ -288,10 +310,19 @@ static esp_lcd_panel_handle_t lcd_init(void)
 static void present(esp_lcd_panel_handle_t panel)
 {
     const uint16_t *fb = game_framebuffer();
-    for (int i = 0; i < SCREEN_W * SCREEN_H; i++)
-        swapbuf[i] = (uint16_t)((fb[i] >> 8) | (fb[i] << 8));
-    esp_lcd_panel_draw_bitmap(panel, OFF_X, OFF_Y,
-                              OFF_X + SCREEN_W, OFF_Y + SCREEN_H, swapbuf);
+    /* byte-swap and push the frame STRIP_H rows at a time. After each strip
+     * we wait for its DMA to finish before reusing the little buffer, so a
+     * few KB stands in for what used to be a whole second framebuffer. */
+    for (int y = 0; y < SCREEN_H; y += STRIP_H) {
+        int h = (y + STRIP_H <= SCREEN_H) ? STRIP_H : (SCREEN_H - y);
+        const uint16_t *src = fb + y * SCREEN_W;
+        int n = h * SCREEN_W;
+        for (int i = 0; i < n; i++)
+            swapbuf[i] = (uint16_t)((src[i] >> 8) | (src[i] << 8));
+        esp_lcd_panel_draw_bitmap(panel, OFF_X, OFF_Y + y,
+                                  OFF_X + SCREEN_W, OFF_Y + y + h, swapbuf);
+        xSemaphoreTake(lcd_ready, portMAX_DELAY);
+    }
 }
 
 /* ---- audio (MAX98357A over I2S) ---------------------------------------------*/

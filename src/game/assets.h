@@ -313,7 +313,8 @@ typedef struct {
     int         item;   /* ITEM_* to own, or -1 for fists   */
     const char *hit;    /* the FIGHT message                */
     int         bonus;  /* damage added over a bare punch    */
-    int         spr;    /* HUD sprite, or -1                 */
+    int         spr;    /* HUD + swing sprite, or -1         */
+    int         sfx;    /* the SOUND it makes on impact      */
 } melee_t;
 extern const melee_t melee_info[NUM_MELEE];
 

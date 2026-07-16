@@ -31,6 +31,7 @@ enum {
     PH_SPECIAL,     /* it announces the move, THEN it lands           */
     PH_STUNNED,     /* you lost your turn -- it gets a free swing     */
     PH_SHOOT,       /* the gun comes up, roars, the pellets fly     */
+    PH_MELEE,       /* the lunge, the swing, the crack of contact   */
     PH_NOPE,        /* tried to SHOOT without gun/shells -> MENU    */
     PH_ITEMS,       /* the ITEM submenu (not a message phase)       */
     PH_ITEM_USED,   /* healed up -- costs your turn                 */
@@ -40,6 +41,9 @@ enum {
 
 /* which tick of PH_SHOOT the trigger gets pulled on */
 #define SHOT_FIRE_TICK 10
+
+/* which tick of PH_MELEE the weapon connects on (the lunge peaks here) */
+#define MELEE_HIT_TICK 9
 
 /* which tick of PH_LOB the thrown thing lands on */
 #define LOB_IMPACT_TICK 16
@@ -159,14 +163,15 @@ void battle_start(int ent_index)
 static void player_attacks(void)
 {
     /* FIGHT swings whatever melee weapon is in hand -- fists by default,
-     * and fists barely dent anything. Find a spade. Find worse. */
+     * and fists barely dent anything. Find a spade. Find worse.
+     *
+     * The damage is rolled NOW but doesn't LAND until the swing connects
+     * (MELEE_HIT_TICK of PH_MELEE): the lunge, then the crack, then the
+     * number. It's stashed in hit_power till then. */
     const melee_t *w = &melee_info[best_melee()];
-    int dmg = PLAYER_BASE_ATK + w->bonus + eff_level() + rng_range(0, 2);
-    G.battle.enemy_hp -= dmg;
-    if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
-    audio_sfx(SFX_HIT);
-    msgb(w->hit, "", dmg, " DMG!");
-    set_phase(PH_PLAYER_HIT);
+    G.battle.hit_power = PLAYER_BASE_ATK + w->bonus + eff_level()
+                       + rng_range(0, 2);
+    set_phase(PH_MELEE);
 }
 
 /* land `dmg` on the player */
@@ -518,12 +523,31 @@ void battle_update(void)
             int dmg  = base + eff_level() + rng_range(0, 4);
             G.battle.enemy_hp -= dmg;
             if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
-            audio_sfx(laser ? SFX_LASER : SFX_SHOTGUN);
+            /* each gun its own voice: the shotgun's rolling boom, the
+             * pistol's dry crack, the laser's pew. */
+            audio_sfx(laser ? SFX_LASER : shotgun ? SFX_SHOTGUN : SFX_PISTOL);
             msgb(laser   ? "THE BEAM BURNS THROUGH IT! "
                : shotgun ? "THE FAMILY GUN ROARS! "
                          : "THE PISTOL CRACKS! ", "", dmg, " DMG!");
         }
         if (G.battle.timer > 40 && msg_done()) {
+            if (G.battle.enemy_hp <= 0) win_battle();
+            else                        enemy_attacks();
+        }
+        break;
+
+    case PH_MELEE:
+        /* the swing connects at MELEE_HIT_TICK -- damage, the weapon's own
+         * sound, and the number all land together (the lunge is drawn in
+         * battle_render). */
+        if (G.battle.timer == MELEE_HIT_TICK) {
+            const melee_t *w = &melee_info[best_melee()];
+            G.battle.enemy_hp -= G.battle.hit_power;
+            if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
+            audio_sfx(w->sfx);
+            msgb(w->hit, "", G.battle.hit_power, " DMG!");
+        }
+        if (G.battle.timer > 34 && msg_done()) {
             if (G.battle.enemy_hp <= 0) win_battle();
             else                        enemy_attacks();
         }
@@ -781,10 +805,15 @@ void battle_render(void)
     int shot_landed = (G.battle.phase == PH_SHOOT &&
                        G.battle.timer >= SHOT_FIRE_TICK &&
                        G.battle.timer <  SHOT_FIRE_TICK + 14);
+    int melee_landed = (G.battle.phase == PH_MELEE &&
+                        G.battle.timer >= MELEE_HIT_TICK &&
+                        G.battle.timer <  MELEE_HIT_TICK + 12);
     int shake = 0;
     if (G.battle.phase == PH_PLAYER_HIT && G.battle.timer < 12)
         shake = (G.battle.timer / 2) % 2 ? 2 : -2;
     else if (shot_landed)
+        shake = (G.battle.timer / 2) % 2 ? 3 : -3;
+    else if (melee_landed)                       /* a whack rocks it too */
         shake = (G.battle.timer / 2) % 2 ? 3 : -3;
     int bob   = (int)((G.frame / 12) % 2) * 2;
     /* In battle it's looking straight at you, so a directional creature
@@ -825,7 +854,17 @@ void battle_render(void)
     int pback = (G.flags & FLAG_PART2) ? SPR_SILVER_UP_0
               : (G.flags & FLAG_PART1) ? SPR_LAWYER_UP_0
                                        : SPR_FARMER_UP_0;
-    gfx_blit_ex(sprites[pback].px, TILE, TILE, 40 + pshake, 78, 3, 256, 0);
+    /* THE LUNGE. On a FIGHT you spring up-and-forward toward the thing,
+     * connect at MELEE_HIT_TICK, then drop back onto your heels. */
+    int lunge = 0;
+    if (G.battle.phase == PH_MELEE) {
+        int t = G.battle.timer;
+        lunge = (t <= MELEE_HIT_TICK) ? t * 18 / MELEE_HIT_TICK
+                                      : 18 - (t - MELEE_HIT_TICK) * 3;
+        if (lunge < 0) lunge = 0;
+    }
+    gfx_blit_ex(sprites[pback].px, TILE, TILE,
+                40 + pshake + lunge, 78 - lunge / 2, 3, 256, 0);
 
     int laser_gun = G.player.items[ITEM_LASER];
 
@@ -875,6 +914,42 @@ void battle_render(void)
                 gfx_fill_rect(x - 5, y + 4, 2, 2, RGB565(255, 255, 200));
                 gfx_fill_rect(x - 9, y - 3, 2, 2, RGB565(255, 255, 200));
             }
+        }
+    }
+
+    /* ---- THE MELEE SWING: the weapon arcs up at the thing and CONNECTS.
+     * Fists have no sprite -- the lunge alone sells the punch. The prod's
+     * impact burns green; everything else strikes white-hot. */
+    if (G.battle.phase == PH_MELEE) {
+        int t    = G.battle.timer;
+        int m    = best_melee();
+        int exc  = ex + 8 * escale;                       /* enemy chest */
+        int eyc  = ey + 9 * escale;
+        int prog = (t <= MELEE_HIT_TICK) ? t : MELEE_HIT_TICK;
+        int f    = prog * 256 / MELEE_HIT_TICK;           /* 0..256      */
+        int wx   = 78 + (exc - 78) * f / 256;
+        int wy   = 96 + (eyc - 96) * f / 256
+                 - 4 * 26 * f * (256 - f) / (256 * 256);  /* the arc      */
+        if (melee_info[m].spr >= 0 && t <= MELEE_HIT_TICK + 2)
+            gfx_blit_ex(sprites[melee_info[m].spr].px, TILE, TILE,
+                        wx - 8, wy - 8, 2, 256, (t / 2) % 2);
+
+        if (t >= MELEE_HIT_TICK && t < MELEE_HIT_TICK + 5) {
+            int a = t - MELEE_HIT_TICK;                    /* 0..4 */
+            uint16_t hot  = (m == MELEE_PROD) ? RGB565(190, 255, 200)
+                                              : RGB565(255, 255, 255);
+            uint16_t warm = (m == MELEE_PROD) ? RGB565( 70, 240, 110)
+                                              : RGB565(255, 228, 140);
+            /* three diagonal slashes torn across the chest */
+            for (int s = -1; s <= 1; s++) {
+                int len = 18 - a * 3;
+                for (int k = 0; k < len; k++)
+                    gfx_pixel(exc - 8 + k + s * 6, eyc + 8 - k + s * 4,
+                              (k & 1) ? hot : warm);
+            }
+            int r = 5 - a;                                 /* a hot core   */
+            if (r > 0)
+                gfx_fill_rect(exc - r, eyc - r, r * 2, r * 2, hot);
         }
     }
 
