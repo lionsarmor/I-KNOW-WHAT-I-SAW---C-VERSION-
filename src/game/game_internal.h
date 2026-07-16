@@ -63,9 +63,12 @@ typedef struct {
 
 /* ---- things living on the current map ------------------------------------*/
 /* Enough for every scripted spawn on the busiest map PLUS room for the
- * things an ANT HILL produces at run time -- those take the slots above
- * the map's spawn count. */
-#define MAX_ENTITIES 24
+ * things a spawner (ant hill, cloning tank) produces at run time -- those
+ * take the slots above the map's spawn count. The SHIP is the crowded one:
+ * THE SHIP has 27 scripted (12 greys, the tan, the gear + the story goo),
+ * and THE SCIENCE LAB wants 20 scripted plus its brood. Must stay <= 32:
+ * spawns_gone is a per-map 32-bit mask (mark_dead uses 1u << slot). */
+#define MAX_ENTITIES 30
 
 typedef struct {
     int type;            /* ENT_NONE / ENT_ALIEN / ENT_NPC           */

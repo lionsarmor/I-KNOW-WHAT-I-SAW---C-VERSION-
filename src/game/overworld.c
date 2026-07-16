@@ -346,8 +346,12 @@ static void restock_items(void)
             /* HOLY WATER NEVER COMES BACK. Three vials exist in the whole
              * game; a herb-style respawn would quietly turn "three" into
              * "three per day" -- a different item entirely. */
+            /* A CLONING TANK, once shattered, STAYS shattered -- it is not
+             * wildlife that grows back overnight, it's a machine you broke,
+             * and breaking all five is how you free the girl. */
             int back = (s->type == ENT_ITEM && s->kind != ITEM_HOLYWATER) ||
-                       (s->type == ENT_ALIEN && !species[s->kind].boss);
+                       (s->type == ENT_ALIEN && !species[s->kind].boss &&
+                        s->kind != SPECIES_CLONETANK);
             if (back)
                 G.spawns_gone[m] &= ~(1u << i);
         }

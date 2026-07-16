@@ -1045,6 +1045,8 @@ static const spawn_t MAP_SPAWNS_UFO[] = {
     { ENT_ITEM, 19, 20, ITEM_NUKE, 0 },
     { ENT_ITEM, 7, 22, ITEM_BATTERY, 0 },
     { ENT_ITEM, 32, 22, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 12, 9, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 27, 9, ITEM_BATTERY, 0 },
     { ENT_ITEM, 20, 13, ITEM_GOO, 0 },
 };
 
@@ -1111,13 +1113,17 @@ static const spawn_t MAP_SPAWNS_LAB[] = {
     { ENT_ALIEN, 14,  5, SPECIES_GREY, 0 },
     { ENT_ALIEN, 15, 16, SPECIES_GREY, 0 },
 
-    /* supplies -- you will burn through the cell down here */
+    /* supplies -- breaking five tanks is a lot of bolts, so the cells are
+     * everywhere down here. You should never run dry before the girl. */
     { ENT_ITEM,  3,  2, ITEM_BATTERY, 0 },
     { ENT_ITEM, 26,  2, ITEM_BATTERY, 0 },
     { ENT_ITEM,  3, 17, ITEM_GEL, 0 },
     { ENT_ITEM, 26, 17, ITEM_GEL, 0 },
     { ENT_ITEM, 15,  2, ITEM_NUKE, 0 },
     { ENT_ITEM, 15, 13, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 10,  6, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 19,  6, ITEM_BATTERY, 0 },
+    { ENT_ITEM, 15, 17, ITEM_BATTERY, 0 },
 };
 
 static const warp_t MAP_WARPS_LAB[] = {
@@ -1163,6 +1169,8 @@ static const spawn_t MAP_SPAWNS_HANGAR[] = {
     { ENT_ALIEN,  9,  9, SPECIES_GREY, 0 },
     { ENT_ALIEN, 20,  9, SPECIES_GREY, 0 },
     { ENT_ITEM,  14,  9, ITEM_GEL,     0 },
+    { ENT_ITEM,   4, 12, ITEM_BATTERY, 0 },  /* topped off for the last two */
+    { ENT_ITEM,  25, 12, ITEM_BATTERY, 0 },
 };
 
 static const warp_t MAP_WARPS_HANGAR[] = {

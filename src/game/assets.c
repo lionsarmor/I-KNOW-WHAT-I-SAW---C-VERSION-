@@ -579,9 +579,11 @@ const species_t species[NUM_SPECIES] = {
      * a dozen laser bolts to shatter the glass. XP 0: the reward is that
      * it stops. See lab_pool()/hill_spawn() and the kill in overworld.c. */
     [SPECIES_CLONETANK] = { "CLONING TANK", 40, 0, 0,
-        SPR_CLONETANK, SPR_CLONETANK_1, 256, 0, 0, 12,
+        SPR_CLONETANK, SPR_CLONETANK_1, 256, 0, 0, 8,
         { { 0 } },
-        0, 1, 150 },        /* rooted, brood every 150 ticks */
+        0, 1, 300 },        /* rooted; 8 bolts to shatter; decants HALF as
+                               often (every 300 ticks) so the lab doesn't
+                               bury you before you reach the girl */
 };
 
 /* ---- THE LEGENDS, FOR THE JOURNAL ------------------------------------------
