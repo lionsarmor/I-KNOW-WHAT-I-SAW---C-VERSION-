@@ -108,6 +108,11 @@ enum {
     SPR_ITEM_GOO,                         /* WEIRD GREEN GOO IN A CAN      */
     SPR_CLONETANK, SPR_CLONETANK_1,       /* the lab's vats                */
     SPR_SADIE,     SPR_SADIE_1,           /* the girl from the parking lot */
+    /* Sadie the FOLLOWER: directional walk (side faces left, mirrored). The
+     * UP pair is also her battle-cast pose. */
+    SPR_SADIE_DN0, SPR_SADIE_DN1,
+    SPR_SADIE_UP0, SPR_SADIE_UP1,
+    SPR_SADIE_SD0, SPR_SADIE_SD1,
     SPR_ITEM_SPADE, SPR_ITEM_PIPE, SPR_ITEM_PROD,  /* melee weapons        */
     SPR_HOLLIS,    SPR_HOLLIS_1,          /* the man put back wrong        */
     NUM_SPRITES

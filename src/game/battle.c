@@ -32,6 +32,8 @@ enum {
     PH_STUNNED,     /* you lost your turn -- it gets a free swing     */
     PH_SHOOT,       /* the gun comes up, roars, the pellets fly     */
     PH_MELEE,       /* the lunge, the swing, the crack of contact   */
+    PH_PSI,         /* Sadie's PSI submenu (pick a psychic attack)  */
+    PH_PSICAST,     /* ...and it goes off                           */
     PH_NOPE,        /* tried to SHOOT without gun/shells -> MENU    */
     PH_ITEMS,       /* the ITEM submenu (not a message phase)       */
     PH_ITEM_USED,   /* healed up -- costs your turn                 */
@@ -44,6 +46,51 @@ enum {
 
 /* which tick of PH_MELEE the weapon connects on (the lunge peaks here) */
 #define MELEE_HIT_TICK 9
+
+/* which tick of PH_PSICAST the psychic force lands (a longer wind-up) */
+#define PSI_HIT_TICK 16
+
+/* ---- SADIE'S PSI ----------------------------------------------------------
+ * What they did to her on the ship gave her this. Two attacks: a reliable
+ * spike, and a big one that is NOT reliable -- her control slips, and when
+ * it slips it slips into HER. It's the price of the power. */
+typedef struct {
+    const char *name;   /* menu + highlighted announcement */
+    int         dmg;    /* base, + eff_level + a small roll */
+    int         unstable;   /* 1 = can backfire (STARFALL)  */
+    int         sfx;
+    const char *hit;    /* the message when it lands       */
+} psi_t;
+static const psi_t psi_moves[] = {
+    { "MIND SPIKE", 12, 0, SFX_PSI,
+      "A SPIKE OF PURE WILL PUNCHES THROUGH IT! " },
+    { "STARFALL",   22, 1, SFX_PSIBIG,
+      "THE AIR TEARS OPEN AND THE STARS FALL IN! " },
+};
+#define N_PSI ((int)(sizeof psi_moves / sizeof psi_moves[0]))
+
+/* the FIGHT-line actions, built fresh -- PSI only exists once Sadie does */
+enum { ACT_FIGHT, ACT_SHOOT, ACT_PSI, ACT_ITEM, ACT_RUN };
+static int battle_actions(int *a)
+{
+    int n = 0;
+    a[n++] = ACT_FIGHT;
+    a[n++] = ACT_SHOOT;
+    if (G.flags & FLAG_GIRL) a[n++] = ACT_PSI;
+    a[n++] = ACT_ITEM;
+    a[n++] = ACT_RUN;
+    return n;
+}
+static const char *act_label(int a)
+{
+    switch (a) {
+    case ACT_FIGHT: return "FIGHT";
+    case ACT_SHOOT: return "SHOOT";
+    case ACT_PSI:   return "PSI";
+    case ACT_ITEM:  return "ITEM";
+    default:        return "RUN";
+    }
+}
 
 /* which tick of PH_LOB the thrown thing lands on */
 #define LOB_IMPACT_TICK 16
@@ -485,23 +532,34 @@ void battle_update(void)
         if (msg_done()) set_phase(PH_MENU);
         break;
 
-    case PH_MENU:
-        /* 2x2 grid: FIGHT SHOOT / ITEM RUN. bit0 = column, bit1 = row */
-        if (PRESSED(BTN_LEFT) || PRESSED(BTN_RIGHT)) {
-            G.battle.menu ^= 1;
-            audio_sfx(SFX_BLIP);
+    case PH_MENU: {
+        /* the FIGHT line: FIGHT SHOOT [PSI] ITEM RUN, laid out in a grid
+         * that's 3 wide when Sadie's PSI is in it, 2 wide otherwise. */
+        int acts[6];
+        int nact = battle_actions(acts);
+        int cols = (nact > 4) ? 3 : 2;
+        if (G.battle.menu >= nact) G.battle.menu = 0;
+        if (PRESSED(BTN_LEFT)) {
+            G.battle.menu = (G.battle.menu + nact - 1) % nact; audio_sfx(SFX_BLIP);
         }
-        if (PRESSED(BTN_UP) || PRESSED(BTN_DOWN)) {
-            G.battle.menu ^= 2;
-            audio_sfx(SFX_BLIP);
+        if (PRESSED(BTN_RIGHT)) {
+            G.battle.menu = (G.battle.menu + 1) % nact; audio_sfx(SFX_BLIP);
+        }
+        if (PRESSED(BTN_UP)) {
+            G.battle.menu = (G.battle.menu + nact - cols) % nact; audio_sfx(SFX_BLIP);
+        }
+        if (PRESSED(BTN_DOWN)) {
+            G.battle.menu = (G.battle.menu + cols) % nact; audio_sfx(SFX_BLIP);
         }
         if (PRESSED(BTN_A)) {
-            switch (G.battle.menu) {
-            case 0: player_attacks(); break;
-            case 1: try_shoot();      break;
-            case 2: {
-                /* nothing to list? say so and bounce -- an empty menu is
-                 * worse than no menu */
+            switch (acts[G.battle.menu]) {
+            case ACT_FIGHT: player_attacks(); break;
+            case ACT_SHOOT: try_shoot();      break;
+            case ACT_PSI:
+                G.battle.item_sel = 0;        /* reused for the PSI cursor */
+                set_phase(PH_PSI);
+                break;
+            case ACT_ITEM: {
                 int list[N_BATTLE_ITEMS];
                 if (avail_items(list) == 0) {
                     msgb("YOUR POCKETS ARE EMPTY.", "", -1, "");
@@ -513,10 +571,57 @@ void battle_update(void)
                 }
                 break;
             }
-            case 3: try_run();        break;
+            case ACT_RUN: try_run(); break;
             }
         }
         break;
+    }
+
+    case PH_PSI:
+        /* pick one of Sadie's two attacks; B backs out to the FIGHT line */
+        if (PRESSED(BTN_UP)) {
+            G.battle.item_sel = (G.battle.item_sel + N_PSI - 1) % N_PSI;
+            audio_sfx(SFX_BLIP);
+        }
+        if (PRESSED(BTN_DOWN)) {
+            G.battle.item_sel = (G.battle.item_sel + 1) % N_PSI;
+            audio_sfx(SFX_BLIP);
+        }
+        if (PRESSED(BTN_B))
+            set_phase(PH_MENU);
+        else if (PRESSED(BTN_A)) {
+            /* item_sel now names the chosen move; PH_PSICAST reads it */
+            msgb("SADIE SHUTS HER EYES...", "", -1, "");
+            set_phase(PH_PSICAST);
+        }
+        break;
+
+    case PH_PSICAST: {
+        const psi_t *p = &psi_moves[G.battle.item_sel];
+        if (G.battle.timer == PSI_HIT_TICK) {
+            /* the unstable one slips its leash sometimes -- into HER */
+            if (p->unstable && rng_range(1, 3) == 1) {
+                audio_sfx(SFX_HURT);
+                hurt_player(2 + rng_range(0, 2));
+                msgb("IT SLIPS -- SADIE'S NOSE BLEEDS, AND IT RECOILS "
+                     "INTO YOU BOTH!", "", -1, "");
+            } else {
+                int dmg = p->dmg + eff_level() + rng_range(0, 3);
+                G.battle.enemy_hp -= dmg;
+                if (G.battle.enemy_hp < 0) G.battle.enemy_hp = 0;
+                audio_sfx(p->sfx);
+                /* NAME! <flavor> -- the move name leads so the special-move
+                 * colour lands on it (msgb clears msg_hi, so set it after) */
+                msgb(p->name, "! ", -1, p->hit);
+                G.battle.msg_hi = p->name;
+            }
+        }
+        if (G.battle.timer > PSI_HIT_TICK + 26 && msg_done()) {
+            if (G.battle.enemy_hp <= 0) win_battle();
+            else                        enemy_attacks();
+        }
+        break;
+    }
 
     case PH_SHOOT:
         if (G.battle.timer == SHOT_FIRE_TICK) {          /* BOOM */
@@ -843,6 +948,9 @@ void battle_render(void)
     int melee_landed = (G.battle.phase == PH_MELEE &&
                         G.battle.timer >= MELEE_HIT_TICK &&
                         G.battle.timer <  MELEE_HIT_TICK + 12);
+    int psi_landed = (G.battle.phase == PH_PSICAST &&
+                      G.battle.timer >= PSI_HIT_TICK &&
+                      G.battle.timer <  PSI_HIT_TICK + 16);
     int shake = 0;
     if (G.battle.phase == PH_PLAYER_HIT && G.battle.timer < 12)
         shake = (G.battle.timer / 2) % 2 ? 2 : -2;
@@ -850,6 +958,8 @@ void battle_render(void)
         shake = (G.battle.timer / 2) % 2 ? 3 : -3;
     else if (melee_landed)                       /* a whack rocks it too */
         shake = (G.battle.timer / 2) % 2 ? 3 : -3;
+    else if (psi_landed)                          /* the mind hits hardest */
+        shake = (G.battle.timer / 2) % 2 ? 4 : -4;
     int bob   = (int)((G.frame / 12) % 2) * 2;
     /* In battle it's looking straight at you, so a directional creature
      * uses its DOWN-facing pair (spr0, spr0+1). */
@@ -900,6 +1010,26 @@ void battle_render(void)
     }
     gfx_blit_ex(sprites[pback].px, TILE, TILE,
                 40 + pshake + lunge, 78 - lunge / 2, 3, 256, 0);
+
+    /* SADIE, STEPPING UP TO CAST. She appears at your shoulder (from behind,
+     * her UP frame), a halo of psychic light gathering off the back of her
+     * head, and then the STORM breaks over the enemy. */
+    if (G.battle.phase == PH_PSICAST) {
+        int t   = G.battle.timer;
+        int ssp = ((G.frame / 8) % 2) ? SPR_SADIE_UP1 : SPR_SADIE_UP0;
+        gfx_blit_ex(sprites[ssp].px, TILE, TILE, 92, 84, 3, 256, 0);
+        /* the gathering halo -- brightening cyan/violet motes over her head */
+        int gather = (t < PSI_HIT_TICK) ? t : PSI_HIT_TICK;
+        for (int k = 0; k < 10; k++) {
+            uint32_t h = (uint32_t)k * 2654435761u + (uint32_t)G.frame * 97u;
+            int rad = 4 + (int)(h % 10u) + gather / 2;
+            int ang = (int)(h >> 8) + (int)G.frame * 3;
+            int hx  = 104 + (rad * ((ang % 32) - 16)) / 16;
+            int hy  = 88  - (rad * (((ang / 32) % 32) - 16)) / 16;
+            uint16_t c = (k & 1) ? RGB565(160, 240, 255) : RGB565(220, 140, 255);
+            gfx_fill_rect(hx, hy, 2, 2, c);
+        }
+    }
 
     int laser_gun = G.player.items[ITEM_LASER];
 
@@ -985,6 +1115,28 @@ void battle_render(void)
             int r = 5 - a;                                 /* a hot core   */
             if (r > 0)
                 gfx_fill_rect(exc - r, eyc - r, r * 2, r * 2, hot);
+        }
+    }
+
+    /* ---- THE PSI STRIKE: at PSI_HIT_TICK the gathered light collapses on
+     * the enemy -- a burst of cyan/violet stars raining down through it. */
+    if (G.battle.phase == PH_PSICAST &&
+        G.battle.timer >= PSI_HIT_TICK &&
+        G.battle.timer <  PSI_HIT_TICK + 16) {
+        int exc = ex + 8 * escale;
+        int eyc = ey + 8 * escale;
+        int a   = G.battle.timer - PSI_HIT_TICK;           /* 0..15 */
+        int r   = 10 + a * 3;
+        if (r > 46) r = 46;
+        for (int s = 0; s < 40; s++) {
+            uint32_t h = (uint32_t)s * 2654435761u + (uint32_t)G.frame * 61u;
+            int px = (int)(h % (uint32_t)(2 * r + 1)) - r;
+            int py = (int)((h >> 9) % (uint32_t)(2 * r + 1)) - r + a * 2;
+            if (px * px + py * py > r * r) continue;
+            uint16_t c = (s & 3) == 0 ? RGB565(255, 255, 255)
+                       : (s & 1)      ? RGB565(150, 235, 255)
+                                      : RGB565(210, 130, 255);
+            gfx_fill_rect(exc + px, eyc + py, 2, 2, c);
         }
     }
 
@@ -1093,19 +1245,37 @@ void battle_render(void)
     gfx_rect     (4, panel_y, SCREEN_W - 8, panel_h, RGB565(255, 255, 255));
 
     if (G.battle.phase == PH_MENU) {
-        /* 2x2: FIGHT SHOOT / ITEM RUN. SHOOT greys out until you have
-         * the gun (and something to feed it). */
+        /* FIGHT SHOOT [PSI] ITEM RUN. SHOOT greys until you have a loaded
+         * gun; PSI only shows once Sadie's with you, and wears her colour.
+         * 3-wide grid when PSI's in it, 2-wide otherwise. */
         int can_shoot = PLAYER_HAS_GUN() &&
                         G.player.items[GUN_AMMO()] > 0;
-        static const char *entry[4] = { "FIGHT", "SHOOT", "ITEM", "RUN" };
-        for (int i = 0; i < 4; i++) {
-            uint16_t col = (i == 1 && !can_shoot)
-                         ? RGB565(110, 110, 110) : RGB565(255, 255, 255);
-            gfx_text(30 + (i & 1) * 80,
-                     SCREEN_H - 30 + (i >> 1) * 12, entry[i], col);
+        int acts[6];
+        int nact = battle_actions(acts);
+        int cols = (nact > 4) ? 3 : 2;
+        int cw   = (cols == 3) ? 66 : 80;
+        for (int i = 0; i < nact; i++) {
+            uint16_t col = (acts[i] == ACT_SHOOT && !can_shoot)
+                             ? RGB565(110, 110, 110)
+                         : (acts[i] == ACT_PSI)
+                             ? RGB565(210, 130, 255)     /* psychic violet */
+                             : RGB565(255, 255, 255);
+            gfx_text(30 + (i % cols) * cw,
+                     SCREEN_H - 30 + (i / cols) * 12, act_label(acts[i]), col);
         }
-        gfx_cursor(19 + (G.battle.menu & 1) * 80,
-                   SCREEN_H - 30 + (G.battle.menu >> 1) * 12, G.frame);
+        gfx_cursor(19 + (G.battle.menu % cols) * cw,
+                   SCREEN_H - 30 + (G.battle.menu / cols) * 12, G.frame);
+    } else if (G.battle.phase == PH_PSI) {
+        /* Sadie's two attacks, listed like the ITEM pockets. STARFALL wears
+         * a warning tint -- it's the one that bites back. */
+        const int top = panel_y + 4;
+        for (int i = 0; i < N_PSI; i++) {
+            uint16_t col = psi_moves[i].unstable ? RGB565(255, 150, 90)
+                                                 : RGB565(210, 150, 255);
+            gfx_text(30, top + i * 12, psi_moves[i].name, col);
+        }
+        gfx_text(SCREEN_W - 64, top + 36, "B:BACK", RGB565(110, 110, 110));
+        gfx_cursor(19, top + G.battle.item_sel * 12, G.frame);
     } else if (G.battle.phase == PH_ITEMS) {
         /* the pockets: ONLY what you're carrying, with counts. No greyed
          * ghosts of things you don't have -- an empty pocket isn't a row.

@@ -481,6 +481,26 @@ static const sfx_step_t sx_prod[]    = { {1500, 2,190, W_SAW},
                                          {1700, 3,170, W_NOISE},
                                          {2400, 4,150, W_SAW},
                                          { 800, 4, 80, W_NOISE} };
+/* SADIE'S PSI: a warbling triangle that climbs and shivers -- not a weapon
+ * sound, a MIND sound. The kind you feel behind your eyes. */
+static const sfx_step_t sx_psi[]     = { { 660, 4,120, W_TRI},
+                                         { 880, 4,140, W_TRI},
+                                         { 990, 4,150, W_TRI},
+                                         {1320, 5,160, W_TRI},
+                                         {1100, 4,130, W_PULSE12},
+                                         {1560, 6,150, W_TRI},
+                                         {1320, 8,100, W_TRI} };
+/* HER BIG ONE: lower, longer, and WRONG -- a detuned pair that beats
+ * against itself, rising into a bright shatter. Whatever they did to her,
+ * this is the sound of it getting out. */
+static const sfx_step_t sx_psibig[]  = { { 220, 8,150, W_SAW},
+                                         { 233, 8,150, W_TRI},
+                                         { 330,10,160, W_SAW},
+                                         { 349,10,160, W_TRI},
+                                         { 660,10,170, W_TRI},
+                                         { 990, 8,180, W_PULSE25},
+                                         {1760, 6,150, W_NOISE},
+                                         { 990,12,100, W_TRI} };
 static const sfx_step_t sx_pickup[]  = { { 880, 5,130, W_PULSE25},
                                          {1175, 5,130, W_PULSE25},
                                          {1568,12,140, W_PULSE25} };
@@ -656,6 +676,8 @@ static const struct { const sfx_step_t *s; int n; } sfx_table[NUM_SFX] = {
     SFXROW(SFX_SPADE,   sx_spade),
     SFXROW(SFX_PIPE,    sx_pipe),
     SFXROW(SFX_PROD,    sx_prod),
+    SFXROW(SFX_PSI,     sx_psi),
+    SFXROW(SFX_PSIBIG,  sx_psibig),
 #undef SFXROW
 };
 

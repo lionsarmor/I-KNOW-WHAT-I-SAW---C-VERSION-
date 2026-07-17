@@ -2987,6 +2987,125 @@ static const char *SPR_ART_HOLLIS_1[16] = {
     "...00....00.....",
 };
 
+/* SADIE, WALKING. Once she is in your party she trails you EarthBound-
+ * style, so she needs to face where she goes. Front / back (ponytail and
+ * apron-ties toward camera) / profile (faces LEFT, mirrored for right).
+ * The UP pair also serves as her BATTLE pose -- she steps up behind you
+ * and the psychic light comes off the back of her head. */
+static const char *SPR_ART_SADIE_DN0[16] = {
+    "................",
+    ".....hhhhh......",
+    "....hhhhhhh.....",
+    "...hhssssshh....",
+    "...hs0ss0shh....",
+    "...hsssSsssh....",
+    "....hsssssh.....",
+    "....01111r0.....",
+    "...0g1gg1g0.....",
+    "...0gg11gg0.....",
+    "...0g1111g0.....",
+    "...0g1gg1g0.....",
+    "....0bbbb0......",
+    "....0b00b0......",
+    "...0DD00DD0.....",
+    "....00..00......",
+};
+
+static const char *SPR_ART_SADIE_DN1[16] = {
+    "................",
+    ".....hhhhh......",
+    "....hhhhhhh.....",
+    "...hhssssshh....",
+    "...hs0ss0shh....",
+    "...hsssSsssh....",
+    "....hsssssh.....",
+    "....01111r0.....",
+    "...0g1gg1g0.....",
+    "...0gg11gg0.....",
+    "...0g1111g0.....",
+    "...0g1gg1g0.....",
+    "....0bbbb0......",
+    "....0b0.0b0.....",
+    "...0DD0.0DD0....",
+    "....00...00.....",
+};
+
+static const char *SPR_ART_SADIE_UP0[16] = {
+    "................",
+    ".....hhhhh......",
+    "....hhhhhhh.....",
+    "...hhhhhhhhh....",
+    "...hhhhhhhhh....",
+    "...hhh0r0hhh....",
+    "....hh0r0hh.....",
+    "....01110h0.....",
+    "...0g1gg1g0.....",
+    "...0gg11gg0.....",
+    "...0g1111g0.....",
+    "...0g1gg1g0.....",
+    "....0bbbb0......",
+    "....0b00b0......",
+    "...0DD00DD0.....",
+    "....00..00......",
+};
+
+static const char *SPR_ART_SADIE_UP1[16] = {
+    "................",
+    ".....hhhhh......",
+    "....hhhhhhh.....",
+    "...hhhhhhhhh....",
+    "...hhhhhhhhh....",
+    "...hhh0r0hhh....",
+    "....hh0r0hh.....",
+    "....01110h0.....",
+    "...0g1gg1g0.....",
+    "...0gg11gg0.....",
+    "...0g1111g0.....",
+    "...0g1gg1g0.....",
+    "....0bbbb0......",
+    "....0b0.0b0.....",
+    "...0DD0.0DD0....",
+    "....00...00.....",
+};
+
+static const char *SPR_ART_SADIE_SD0[16] = {
+    "................",
+    "....hhhhh.......",
+    "...hhhhhhhh.....",
+    "..hhsssshhhh....",
+    "..hs0sSshhr.....",
+    "..hssssshr......",
+    "...hsssshh......",
+    "...011110.......",
+    "..0g1gg10.......",
+    "..0g11gg0.......",
+    "..0g1g1g0.......",
+    "...0ggg0........",
+    "...0bb0.........",
+    "...0b0b0........",
+    "..0DD00D0.......",
+    "...00.00........",
+};
+
+static const char *SPR_ART_SADIE_SD1[16] = {
+    "................",
+    "....hhhhh.......",
+    "...hhhhhhhh.....",
+    "..hhsssshhhh....",
+    "..hs0sSshhr.....",
+    "..hssssshr......",
+    "...hsssshh......",
+    "...011110.......",
+    "..0g1gg10.......",
+    "..0g11gg0.......",
+    "..0g1g1g0.......",
+    "...0ggg0........",
+    "...0bb0.........",
+    "..0b00b0........",
+    ".0DD0.0DD.......",
+    "..00...00.......",
+};
+
 /* THE COP CAR, from above, parked along the kerb. 48x32 like nothing else
  * on the street -- see copcar[] in assets.c and the special case in the
  * overworld renderer, same arrangement as the van. */

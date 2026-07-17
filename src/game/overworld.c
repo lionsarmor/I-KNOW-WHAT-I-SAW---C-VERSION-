@@ -278,6 +278,8 @@ void overworld_enter_map(int map, int tx, int ty)
                                straight back through the door you used */
 
     audio_music(map_music(map));
+
+    follower_snap();      /* if Sadie's with you, she arrives at your heel */
 }
 
 void overworld_start_game(void)
@@ -1321,6 +1323,8 @@ static void check_bed_bump(void)
     audio_music(MUSIC_NONE);
 }
 
+static void follower_update(void);   /* defined below, called from update */
+
 static void move_player(void)
 {
     int dx = 0, dy = 0;
@@ -1682,19 +1686,32 @@ static void try_talk(void)
              * After that she's just relieved, and moving. */
             if (e->kind == LOOK_SADIE) {
                 if (!(G.flags & FLAG_GIRL)) {
+                    /* THE RESCUE. She thanks you, and then she begs -- and
+                     * then she's YOURS: FLAG_GIRL both opens the hangar door
+                     * and makes her a party member who follows you (see the
+                     * follower code) and fights beside you (PSI, battle.c).
+                     * Turn her to face you so the join reads as a moment. */
                     G.flags |= FLAG_GIRL;
+                    e->dir = (G.player.dir == DIR_UP)   ? DIR_DOWN
+                           : (G.player.dir == DIR_DOWN) ? DIR_UP
+                           : (G.player.dir == DIR_LEFT) ? DIR_RIGHT : DIR_LEFT;
+                    follower_snap();          /* she starts right behind you */
                     audio_sfx(SFX_CONFIRM);
                     dialog_start(
-                        "SADIE. I'M SADIE. MY DAD HAS THE STORE ON THE "
-                        "HIGHWAY -- I WENT OUT FOR THE CARTS AND THE LIGHT "
-                        "CAME DOWN AND THEN I WAS... I WAS IN THAT.\n"
-                        "HOW LONG? DON'T TELL ME HOW LONG.\n"
-                        "THERE'S A HANGAR THROUGH THAT DOOR. I'VE SEEN THEM "
-                        "COME AND GO FROM IT. IF ANYTHING ON THIS SHIP FLIES "
-                        "HOME, IT'S IN THERE.\n"
-                        "...DON'T LEAVE ME. PLEASE. LET'S GO.");
+                        "THE GLASS BREAKS AND SHE FALLS INTO YOUR ARMS, "
+                        "COUGHING UP SOMETHING THAT ISN'T WATER.\n"
+                        "\"YOU'RE -- YOU'RE REAL. OH GOD, YOU'RE REAL. THANK "
+                        "YOU. THANK YOU.\"\n"
+                        "\"I'M SADIE. MY DAD HAS THE STORE ON THE HIGHWAY. "
+                        "PLEASE -- PLEASE TAKE ME HOME. I DON'T CARE HOW. I "
+                        "WILL DO ANYTHING. JUST DON'T LEAVE ME HERE.\"\n"
+                        "SHE WIPES HER EYES AND SOMETHING IN THEM CATCHES THE "
+                        "LIGHT WRONG.\n"
+                        "\"...THEY DID SOMETHING TO ME IN THERE. I CAN FEEL "
+                        "THINGS NOW. I THINK I CAN HELP. STAY CLOSE TO ME.\"");
                 } else {
-                    dialog_start("SADIE STAYS CLOSE. \"THE HANGAR. GO.\"");
+                    dialog_start("SADIE KEEPS PACE AT YOUR SHOULDER. \"THE "
+                                 "HANGAR. GO. I'M RIGHT BEHIND YOU.\"");
                 }
                 return;
             }
@@ -1947,6 +1964,7 @@ void overworld_update(void)
     }
 
     move_player();
+    follower_update();             /* Sadie rides your wake */
     check_warps();
     if (G.state != ST_OVERWORLD)   /* warp changed scene state/timer */
         return;
@@ -2002,6 +2020,42 @@ static void camera(int *cx, int *cy)
     if (*cy < 0) *cy = 0;
     if (*cx > m->w * TILE - SCREEN_W) *cx = m->w * TILE - SCREEN_W;
     if (*cy > m->h * TILE - SCREEN_H) *cy = m->h * TILE - SCREEN_H;
+}
+
+/* ---- SADIE, TRAILING ------------------------------------------------------
+ * Once she's in the party (FLAG_GIRL) she follows you EarthBound-style. Each
+ * tick the player MOVES we push their position into trail[0] and shove the
+ * rest down; Sadie is drawn at trail[FOLLOW_DELAY], so she rides a fixed
+ * distance behind and rounds corners exactly where you did. Standing still,
+ * nothing shifts and she settles a step back.
+ */
+#define FOLLOW_DELAY 8          /* samples behind = ~1 tile of lag */
+
+void follower_snap(void)        /* collapse the whole trail onto you */
+{
+    for (int i = 0; i < 16; i++) {
+        G.trail_x[i]   = G.player.x;
+        G.trail_y[i]   = G.player.y;
+        G.trail_dir[i] = G.player.dir;
+    }
+    G.foll_anim = 0;
+}
+
+static void follower_update(void)
+{
+    if (!(G.flags & FLAG_GIRL))
+        return;
+    if (G.player.x == G.trail_x[0] && G.player.y == G.trail_y[0])
+        return;                 /* didn't move -- she waits */
+    for (int i = 15; i > 0; i--) {
+        G.trail_x[i]   = G.trail_x[i - 1];
+        G.trail_y[i]   = G.trail_y[i - 1];
+        G.trail_dir[i] = G.trail_dir[i - 1];
+    }
+    G.trail_x[0]   = G.player.x;
+    G.trail_y[0]   = G.player.y;
+    G.trail_dir[0] = G.player.dir;
+    G.foll_anim++;
 }
 
 /* which rung of the melee ladder is in hand: the best weapon owned, or
@@ -2498,6 +2552,26 @@ void overworld_render(void)
                            RGB565(255, 255, 255), flip);   /* BLAM */
         else
             gfx_blit_ex(sprites[spr].px, TILE, TILE, ex, ey, 1, bright, flip);
+    }
+
+    /* SADIE, TRAILING. Drawn BEFORE the player so that when she's below him
+     * (walking down) he overlaps her, which reads as "behind." Directional
+     * frame from the sample FOLLOW_DELAY back; a two-frame bob while the
+     * trail is advancing (foll_anim). Side art faces LEFT, mirrored right. */
+    if (G.flags & FLAG_GIRL) {
+        int fx = G.trail_x[FOLLOW_DELAY] - cx;
+        int fy = G.trail_y[FOLLOW_DELAY] - cy;
+        int fd = G.trail_dir[FOLLOW_DELAY];
+        int step = (G.foll_anim / 6) % 2;      /* 0/1 walk bob */
+        int fspr, fflip = 0;
+        switch (fd) {
+        case DIR_UP:    fspr = step ? SPR_SADIE_UP1 : SPR_SADIE_UP0; break;
+        case DIR_LEFT:  fspr = step ? SPR_SADIE_SD1 : SPR_SADIE_SD0; break;
+        case DIR_RIGHT: fspr = step ? SPR_SADIE_SD1 : SPR_SADIE_SD0;
+                        fflip = 1; break;
+        default:        fspr = step ? SPR_SADIE_DN1 : SPR_SADIE_DN0; break;
+        }
+        gfx_blit_ex(sprites[fspr].px, TILE, TILE, fx, fy, 1, 256, fflip);
     }
 
     /* the player */

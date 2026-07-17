@@ -1308,7 +1308,7 @@ static void chapter_era(int era)
     for (int i = 0; i < NUM_ITEMS; i++) p->items[i] = 0;
     p->lamp = 0; p->rosary = 0;
 
-    G.flags &= ~(FLAG_PART1 | FLAG_PART2);
+    G.flags &= ~(FLAG_PART1 | FLAG_PART2 | FLAG_GIRL);  /* no stray follower */
     if (era == E0) {
         p->items[ITEM_SHOTGUN] = 1;  p->items[ITEM_SHELLS] = 18;
         p->items[ITEM_FLASHLIGHT] = 1; p->items[ITEM_TNT] = 3;

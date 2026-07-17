@@ -325,6 +325,13 @@ typedef struct {
         } slot[NIGHT_SLOTS];
     } night;
 
+    /* SADIE THE FOLLOWER (overworld.c). Once FLAG_GIRL is set she trails
+     * you EarthBound-style: the player's recent positions ring through
+     * trail[], and she's drawn a fixed number of samples behind. Not
+     * saved -- follower_snap() rebuilds it on every map enter. */
+    int      trail_x[16], trail_y[16], trail_dir[16];
+    int      foll_anim;                     /* her walk clock            */
+
     /* DAN'S BOTTLE (overworld.c, dan_update): one vodka bottle in the
      * air at a time, flying from him to where you were standing when he
      * let go. Transient, like the lob. */
@@ -425,6 +432,7 @@ void journal_kill(int kind);       /* ...and you put it down             */
 void species_colors(int kind, uint16_t *edge, uint16_t *text);
                                    /* the strength tiers (battle.c)      */
 int  best_melee(void);             /* the FIGHT weapon in hand (melee ladder) */
+void follower_snap(void);          /* park Sadie right behind you (map enter) */
 void church_update(void);     void church_render(void);
 void part1_start(void);       /* new man, new city: begins at mass */
 void part1end_update(void);   void part1end_render(void);

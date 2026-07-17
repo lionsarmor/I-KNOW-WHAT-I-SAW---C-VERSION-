@@ -128,6 +128,8 @@ enum {
     SFX_SPADE,      /* the spade -- a bright metal CLANG                 */
     SFX_PIPE,       /* the lead pipe -- a heavier, lower clang + ring    */
     SFX_PROD,       /* the alien stun-prod -- a crackling electric ZAP   */
+    SFX_PSI,        /* Sadie's psychic attack -- a warbling rising wail  */
+    SFX_PSIBIG,     /* ...and her big one, deeper and wronger            */
     NUM_SFX
 };
 
