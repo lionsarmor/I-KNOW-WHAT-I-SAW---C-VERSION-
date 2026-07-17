@@ -1107,13 +1107,16 @@ static void update_shots(void)
             sh->active = 0;         /* spent, or buried in a fence */
             continue;
         }
-        /* did it find something? */
+        /* did it find something? Box-vs-box against the WHOLE sprite (16x16),
+         * not a shrunken point target -- the old 12x12 inset let a shot that
+         * clipped the edge of a creature pass right through it. The shot's own
+         * 3px width counts too, so a graze connects. */
         for (int e = 0; e < MAX_ENTITIES; e++) {
             entity_t *en = &G.ents[e];
             if (en->type != ENT_ALIEN)
                 continue;           /* you cannot shoot the livestock */
-            if (sh->x < en->x + 2 || sh->x > en->x + 14 ||
-                sh->y < en->y + 2 || sh->y > en->y + 14)
+            if (sh->x + 3 <= en->x || sh->x >= en->x + TILE ||
+                sh->y + 3 <= en->y || sh->y >= en->y + TILE)
                 continue;
             sh->active = 0;
             hit_entity(e);
@@ -1169,6 +1172,11 @@ static int item_count(int kind)
 static void pick_up(int i)
 {
     int kind = G.ents[i].kind;
+    /* The explainer text box interrupts, so it only fires the FIRST time
+     * you ever pick up a KIND of thing -- items_seen remembers, and it's
+     * about to be set, so read it now. Every later pickup is just the chime
+     * and the count going up. */
+    int first_time = !(G.items_seen & (1u << kind));
     G.player.items[kind] += item_count(kind);
     pack_discover(kind);
     if (kind == ITEM_SHOTGUN) {
@@ -1187,6 +1195,9 @@ static void pick_up(int i)
      * in a high slot the next time the map is entered. */
     G.spawns_gone[G.map_id] |= (1u << i);
     audio_sfx(SFX_PICKUP);
+
+    if (!first_time)
+        return;                 /* seen one before -- no lecture, just grab it */
 
     /* In Part 1 the two items the whole level is about arrive in the
      * lawyer's own head, not on a museum card. */
