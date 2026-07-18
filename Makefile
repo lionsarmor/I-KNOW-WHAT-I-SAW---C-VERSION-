@@ -136,6 +136,12 @@ dist-linux: $(CORE_SRC) $(DESK_SRC) $(HDRS)
 
 # ---- WINDOWS ---------------------------------------------------------------
 # -mwindows = no console window pops up behind the game.
+# The app icon (taskbar / Explorer / Steam library) is compiled in with windres,
+# but only if the .rc is present -- the build still works without it. Regenerate
+# the .ico from the in-game sprite with:  python3 tools/make_icon.py
+WIN_ICON_RC  := platform/desktop/win_icon.rc
+WIN_ICON_OBJ := $(shell test -f platform/desktop/win_icon.rc && echo build/win_icon.o)
+
 dist-windows: $(CORE_SRC) $(DESK_SRC) $(HDRS)
 	@command -v $(MINGW_CC) >/dev/null 2>&1 || { \
 	    echo "ERROR: $(MINGW_CC) not found."; \
@@ -143,13 +149,16 @@ dist-windows: $(CORE_SRC) $(DESK_SRC) $(HDRS)
 	@test -d $(SDL_MINGW) || { \
 	    echo "ERROR: $(SDL_MINGW) missing. run:  make vendor-sdl"; exit 1; }
 	@rm -rf $(DIST)/windows && mkdir -p $(DIST)/windows
+	@test -z "$(WIN_ICON_OBJ)" || { mkdir -p build && \
+	    x86_64-w64-mingw32-windres -I platform/desktop \
+	        $(WIN_ICON_RC) -O coff -o $(WIN_ICON_OBJ); }
 	$(MINGW_CC) $(CFLAGS) -I$(SDL_MINGW)/include/SDL2 \
-	    $(CORE_SRC) $(DESK_SRC) \
+	    $(CORE_SRC) $(DESK_SRC) $(WIN_ICON_OBJ) \
 	    -o $(DIST)/windows/iknowwhatisaw.exe \
 	    -L$(SDL_MINGW)/lib -lmingw32 -lSDL2main -lSDL2 -mwindows
 	@cp $(SDL_MINGW)/bin/SDL2.dll $(DIST)/windows/
 	@x86_64-w64-mingw32-strip $(DIST)/windows/iknowwhatisaw.exe
-	@echo "windows -> $(DIST)/windows/  (SDL2.dll alongside)"
+	@echo "windows -> $(DIST)/windows/  (SDL2.dll alongside, icon embedded)"
 
 # Fetch the SDL2 Windows SDK (no sudo, lands in vendor/, gitignored).
 vendor-sdl:

@@ -1,0 +1,6 @@
+/* Windows resource script: embeds the app icon into iknowwhatisaw.exe so it
+ * shows in the taskbar, Explorer, and the Steam library.  The lowest-numbered
+ * ICON resource is the one Windows uses as the application icon.  Regenerate
+ * the .ico with:  python3 tools/make_icon.py
+ */
+1 ICON "iknowwhatisaw.ico"

@@ -1,0 +1,21 @@
+"DepotBuildConfig"
+{
+	"DepotID"	"@DEPOT_CONTENT@"
+	"contentroot"	"@CONTENTROOT@"
+
+	// Ships both platforms in the one depot, keeping the windows/ and linux/
+	// subfolders. Launch options in Steamworks point at:
+	//   Windows -> windows/iknowwhatisaw.exe
+	//   Linux   -> linux/iknowwhatisaw
+	// Because upload.sh runs on Linux, SteamPipe preserves +x on the Linux
+	// binary and run.sh.
+	"FileMapping"
+	{
+		"LocalPath"	"*"
+		"DepotPath"	"."
+		"recursive"	"1"
+	}
+
+	// Never ship debug symbols.
+	"FileExclusion"	"*.pdb"
+}

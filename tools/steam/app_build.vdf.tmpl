@@ -1,0 +1,23 @@
+"appbuild"
+{
+	"appid"	"@APPID@"
+	"desc"	"@DESC@"
+
+	"buildoutput"	"@BUILDOUTPUT@"
+	"contentroot"	"@CONTENTROOT@"
+
+	// setlive empty by default -> the build uploads but is NOT promoted to any
+	// public branch. Promote it by hand in SteamPipe -> Builds, or set BRANCH
+	// in steam.conf / pass --branch to target a beta branch you created.
+	"setlive"	"@BRANCH@"
+
+	// preview 1 -> dry run: steamcmd validates + hashes everything and writes a
+	// manifest, but uploads nothing. Set to 1 by upload.sh --preview.
+	"preview"	"@PREVIEW@"
+	"local"	""
+
+	"depots"
+	{
+		"@DEPOT_CONTENT@"	"@SCRIPTS@/depot_content.vdf"
+	}
+}
