@@ -1320,83 +1320,300 @@ void part2_start(void)
 void pod_escape(void)
 {
     audio_sfx(SFX_CONFIRM);
-    G.state = ST_PART2END;
-    G.t     = 0;
-    audio_music(MUSIC_NIGHT);        /* the wail carries you home */
+    G.state       = ST_PART2END;
+    G.t           = 0;
+    G.title_sel   = 0;      /* the END OF DEMO menu opens on the top row     */
+    G.save_pending = 1;     /* getting off the ship IS the checkpoint, saved
+                               before the cinematic even ends -- closing the
+                               app mid-credits never costs the run           */
+    audio_music(MUSIC_NIGHT);        /* the wail carries you up and out      */
 }
 
-/* ---- END OF PART 2 ---------------------------------------------------------
- * The pod falls. Earth grows in the window. A man who has been gone too
- * long spends the whole descent rehearsing the warning nobody will
- * believe -- because he never did either, the first time.
+/* ---- END OF DEMO ----------------------------------------------------------
+ * One long exterior shot, beat by beat on G.t (60/s): the pod coasts free of
+ * the ship, and then the ship answers. A red light wakes in its belly, a
+ * craft drops out of it, and it goes down after the planet you're falling
+ * toward. That's the note the demo goes out on -- you didn't get away with
+ * anything, you got a head start. Then a hard cut to the card and its menu.
  */
-#define P2END_HOLD 360
+#define P2E_ESCAPE  120   /* the pod coasts free of the ship          */
+#define P2E_BUILD   210   /* a red light wakes in the ship's belly    */
+#define P2E_DIVE    330   /* the craft drops away, hunting the planet */
+#define P2E_BAM     372   /* the white-out                            */
+#define P2E_CARD    (P2E_BAM + 14)   /* ...and the words + the menu    */
+
+/* the END OF DEMO menu. START OVER is a clean prologue; KEEP EXPLORING drops
+ * you back on the ship to wander it; TITLE is the front door to everything. */
+enum { DEMO_OVER, DEMO_CONTINUE, DEMO_TITLE, DEMO_ROWS };
+
+static const char *demo_row_label(int r)
+{
+    switch (r) {
+    case DEMO_OVER:     return "START OVER";
+    case DEMO_CONTINUE: return "KEEP EXPLORING";
+    default:            return "TITLE SCREEN";
+    }
+}
 
 void part2end_update(void)
 {
-    if (G.t > P2END_HOLD && (PRESSED(BTN_START) || PRESSED(BTN_A))) {
-        audio_sfx(SFX_CONFIRM);
-        /* the chapter is done; the run is saved as post-escape. Back to
-         * the title -- CONTINUE will drop them on the ship, tan already
-         * down, pod already open, for anyone who wants to walk it again. */
-        G.save_pending = 1;
-        G.state = ST_TITLE;
-        G.t = 0;
-        audio_music(MUSIC_TITLE);
+    int t = (int)G.t;
+
+    /* the beats: one-shots that fire exactly once as G.t crosses them */
+    if (t == P2E_BUILD)                   /* the ship notices you leaving   */
+        audio_sfx(SFX_ALARM);
+    if (t == P2E_DIVE) {                  /* and lets something off the leash*/
+        audio_music(MUSIC_BEAM);          /* it is not a siren              */
+        audio_sfx(SFX_LASER);
+        rumble(200);
+        shake(3, 22);
+    }
+    if (t == P2E_BAM) {                   /* it reaches the planet          */
+        audio_sfx(SFX_STING);
+        rumble(255);
+        shake(6, 16);
+        audio_music(MUSIC_TITLE);         /* hollow, wrong, over            */
+    }
+
+    /* once the card is up it's a menu -- UP/DOWN to choose, A/START to pick */
+    if (t >= P2E_CARD) {
+        if (PRESSED(BTN_UP)) {
+            G.title_sel = (G.title_sel + DEMO_ROWS - 1) % DEMO_ROWS;
+            audio_sfx(SFX_BLIP);
+        }
+        if (PRESSED(BTN_DOWN)) {
+            G.title_sel = (G.title_sel + 1) % DEMO_ROWS;
+            audio_sfx(SFX_BLIP);
+        }
+        if (PRESSED(BTN_START) || PRESSED(BTN_A)) {
+            audio_sfx(SFX_CONFIRM);
+            switch (G.title_sel) {
+            case DEMO_CONTINUE:
+                overworld_resume();       /* back onto the ship, free roam  */
+                return;
+            case DEMO_TITLE:
+                G.state = ST_TITLE;
+                G.t = 0;
+                audio_music(MUSIC_TITLE);
+                return;
+            default:  /* DEMO_OVER: a clean run from the prologue. The escape
+                         is already on disk, so the title still says CONTINUE
+                         until this fresh run saves over it. */
+                G.rng  ^= (G.frame * 2654435761u) | 1u;
+                G.flags &= ~FLAG_PART1;
+                name_start();
+                return;
+            }
+        }
+    }
+}
+
+/* stars hang in the black behind everything, and twinkle on the frame clock
+ * (not the rng -- this scene must not perturb a battle's dice) */
+static void p2e_stars(void)
+{
+    for (int i = 0; i < 64; i++) {
+        uint32_t h = (uint32_t)(i + 1) * 2654435761u;
+        int x  = (int)(h % SCREEN_W);
+        int y  = (int)((h >> 9) % 116);          /* above the horizon */
+        int tw = (int)(((h >> 3) + (uint32_t)G.frame / 6) & 7);
+        uint8_t v = tw < 2 ? 55 : 150;
+        gfx_pixel(x, y, RGB565(v, v, v + 8));
+    }
+}
+
+/* EARTH, filling the bottom of the frame: a huge sphere whose top cap is all
+ * we see, land and ocean with a thin atmosphere burning along the horizon. */
+static void p2e_earth(void)
+{
+    const int cx = 120, cy = 214, r = 98;
+    for (int y = 112; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++) {
+            int dx = x - cx, dy = y - cy;
+            int d2 = dx * dx + dy * dy;
+            if (d2 > r * r) continue;
+            uint16_t col;
+            if (r * r - d2 < 1000)                /* the atmosphere rim */
+                col = RGB565(120, 180, 240);
+            else {
+                int land = ((x * 5 + y * 7 + ((x * y) >> 3)) & 15) < 6;
+                col = land ? RGB565(38, 118, 58) : RGB565(28, 66, 156);
+            }
+            gfx_pixel(x, y, col);
+        }
+}
+
+/* THE MOTHERSHIP across the top: a broad dark saucer, a lit dome, a crawl of
+ * running lights -- and a belly that opens a red eye once it wakes (`t`). */
+static void p2e_mothership(int t)
+{
+    const int cx = 120, cy = 28, rx = 104, ry = 19;
+
+    for (int y = -ry; y <= ry; y++)
+        for (int x = -rx; x <= rx; x++) {
+            if (x * x * (ry * ry) + y * y * (rx * rx) > (rx * rx) * (ry * ry))
+                continue;
+            uint16_t col = (y < -4) ? RGB565(46, 52, 66)   /* domed top   */
+                         : (y <  4) ? RGB565(28, 32, 46)
+                                    : RGB565(15, 17, 28);  /* underside   */
+            gfx_pixel(cx + x, cy + y, col);
+        }
+
+    for (int y = -13; y <= 0; y++)                /* the dome */
+        for (int x = -24; x <= 24; x++) {
+            if (x * x * 169 + y * y * 576 > 576 * 169) continue;
+            gfx_pixel(cx + x, cy - ry + 5 + y, RGB565(60, 66, 84));
+        }
+
+    for (int i = -5; i <= 5; i++) {               /* running lights */
+        int on = (((i + (int)G.frame / 10) & 3) == 0);
+        gfx_pixel(cx + i * 18, cy + ry - 4,
+                  on ? RGB565(210, 150, 90) : RGB565(70, 46, 34));
+    }
+
+    /* THE BELLY. Dark until the ship wakes, then a red eye opens and swells;
+     * once the craft has launched, the bay cools fast. */
+    int glow = 0;
+    if (t >= P2E_BUILD) { glow = (t - P2E_BUILD) * 3; if (glow > 220) glow = 220; }
+    if (t >= P2E_DIVE)  { glow -= (t - P2E_DIVE) * 6; if (glow < 0)   glow = 0;   }
+    if (glow > 0) {
+        int pulse = glow - 24 + (int)((G.frame / 4) % 24);
+        for (int y = -3; y <= 8; y++)
+            for (int x = -16; x <= 16; x++) {
+                int d = x * x + y * y * 4;
+                if (d > 260) continue;
+                gfx_add_pixel(cx + x, cy + ry - 2 + y,
+                              RGB565(255, 40, 24), pulse - d / 2);
+            }
+    }
+}
+
+/* the escape pod: out of the belly, then a long lonely coast toward Earth --
+ * the only friendly light in the frame, and a thin ion trail behind it. */
+static void p2e_pod(int t)
+{
+    int p  = t < P2E_ESCAPE ? t : P2E_ESCAPE;
+    int px = 118 - p * 5 / 12;                    /* drifts left  */
+    int py = 50 + p * 5 / 8;                       /* and downward */
+    if (py > 124) py = 124;
+
+    for (int i = 1; i <= 6; i++)
+        gfx_add_pixel(px, py - i, RGB565(120, 200, 255), 120 - i * 16);
+    gfx_fill_rect(px - 1, py - 1, 3, 3, RGB565(220, 232, 244));
+    gfx_pixel(px, py + 1, RGB565(255, 150, 70));
+}
+
+/* THE CRAFT the ship let off the leash: it accelerates straight down the
+ * middle, looming as it goes, a torn column of light above it and a wrong
+ * red-green pool beneath -- and it was never only one. */
+static void p2e_diver(int t)
+{
+    if (t < P2E_DIVE) return;
+    int d  = t - P2E_DIVE;                          /* 0 .. 42 */
+    int cx = 120;
+    int cy = 50 + d * d / 20;                       /* eases into a plunge */
+    int scale = 2 + d / 20;
+
+    for (int i = 1; i < 40; i++) {                  /* the descent trail */
+        int a = 200 - i * 5;
+        gfx_add_pixel(cx,     cy - i, RGB565(120, 255, 160), a);
+        gfx_add_pixel(cx - 1, cy - i, RGB565(60, 180, 90),  a / 2);
+        gfx_add_pixel(cx + 1, cy - i, RGB565(60, 180, 90),  a / 2);
+    }
+    for (int y = 0; y <= 10; y++)                   /* the underglow pool */
+        for (int x = -12; x <= 12; x++) {
+            int q = x * x + y * y * 3;
+            if (q > 144) continue;
+            gfx_add_pixel(cx + x, cy + 6 * scale + y,
+                          RGB565(80, 255, 120), 160 - q);
+        }
+
+    const uint16_t *px = (((int)G.frame / 4) & 1) ? sprites[SPR_UFO_1].px
+                                                  : sprites[SPR_UFO].px;
+    gfx_blit_ex(px, TILE, TILE, cx - TILE * scale / 2,
+                cy - TILE * scale / 2, scale, 256, 0);
+
+    if (d > 10) {                                   /* the ones behind it */
+        gfx_blit_ex(sprites[SPR_UFO].px,   TILE, TILE, cx - 36, cy - 24, 1, 200, 0);
+        gfx_blit_ex(sprites[SPR_UFO_1].px, TILE, TILE, cx + 22, cy - 32, 1, 200, 0);
+    }
+}
+
+/* the END OF DEMO card: the title, a thank-you, and the three-row menu */
+static void p2e_card(void)
+{
+    p2e_stars();                                  /* still hanging there */
+
+    const char *ttl = "END OF DEMO";
+    gfx_text_ex((SCREEN_W - gfx_text_width(ttl, 2)) / 2, 22, ttl,
+                RGB565(120, 220, 140), 2);
+    const char *sub = "I KNOW WHAT I SAW";
+    gfx_text((SCREEN_W - gfx_text_width(sub, 1)) / 2, 44, sub,
+             RGB565(150, 170, 200));
+    const char *th = "THANKS FOR PLAYING.";
+    gfx_text_small_outlined((SCREEN_W - gfx_text_small_width(th)) / 2, 62, th,
+                            RGB565(130, 150, 130));
+
+    for (int r = 0; r < DEMO_ROWS; r++) {
+        int         sel = (r == G.title_sel);
+        const char *lbl = demo_row_label(r);
+        int         x   = (SCREEN_W - gfx_text_width(lbl, 1)) / 2;
+        int         y   = 88 + r * 16;
+        gfx_text(x, y, lbl,
+                 sel ? RGB565(255, 236, 150) : RGB565(150, 150, 160));
+        if (sel)
+            gfx_cursor(x - 12, y, G.frame);
     }
 }
 
 void part2end_render(void)
 {
-    gfx_clear(RGB565(4, 6, 14));
+    int t = (int)G.t;
 
-    /* THE POD WINDOW: black space, and a blue-green world swelling in it
-     * as you fall. It gets bigger the longer you look. */
-    {
-        int wx = SCREEN_W / 2 - 40, wy = 16, ww = 80, wh = 56;
-        gfx_fill_rect(wx - 3, wy - 3, ww + 6, wh + 6, RGB565(70, 74, 84));
-        gfx_fill_rect(wx, wy, ww, wh, RGB565(6, 8, 20));
-        for (int i = 0; i < 20; i++) {          /* stars */
-            uint32_t h = (uint32_t)i * 2654435761u;
-            gfx_pixel(wx + 2 + (int)(h % (uint32_t)(ww - 4)),
-                      wy + 2 + (int)((h >> 9) % (uint32_t)(wh - 4)),
-                      RGB565(130, 130, 160));
+    /* ---- the hard cut: a white-out that falls to black, then the card ----*/
+    if (t >= P2E_BAM) {
+        if (t < P2E_CARD) {
+            int w = 248 - (t - P2E_BAM) * 18;      /* toward black */
+            if (w < 8) w = 8;
+            gfx_clear(RGB565(w, w, w));
+        } else {
+            gfx_clear(RGB565(2, 3, 8));
+            p2e_card();
         }
-        int gr = 6 + (int)G.t / 12;             /* the planet, growing */
-        if (gr > 26) gr = 26;
-        int gx = wx + ww / 2, gy = wy + wh / 2;
-        for (int y = -gr; y <= gr; y++)
-            for (int x = -gr; x <= gr; x++) {
-                if (x * x + y * y > gr * gr) continue;
-                if (x + gx < wx || x + gx >= wx + ww) continue;
-                if (y + gy < wy || y + gy >= wy + wh) continue;
-                int land = ((x * 5 + y * 7 + x * y) & 7) < 3;
-                gfx_pixel(gx + x, gy + y,
-                          land ? RGB565(60, 150, 70) : RGB565(40, 90, 190));
-            }
+        return;
     }
 
-    gfx_text_ex((SCREEN_W - gfx_text_width("END OF PART 2", 2)) / 2, 80,
-                "END OF PART 2", RGB565(120, 220, 130), 2);
-    const char *l1 = "WHEN THE SKY COMES DOWN";
-    gfx_text((SCREEN_W - gfx_text_width(l1, 1)) / 2, 100, l1,
-             RGB565(200, 200, 210));
+    /* ---- the exterior shot ------------------------------------------------*/
+    gfx_clear(RGB565(3, 4, 10));
 
-    if (G.t > 90) {
-        const char *w1 = (G.flags & FLAG_GIRL)
-            ? "SADIE'S HAND IS TIGHT ON MINE. WE BOTH SAW IT."
-            : "I KNOW WHAT I SAW. I KNOW WHAT THEY'RE DOING.";
-        const char *w2 = "AND THIS TIME SOMEBODY IS GOING TO LISTEN.";
-        gfx_text_small((SCREEN_W - gfx_text_small_width(w1)) / 2, 120, w1,
-                       RGB565(150, 200, 160));
-        gfx_text_small((SCREEN_W - gfx_text_small_width(w2)) / 2, 130, w2,
-                       RGB565(150, 200, 160));
+    int sx = 0, sy = 0;
+    shake_offset(&sx, &sy);        /* zero unless the ship is heaving */
+    gfx_origin(sx, sy);
+
+    p2e_stars();
+    p2e_earth();
+    p2e_mothership(t);
+    p2e_pod(t);
+    p2e_diver(t);
+
+    gfx_origin(0, 0);              /* the voice doesn't ride the shake */
+
+    /* the man's voice, on the beats: hope, then dawning, then dread */
+    const char *l; uint16_t lc;
+    if (t < P2E_BUILD) {
+        l  = (G.flags & FLAG_GIRL) ? "WE MADE IT. SADIE, WE ACTUALLY MADE IT."
+                                   : "I MADE IT. I'M GOING HOME.";
+        lc = RGB565(150, 200, 160);
+    } else if (t < P2E_DIVE) {
+        l  = "...WHAT IS THAT. WHAT'S IT DOING.";
+        lc = RGB565(220, 180, 120);
+    } else {
+        l  = "NO -- IT'S GOING TO EARTH.";
+        lc = RGB565(230, 90, 80);
     }
-    if (G.t > P2END_HOLD && (G.t % 60) < 40) {
-        const char *p = "START";
-        gfx_text((SCREEN_W - gfx_text_width(p, 1)) / 2, 148, p,
-                 RGB565(255, 255, 255));
-    }
+    if (t > 40)
+        gfx_text_small_outlined((SCREEN_W - gfx_text_small_width(l)) / 2, 150,
+                                l, lc);
 
     draw_toast();
 }

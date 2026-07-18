@@ -1385,6 +1385,8 @@ static void chapter_go(int idx)
         break;
     case CH_P2END:
         chapter_era(E2);
+        G.flags |= FLAG_GIRL;      /* you get out with Sadie -- preview it so */
+        G.title_sel = 0;           /* the END OF DEMO menu opens on row one   */
         G.state = ST_PART2END;
         G.t = 0;
         audio_music(MUSIC_NIGHT);

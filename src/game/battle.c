@@ -1380,15 +1380,66 @@ static uint32_t dead_noise(void)
     return dead_seed;
 }
 
+/* Each chapter ends its own way. Which face is standing in the dark, where
+ * you come to, and what it cost you -- the farm, the city, and the ship are
+ * three different nightmares, so they each get their own death screen. The
+ * eye columns are the two bright glints in that creature's frame-0 art; the
+ * glow lands right on them (see SPR_ART_BOSS_0 / _GREY_0 / _TAN_0). */
+typedef struct {
+    int         sprite;                 /* the face that looms behind the words */
+    int         eye_row, eye_lc, eye_rc;/* art cell (col,row) of each eye        */
+    const char *line[4];
+} deathscene_t;
+
+static const deathscene_t *death_scene(void)
+{
+    /* THE FARM. Kelly, Kentucky all over again: the goblin that would not
+     * fall. You come to face-down in your own field, hours gone. */
+    static const deathscene_t farm = {
+        SPR_BOSS_0, 2, 5, 9,
+        { "EVERYTHING WENT WHITE.",
+          "YOU WOKE IN YOUR OWN FIELD.",
+          "SIX HOURS ARE MISSING.",
+          "SO IS HALF OF WHAT YOU KNEW." } };
+
+    /* THE CITY. A grey, and the missing time that comes with one. The night
+     * dropped you back on the church steps, cold. */
+    static const deathscene_t city = {
+        SPR_GREY_0, 4, 6, 9,
+        { "EVERYTHING WENT WHITE.",
+          "YOU WOKE ON THE CHURCH STEPS.",
+          "SIX HOURS ARE MISSING.",
+          "SO IS HALF OF WHAT YOU KNEW." } };
+
+    /* THE SHIP. You don't get to die up here. The tan one just puts you back
+     * on the table -- the straps, the light, the start of it again. That is
+     * the whole horror of Part 2, so the words have to say it, not "church
+     * steps." */
+    static const deathscene_t ship = {
+        SPR_TAN_0, 6, 5, 10,
+        { "EVERYTHING WENT WHITE.",
+          "YOU WOKE ON THE TABLE. AGAIN.",
+          "THE STRAPS NEVER CAME OFF.",
+          "IT IS NOT DONE WITH YOU." } };
+
+    /* Same order the respawn uses (gameover_update): PART2 first, because
+     * FLAG_PART1 is still set on the ship and would otherwise pick the city. */
+    if (G.flags & FLAG_PART2)    return &ship;
+    if (!(G.flags & FLAG_PART1)) return &farm;
+    return &city;
+}
+
 void gameover_render(void)
 {
     gfx_clear(0);
 
+    const deathscene_t *ds = death_scene();
+
     /* ---- IT IS STANDING BEHIND THE WORDS ---------------------------------
-     * THE TALL ONE, drawn seven times life size in the dark. It fades up so
-     * slowly you are not sure it is there until it is -- and it never gets
-     * anywhere near lit, so you never get a good look at it. Every so often
-     * it simply isn't there for a frame.
+     * The thing that took you, drawn seven times life size in the dark. It
+     * fades up so slowly you are not sure it is there until it is -- and it
+     * never gets anywhere near lit, so you never get a good look at it. Every
+     * so often it simply isn't there for a frame.
      *
      * You didn't see it in the fight. You are seeing it now.
      */
@@ -1404,16 +1455,17 @@ void gameover_render(void)
 
         /* ...and it flickers out. Did it move? */
         if (b > 0 && (dead_noise() & 63) != 0)
-            gfx_blit_ex(sprites[SPR_TALL_0].px, TILE, TILE, fx, fy,
+            gfx_blit_ex(sprites[ds->sprite].px, TILE, TILE, fx, fy,
                         scale, b, 0);
 
-        /* THE EYES. They come up last, and they do not blink. The art puts
-         * them at columns 6 and 9 of row 2 (see SPR_ART_TALL_0). */
+        /* THE EYES. They come up last, and they do not blink. */
         if (G.t > 140) {
             int pulse = 45 + (int)((G.t / 4) % 45);
             uint16_t glow = gfx_dim(RGB565(255, 40, 30), pulse);
-            gfx_fill_rect(fx + 6 * scale, fy + 2 * scale, scale, scale, glow);
-            gfx_fill_rect(fx + 9 * scale, fy + 2 * scale, scale, scale, glow);
+            gfx_fill_rect(fx + ds->eye_lc * scale, fy + ds->eye_row * scale,
+                          scale, scale, glow);
+            gfx_fill_rect(fx + ds->eye_rc * scale, fy + ds->eye_row * scale,
+                          scale, scale, glow);
         }
     }
 
@@ -1428,12 +1480,10 @@ void gameover_render(void)
     uint16_t red  = RGB565(216, 40, 32);
     uint16_t gray = RGB565(120, 120, 120);
 
-    int part1 = (G.flags & FLAG_PART1) != 0;
-    const char *l1 = "EVERYTHING WENT WHITE.";
-    const char *l2 = part1 ? "YOU WOKE ON THE CHURCH STEPS."
-                           : "YOU WOKE IN YOUR OWN FIELD.";
-    const char *l3 = "SIX HOURS ARE MISSING.";
-    const char *l4 = "SO IS HALF OF WHAT YOU KNEW.";
+    const char *l1 = ds->line[0];
+    const char *l2 = ds->line[1];
+    const char *l3 = ds->line[2];
+    const char *l4 = ds->line[3];
 
     /* haloed, NOT plated -- the shape behind stays whole */
     if (G.t > 30)

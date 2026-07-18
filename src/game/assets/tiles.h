@@ -730,4 +730,27 @@ static const char *TILE_ART_POD[16] = {
     "KKKKKKKKKKKKKKKK",
 };
 
+/* THE OPERATING TABLE. A chrome slab with two leather restraints, drawn to
+ * tile seamlessly end-to-end so a row of them reads as one long table (the
+ * straps sit at each tile's center, so they land either side of whoever is
+ * laid out across the middle cell). This is what you wake on, on the ship. */
+static const char *TILE_ART_OPTABLE[16] = {
+    "0000000000000000",   /* shadow above the lip           */
+    "KKKKKKKKKKKKKKKK",   /* dark metal edge (reads raised)  */
+    "kkkkkkkkkkkkkkkk",
+    "1111111111111111",   /* chrome sheen                    */
+    "kkkkkkkkkkkkkkkk",
+    "kkkkkkDDDDkkkkkk",   /* upper restraint strap           */
+    "kkkkkkDDDDkkkkkk",
+    "kkkkkkkkkkkkkkkk",
+    "kkkkkkkkkkkkkkkk",
+    "kkkkkkDDDDkkkkkk",   /* lower restraint strap           */
+    "kkkkkkDDDDkkkkkk",
+    "kkkkkkkkkkkkkkkk",
+    "1111111111111111",   /* second sheen                    */
+    "kkkkkkkkkkkkkkkk",
+    "KKKKKKKKKKKKKKKK",   /* dark metal edge                 */
+    "0000000000000000",   /* drop shadow below               */
+};
+
 #endif /* TILES_H */

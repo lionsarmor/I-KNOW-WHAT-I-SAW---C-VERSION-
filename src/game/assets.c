@@ -97,6 +97,8 @@ const uint8_t tile_solid[NUM_TILES] = {
      * use it (its warp fires on the bump, and only once the tan is down). */
     [TILE_UFOWALL] = 1, [TILE_UFOFLOOR] = 0, [TILE_COMPUTER] = 1,
     [TILE_SYMBOL] = 0,  [TILE_POD] = 1,
+    /* the table is WALKABLE -- you wake standing on it and have to step off */
+    [TILE_OPTABLE] = 0,
 };
 /* NOTE: TILE_DOOR stays SOLID -- walking INTO a door is what triggers
  * its warp (see check_door_bump in overworld.c). The doormat is the
@@ -141,6 +143,7 @@ static int char_to_tile(char c)
     case '&': return TILE_COMPUTER;
     case '@': return TILE_SYMBOL;
     case 'O': return TILE_POD;
+    case 'Y': return TILE_OPTABLE;
     default:  return TILE_GRASS;   /* unknown char = grass, harmless */
     }
 }
@@ -374,6 +377,7 @@ int assets_init(void)
         { TILE_COMPUTER,     TILE_ART_COMPUTER     },
         { TILE_SYMBOL,       TILE_ART_SYMBOL       },
         { TILE_POD,          TILE_ART_POD          },
+        { TILE_OPTABLE,      TILE_ART_OPTABLE      },
     };
     for (unsigned i = 0; i < sizeof tile_art / sizeof tile_art[0]; i++)
         errors += decode(tile_art[i].art, TILE, TILE,

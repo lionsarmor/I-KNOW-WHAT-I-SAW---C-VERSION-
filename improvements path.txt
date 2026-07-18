@@ -26,6 +26,3 @@ Hardware toys you already wired
 Architecture (your earlier goal)
 14. Asset packs — the per-platform art styles idea: assets/pack_*/ selected at build time. Settle sprite size + frame count rules first.
 15. Rumble/event hook design — same small core change unlocks #11 and future LED/IR triggers cleanly.
-
-My pick for maximum game-feel per effort: items (1) → save to NVS (3) → battle music (6) → boss (2) — that arc turns it from tech demo into a finishable game on your own hardware. Say which one and I'll start.
-

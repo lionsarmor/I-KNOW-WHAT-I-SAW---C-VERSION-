@@ -396,6 +396,8 @@ enum {
     TILE_COMPUTER,      /* a console. The screens never stop working.     */
     TILE_SYMBOL,        /* a glyph in the deck, glowing faintly green     */
     TILE_POD,           /* the escape pod hatch. Warp on it to leave.     */
+    TILE_OPTABLE,       /* the operating table you wake on. Walkable: you
+                           come to standing on it, and step off.           */
     NUM_TILES
 };
 
