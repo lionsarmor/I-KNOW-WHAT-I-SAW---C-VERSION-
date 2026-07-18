@@ -1,5 +1,7 @@
 # 🛸 I KNOW WHAT I SAW
 
+![I Know What I Saw — an alien-abduction RPG in portable C99](img/banner.png)
+
 > **October 3rd, 1987.** The lights came to the farm.
 > Your crops are flat in circles. The cows won't go near the pond.
 > The dog has been barking at the sky all week and he is not sorry.
@@ -31,6 +33,26 @@ make run
 `OPTIONS → CONTROLS` shows what's connected, and lets you swap A/B and toggle rumble.
 ✅ **Tested on a real Nintendo Switch Pro controller.** Xbox, DualShock and no-name
 USB pads go through the same SDL layer, so they should behave identically.
+
+---
+
+## 📸 Screenshots
+
+Same code, every screen — the farm, the town, turn-based battles, cutscenes, the
+name picker, and the UFO-escape chapter:
+
+<table>
+  <tr>
+    <td><img src="img/farm%20-%20preview%201.png" width="260" alt="The farm"></td>
+    <td><img src="img/city%20-%20preview.png" width="260" alt="Town"></td>
+    <td><img src="img/battle%20-%20dgman.png" width="260" alt="A turn-based battle"></td>
+  </tr>
+  <tr>
+    <td><img src="img/cutscene%20-%20preview.png" width="260" alt="A cutscene"></td>
+    <td><img src="img/menu%20-%20preview%201.png" width="260" alt="The name picker"></td>
+    <td><img src="img/ship-preview.png" width="260" alt="The UFO-escape chapter"></td>
+  </tr>
+</table>
 
 ---
 
